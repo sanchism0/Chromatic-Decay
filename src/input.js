@@ -84,8 +84,6 @@ export class Input {
 
   _bindTouchEvents() {
     const canvas = this.canvas;
-
-    // Ability button position (screen-space, recomputed each touch)
     const abilityBtnRadius = 44;
 
     const getCanvasPos = (touch) => {
@@ -103,12 +101,21 @@ export class Input {
       y: canvas.height - 80,
     });
 
+    // Track touch start positions to detect taps vs drags
+    this._touchStartPos = {};
+
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
       const W = canvas.width;
 
       for (const t of e.changedTouches) {
         const { x, y } = getCanvasPos(t);
+
+        // Always update mouse position so menu hit-tests work
+        this.mouseX = x;
+        this.mouseY = y;
+        this._touchStartPos[t.identifier] = { x, y };
+
         const ab = abilityBtnPos();
 
         // Ability button takes priority
@@ -149,6 +156,18 @@ export class Input {
     canvas.addEventListener('touchend', e => {
       e.preventDefault();
       for (const t of e.changedTouches) {
+        const { x, y } = getCanvasPos(t);
+        const start = this._touchStartPos[t.identifier];
+        delete this._touchStartPos[t.identifier];
+
+        // Tap detection: finger didn't move much → treat as mouse click
+        if (start && Math.hypot(x - start.x, y - start.y) < 20) {
+          this.mouseX = x;
+          this.mouseY = y;
+          this.mouseDown      = true;
+          this._tapJustEnded  = true;
+        }
+
         if (this._leftTouch   && t.identifier === this._leftTouch.id)   this._leftTouch   = null;
         if (this._rightTouch  && t.identifier === this._rightTouch.id)  this._rightTouch  = null;
         if (t.identifier === this._abilityTouchId) {
@@ -162,6 +181,7 @@ export class Input {
     canvas.addEventListener('touchcancel', e => {
       this._leftTouch = null; this._rightTouch = null;
       this._abilityTouchId = null; this._abilityTouchDown = false;
+      this._touchStartPos  = {};
       this._updateTouchState();
     }, { passive: false });
   }
@@ -197,13 +217,19 @@ export class Input {
     this.justPressed.space        = this.keys.space  && !this._prevSpace;
     this.justPressed.f            = this.keys.f      && !this._prevF;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
-    this.mouseJustClicked         = this.mouseDown   && !this._prevMouseDown;
+    this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;
 
     this._prevEscape       = this.keys.escape;
     this._prevSpace        = this.keys.space;
     this._prevF            = this.keys.f;
     this._prevMouseDown    = this.mouseDown;
     this._prevAbilityTouch = this._abilityTouchDown;
+
+    // Clear tap state and the synthetic mouseDown after one frame
+    if (this._tapJustEnded) {
+      this._tapJustEnded = false;
+      this.mouseDown     = false;
+    }
   }
 
   // Returns world-space mouse position given camera offset and zoom

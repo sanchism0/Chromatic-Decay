@@ -72,8 +72,9 @@ export class EchoSystem {
       }
 
       if (echo.channeling && player.alive) {
+        const channelTime = echo.isFragment ? CONFIG.echo_channel_time : 0;
         echo.channelTimer += dt;
-        if (echo.channelTimer >= CONFIG.echo_channel_time) {
+        if (echo.channelTimer >= channelTime) {
           echo.active = false;
           if (echo.isFragment) {
             particles.fragmentDiscovery(echo.x, echo.y);
