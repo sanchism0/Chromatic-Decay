@@ -492,9 +492,30 @@ function _showNextUpgrade() {
   }
 }
 
+// Stored kbd button rects for tap hit-testing — populated each draw frame
+let _kbdBtns = [];
+
+function _handleKbdTap(initials, setFn, submitFn) {
+  if (!input.mouseJustClicked) return;
+  const mx = input.mouseX, my = input.mouseY;
+  for (const btn of _kbdBtns) {
+    if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
+      if (btn.key === 'DEL') {
+        setFn(initials.slice(0, -1));
+      } else if (btn.key === 'OK') {
+        if (initials.length > 0) submitFn();
+      } else if (initials.length < 3) {
+        setFn(initials + btn.key);
+      }
+      return;
+    }
+  }
+}
+
 function updateGameOver() {
   if (!initialsSubmitted) {
     if (input.justPressed.space && initialsInput.length > 0) _submitScore();
+    _handleKbdTap(initialsInput, v => { initialsInput = v; }, _submitScore);
   } else {
     if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
   }
@@ -503,6 +524,7 @@ function updateGameOver() {
 function updateWin() {
   if (!winInitialsSubmitted) {
     if (input.justPressed.space && winInitials.length > 0) _submitWinScore();
+    _handleKbdTap(winInitials, v => { winInitials = v; }, _submitWinScore);
   } else {
     if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
   }
@@ -1170,8 +1192,9 @@ function drawWin(W, H) {
     ctx.fillText(winInitials.padEnd(3, '_').split('').join(' '), W / 2, ly + 36);
     ctx.shadowBlur  = 0;
     ctx.fillStyle   = '#4A4E58';
-    ctx.font        = '15px monospace';
-    ctx.fillText('type 3 letters · ENTER to confirm', W / 2, ly + 58);
+    ctx.font        = '12px monospace';
+    ctx.fillText('ontouchstart' in window ? 'tap letters below' : 'type 3 letters · ENTER to confirm', W / 2, ly + 56);
+    drawOnScreenKeyboard(W, ly + 72, winInitials);
   } else {
     ctx.fillStyle = '#B8882A';
     ctx.font      = 'bold 22px monospace';
@@ -1181,6 +1204,7 @@ function drawWin(W, H) {
       ctx.font      = '17px monospace';
       ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
     }
+    _kbdBtns = [];
   }
 
   ctx.textAlign = 'left';
@@ -1337,6 +1361,65 @@ function _roundRect(x, y, w, h, r, topOnly = false) {
   ctx.closePath();
 }
 
+// ── On-screen keyboard ────────────────────────────────────────
+
+function drawOnScreenKeyboard(W, startY, currentInput) {
+  const rows   = ['ABCDEFG', 'HIJKLMN', 'OPQRSTU', 'VWXYZ'];
+  const cols   = 7;
+  const pad    = 12;
+  const gap    = 5;
+  const btnW   = Math.floor((W - pad * 2 - gap * (cols - 1)) / cols);
+  const btnH   = 40;
+
+  _kbdBtns = [];
+
+  rows.forEach((row, ri) => {
+    // Last row gets DEL + OK appended
+    const keys = ri === rows.length - 1
+      ? [...row.split(''), 'DEL', 'OK']
+      : row.split('');
+
+    const rowW  = keys.length * btnW + (keys.length - 1) * gap;
+    const rowX  = (W - rowW) / 2;
+    const rowY  = startY + ri * (btnH + gap);
+
+    keys.forEach((key, ki) => {
+      const bx = rowX + ki * (btnW + gap);
+      const by = rowY;
+      const bw = key === 'DEL' || key === 'OK' ? btnW : btnW;
+      const isOk  = key === 'OK';
+      const isDel = key === 'DEL';
+      const canOk = isOk && currentInput.length > 0;
+
+      ctx.fillStyle = isOk
+        ? (canOk ? 'rgba(184,136,42,0.6)' : 'rgba(74,78,88,0.3)')
+        : isDel
+        ? 'rgba(100,40,60,0.5)'
+        : 'rgba(30,33,48,0.75)';
+      _roundRect(bx, by, bw, btnH, 5);
+      ctx.fill();
+
+      ctx.strokeStyle = isOk
+        ? (canOk ? '#B8882A' : '#4A4E58')
+        : isDel ? '#8A3050' : '#2A2E42';
+      ctx.lineWidth = 1;
+      _roundRect(bx, by, bw, btnH, 5);
+      ctx.stroke();
+
+      ctx.fillStyle = isOk
+        ? (canOk ? '#FFFFFF' : '#4A4E58')
+        : isDel ? '#FF6688' : '#C4C8D4';
+      ctx.font      = `${isDel || isOk ? 11 : 14}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(key, bx + bw / 2, by + btnH / 2 + 5);
+
+      _kbdBtns.push({ x: bx, y: by, w: bw, h: btnH, key });
+    });
+  });
+  ctx.textAlign = 'left';
+  return startY + rows.length * (btnH + gap);
+}
+
 // ── Game over screen ──────────────────────────────────────────
 
 function drawGameOver(W, H) {
@@ -1380,8 +1463,9 @@ function drawGameOver(W, H) {
     ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 30px monospace';
     ctx.fillText(initialsInput.padEnd(3, '_').split('').join(' '), W/2, iy + 36);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#4A4E58'; ctx.font = '15px monospace';
-    ctx.fillText('type 3 letters · ENTER to confirm', W/2, iy + 58);
+    ctx.fillStyle = '#4A4E58'; ctx.font = '12px monospace';
+    ctx.fillText('ontouchstart' in window ? 'tap letters below' : 'type 3 letters · ENTER to confirm', W/2, iy + 56);
+    drawOnScreenKeyboard(W, iy + 72, initialsInput);
   } else {
     ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
     ctx.fillText('SCORE RECORDED', W/2, iy + 18);
@@ -1389,6 +1473,7 @@ function drawGameOver(W, H) {
       ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
       ctx.fillText('PRESS SPACE TO PLAY AGAIN', W/2, iy + 46);
     }
+    _kbdBtns = [];
   }
   ctx.textAlign = 'left';
 }
