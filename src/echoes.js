@@ -154,9 +154,9 @@ export class EchoSystem {
 
     // Pink plus / health cross (small, on top of white dot)
     const arm = 3, thick = 1;
-    ctx.fillStyle   = '#FF4488';
-    ctx.shadowBlur  = 5;
-    ctx.shadowColor = '#FF4488';
+    ctx.fillStyle   = '#FFB3D4';
+    ctx.shadowBlur  = 14;
+    ctx.shadowColor = '#FF80BB';
     ctx.fillRect(sx - thick, sy - arm, thick * 2, arm * 2);
     ctx.fillRect(sx - arm,   sy - thick, arm * 2, thick * 2);
     ctx.shadowBlur = 0;
