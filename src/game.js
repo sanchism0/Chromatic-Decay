@@ -1065,6 +1065,7 @@ function _wrapText(ctx, text, cx, y, maxW, lineH, align) {
     }
   }
   if (line) ctx.fillText(line, cx, lineY);
+  return lineY + lineH;  // return y position after last line
 }
 
 // ── Win screen ────────────────────────────────────────────────
@@ -1250,14 +1251,12 @@ function drawFragmentRescue(W, H) {
   // What it was
   ctx.fillStyle = '#8A8E99';
   ctx.font      = '13px monospace';
-  y = _wrapText(f.was, cx, y, maxTW, 20);
-  y += 6;
+  y = _wrapText(ctx, f.was, cx, y, maxTW, 20, 'center') + 2;
 
   // Detail / lore line
   ctx.fillStyle = '#6A6E78';
   ctx.font      = '12px monospace';
-  y = _wrapText(f.detail || '', cx, y, maxTW, 18);
-  y += 14;
+  y = _wrapText(ctx, f.detail || '', cx, y, maxTW, 18, 'center') + 10;
 
   // Divider
   ctx.strokeStyle = f.color + '44';
@@ -1279,14 +1278,12 @@ function drawFragmentRescue(W, H) {
   // Class description
   ctx.fillStyle = '#8A8E99';
   ctx.font      = '12px monospace';
-  y = _wrapText(f.classDesc || '', cx, y, maxTW, 18);
-  y += 14;
+  y = _wrapText(ctx, f.classDesc || '', cx, y, maxTW, 18, 'center') + 10;
 
   // Italic quote
   ctx.fillStyle = '#C4C8D4';
   ctx.font      = 'italic 13px monospace';
-  y = _wrapText(`"${f.blurb}"`, cx, y, maxTW, 18);
-  y += 14;
+  y = _wrapText(ctx, `"${f.blurb}"`, cx, y, maxTW, 18, 'center') + 10;
 
   // Divider 2
   ctx.strokeStyle = f.color + '33';
@@ -1311,23 +1308,6 @@ function drawFragmentRescue(W, H) {
   ctx.textAlign = 'left';
 }
 
-// Wraps text within maxWidth, returns new y after last line
-function _wrapText(text, cx, y, maxWidth, lineHeight) {
-  const words = text.split(' ');
-  let line = '';
-  for (const word of words) {
-    const test = line ? line + ' ' + word : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line, cx, y);
-      line = word;
-      y += lineHeight;
-    } else {
-      line = test;
-    }
-  }
-  if (line) { ctx.fillText(line, cx, y); y += lineHeight; }
-  return y;
-}
 
 // Rounded rect path helper (top-only rounding option for color band)
 function _roundRect(x, y, w, h, r, topOnly = false) {
