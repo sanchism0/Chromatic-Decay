@@ -1228,14 +1228,15 @@ function drawFragmentRescue(W, H) {
 
   // ── Card content ──────────────────────────────────────────
   ctx.textAlign = 'center';
-  const cx = W / 2;
+  const cx      = W / 2;
+  const maxTW   = cardW - 48;   // max text width with 24px padding each side
   let y = cardY + 28;
 
   // Fragment recovered tag
   ctx.fillStyle = '#B8882A';
   ctx.font      = '11px monospace';
   ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, y);
-  y += 48;
+  y += 44;
 
   // Big character name
   ctx.shadowBlur  = 24;
@@ -1244,19 +1245,19 @@ function drawFragmentRescue(W, H) {
   ctx.font        = 'bold 52px monospace';
   ctx.fillText(f.name, cx, y);
   ctx.shadowBlur  = 0;
-  y += 32;
+  y += 30;
 
   // What it was
   ctx.fillStyle = '#8A8E99';
-  ctx.font      = '14px monospace';
-  ctx.fillText(f.was, cx, y);
-  y += 22;
+  ctx.font      = '13px monospace';
+  y = _wrapText(f.was, cx, y, maxTW, 20);
+  y += 6;
 
   // Detail / lore line
   ctx.fillStyle = '#6A6E78';
   ctx.font      = '12px monospace';
-  ctx.fillText(f.detail || '', cx, y);
-  y += 36;
+  y = _wrapText(f.detail || '', cx, y, maxTW, 18);
+  y += 14;
 
   // Divider
   ctx.strokeStyle = f.color + '44';
@@ -1264,28 +1265,28 @@ function drawFragmentRescue(W, H) {
   ctx.beginPath();
   ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
   ctx.stroke();
-  y += 28;
+  y += 22;
 
   // Class unlocked banner
   ctx.fillStyle   = '#FFFFFF';
-  ctx.font        = 'bold 15px monospace';
+  ctx.font        = 'bold 14px monospace';
   ctx.shadowBlur  = 8;
   ctx.shadowColor = f.color;
   ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, y);
   ctx.shadowBlur  = 0;
-  y += 24;
+  y += 22;
 
   // Class description
   ctx.fillStyle = '#8A8E99';
   ctx.font      = '12px monospace';
-  ctx.fillText(f.classDesc || '', cx, y);
-  y += 40;
+  y = _wrapText(f.classDesc || '', cx, y, maxTW, 18);
+  y += 14;
 
   // Italic quote
   ctx.fillStyle = '#C4C8D4';
-  ctx.font      = 'italic 14px monospace';
-  ctx.fillText(`"${f.blurb}"`, cx, y);
-  y += 36;
+  ctx.font      = 'italic 13px monospace';
+  y = _wrapText(`"${f.blurb}"`, cx, y, maxTW, 18);
+  y += 14;
 
   // Divider 2
   ctx.strokeStyle = f.color + '33';
@@ -1293,22 +1294,39 @@ function drawFragmentRescue(W, H) {
   ctx.beginPath();
   ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
   ctx.stroke();
-  y += 24;
+  y += 18;
 
   // Traits available note
   ctx.fillStyle = f.color;
-  ctx.font      = '12px monospace';
+  ctx.font      = '11px monospace';
   ctx.fillText('Traits now available in upgrade pool.', cx, y);
-  y += cardY + cardH - y - 22;  // push continue to bottom of card
 
-  // Continue prompt
+  // Continue prompt pinned to card bottom
   if (Math.floor(Date.now() / 550) % 2 === 0) {
     ctx.fillStyle = '#4A4E58';
-    ctx.font      = '12px monospace';
-    ctx.fillText('SPACE or tap to continue', cx, cardY + cardH - 18);
+    ctx.font      = '11px monospace';
+    ctx.fillText('SPACE or tap to continue', cx, cardY + cardH - 16);
   }
 
   ctx.textAlign = 'left';
+}
+
+// Wraps text within maxWidth, returns new y after last line
+function _wrapText(text, cx, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, cx, y);
+      line = word;
+      y += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) { ctx.fillText(line, cx, y); y += lineHeight; }
+  return y;
 }
 
 // Rounded rect path helper (top-only rounding option for color band)
