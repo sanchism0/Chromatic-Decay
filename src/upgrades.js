@@ -590,10 +590,19 @@ export class UpgradeScreen {
   }
 
   _cardLayouts(W, H) {
-    const mobile = W < 600;
+    const landscape = H < 500;   // phone in landscape — height is the constraint
+    const narrow    = W < 600;   // phone in portrait
     const cardW  = Math.min(500, W * 0.92);
-    const cardH  = mobile ? 90 : 120;
-    const gap    = mobile ? 10 : 18;
+    // In landscape, fit all 3 cards + header + footer within H
+    let cardH, gap;
+    if (landscape) {
+      gap   = 6;
+      cardH = Math.floor((H - 90) / 3) - gap;   // 90px budget for header + footer
+    } else if (narrow) {
+      gap = 10; cardH = 90;
+    } else {
+      gap = 18; cardH = 120;
+    }
     const totalH = cardH * 3 + gap * 2;
     const startX = (W - cardW) / 2;
     const startY = (H - totalH) / 2;
@@ -609,20 +618,25 @@ export class UpgradeScreen {
     if (!this.active) return;
 
     const W = canvas.width, H = canvas.height;
-    const mobile = W < 600;
+    const landscape = H < 500;
+    const narrow    = W < 600;
+    const compact   = landscape || narrow;
 
     ctx.fillStyle = 'rgba(13,14,18,0.85)';
     ctx.fillRect(0, 0, W, H);
 
     const layout = this._cardLayouts(W, H);
-    const headerY = layout[0].y - (mobile ? 36 : 50);
+    const headerGap = landscape ? 20 : narrow ? 36 : 50;
+    const headerY = layout[0].y - headerGap;
 
     ctx.fillStyle = '#4A4E58';
-    ctx.font      = `${mobile ? 11 : 15}px monospace`;
+    ctx.font      = `${compact ? 11 : 15}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (mobile ? 18 : 28));
+    if (!landscape) {
+      ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (narrow ? 18 : 28));
+    }
     ctx.fillStyle = '#FFFFFF';
-    ctx.font      = `bold ${mobile ? 20 : 28}px monospace`;
+    ctx.font      = `bold ${compact ? 18 : 28}px monospace`;
     ctx.fillText('SELECT UPGRADE', W / 2, headerY);
 
     for (let i = 0; i < this.cards.length; i++) {
@@ -653,13 +667,13 @@ export class UpgradeScreen {
         ctx.shadowBlur = 0;
       }
 
-      const nameFontSize = mobile ? 15 : 20;
-      const descFontSize = mobile ? 12 : 16;
-      const tagFontSize  = mobile ? 10 : 13;
-      const numFontSize  = mobile ? 11 : 14;
-      const nameY        = mobile ? y + 24 : y + 32;
-      const divY         = mobile ? y + 32 : y + 42;
-      const descY        = mobile ? y + 52 : y + 66;
+      const nameFontSize = compact ? 13 : 20;
+      const descFontSize = compact ? 11 : 16;
+      const tagFontSize  = compact ? 9  : 13;
+      const numFontSize  = compact ? 10 : 14;
+      const nameY        = landscape ? y + 18 : narrow ? y + 24 : y + 32;
+      const divY         = landscape ? y + 25 : narrow ? y + 32 : y + 42;
+      const descY        = landscape ? y + 40 : narrow ? y + 52 : y + 66;
 
       // Class + tier tag (top-right)
       if (card.class) {
@@ -702,9 +716,9 @@ export class UpgradeScreen {
     }
 
     ctx.fillStyle = '#4A4E58';
-    ctx.font      = `${mobile ? 11 : 15}px monospace`;
+    ctx.font      = `${compact ? 11 : 15}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(mobile ? 'tap a card' : 'click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + 22);
+    ctx.fillText(compact ? 'tap a card' : 'click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + (landscape ? 14 : 22));
     ctx.textAlign = 'left';
   }
 }
