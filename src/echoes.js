@@ -48,18 +48,7 @@ export class EchoSystem {
       echo.pulseTimer += dt;
       echo.bobTimer   += dt;
 
-      // Check if enemy consumed it (only regular echoes, not fragments)
-      if (!echo.isFragment) {
-        for (const e of enemies.enemies) {
-          if (!e.isAlive) continue;
-          const d = dist(echo.x, echo.y, e.x, e.y);
-          if (d < e.size + 12) {
-            echo.active = false;
-            break;
-          }
-        }
-        if (!echo.active) continue;
-      }
+      // Only fragments can be consumed by enemies — health pickups are ignored
 
       // Player rescue — fragments need to be close, regular echoes too
       const rescueRange = echo.isFragment ? 28 : 20;
@@ -155,13 +144,13 @@ export class EchoSystem {
     ctx.arc(sx, sy, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Bright center dot
-    ctx.fillStyle  = '#FFFFFF';
-    ctx.shadowBlur = 6;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
+    // Pink plus / health cross
+    const arm = 5, thick = 2;
+    ctx.fillStyle  = '#FF4488';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#FF4488';
+    ctx.fillRect(sx - thick, sy - arm, thick * 2, arm * 2); // vertical
+    ctx.fillRect(sx - arm,   sy - thick, arm * 2, thick * 2); // horizontal
     ctx.shadowBlur = 0;
 
     // Channel progress
