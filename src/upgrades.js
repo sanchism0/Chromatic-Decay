@@ -590,9 +590,10 @@ export class UpgradeScreen {
   }
 
   _cardLayouts(W, H) {
-    const cardW  = Math.min(500, W * 0.88);
-    const cardH  = 120;
-    const gap    = 18;
+    const mobile = W < 600;
+    const cardW  = Math.min(500, W * 0.92);
+    const cardH  = mobile ? 90 : 120;
+    const gap    = mobile ? 10 : 18;
     const totalH = cardH * 3 + gap * 2;
     const startX = (W - cardW) / 2;
     const startY = (H - totalH) / 2;
@@ -608,19 +609,21 @@ export class UpgradeScreen {
     if (!this.active) return;
 
     const W = canvas.width, H = canvas.height;
+    const mobile = W < 600;
 
     ctx.fillStyle = 'rgba(13,14,18,0.85)';
     ctx.fillRect(0, 0, W, H);
 
-    ctx.fillStyle = '#4A4E58';
-    ctx.font      = '15px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('— SIGNAL RESONANCE —', W / 2, H / 2 - 220);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font      = 'bold 28px monospace';
-    ctx.fillText('SELECT UPGRADE', W / 2, H / 2 - 192);
-
     const layout = this._cardLayouts(W, H);
+    const headerY = layout[0].y - (mobile ? 36 : 50);
+
+    ctx.fillStyle = '#4A4E58';
+    ctx.font      = `${mobile ? 11 : 15}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (mobile ? 18 : 28));
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font      = `bold ${mobile ? 20 : 28}px monospace`;
+    ctx.fillText('SELECT UPGRADE', W / 2, headerY);
 
     for (let i = 0; i < this.cards.length; i++) {
       const card            = this.cards[i];
@@ -634,7 +637,7 @@ export class UpgradeScreen {
       drawRoundedRect(ctx, x, y, w, h, 6);
       ctx.fill();
 
-      // Card border — class-colored if it's a class trait
+      // Card border
       ctx.strokeStyle = isHovered
         ? (classColor || '#4A5070')
         : (classColor ? classColor + '55' : '#2A2E42');
@@ -650,45 +653,58 @@ export class UpgradeScreen {
         ctx.shadowBlur = 0;
       }
 
+      const nameFontSize = mobile ? 15 : 20;
+      const descFontSize = mobile ? 12 : 16;
+      const tagFontSize  = mobile ? 10 : 13;
+      const numFontSize  = mobile ? 11 : 14;
+      const nameY        = mobile ? y + 24 : y + 32;
+      const divY         = mobile ? y + 32 : y + 42;
+      const descY        = mobile ? y + 52 : y + 66;
+
       // Class + tier tag (top-right)
       if (card.class) {
         const tag = tierLabel ? `${card.class.toUpperCase()} ${tierLabel}` : card.class.toUpperCase();
         ctx.fillStyle = classColor || '#8A8E99';
-        ctx.font      = '13px monospace';
+        ctx.font      = `${tagFontSize}px monospace`;
         ctx.textAlign = 'right';
-        ctx.fillText(tag, x + w - 14, y + 18);
+        ctx.fillText(tag, x + w - 10, y + 14);
       }
 
       // Number key hint
       ctx.fillStyle = '#4A4E58';
-      ctx.font      = '14px monospace';
+      ctx.font      = `${numFontSize}px monospace`;
       ctx.textAlign = 'left';
-      ctx.fillText(`[${i + 1}]`, x + 14, y + 30);
+      ctx.fillText(`[${i + 1}]`, x + 10, nameY);
 
       // Upgrade name
       ctx.fillStyle = isHovered ? (classColor || '#FFFFFF') : '#C4C8D4';
-      ctx.font      = 'bold 20px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(card.name, x + 44, y + 32);
+      ctx.font      = `bold ${nameFontSize}px monospace`;
+      ctx.fillText(card.name, x + 34, nameY);
 
       // Divider line
       ctx.strokeStyle = '#1E2130';
       ctx.lineWidth   = 1;
       ctx.beginPath();
-      ctx.moveTo(x + 44, y + 42);
-      ctx.lineTo(x + w - 16, y + 42);
+      ctx.moveTo(x + 34, divY);
+      ctx.lineTo(x + w - 12, divY);
       ctx.stroke();
 
-      // Description
+      // Description — truncate to card width
       ctx.fillStyle = '#8A8E99';
-      ctx.font      = '16px monospace';
-      ctx.fillText(card.desc, x + 44, y + 66);
+      ctx.font      = `${descFontSize}px monospace`;
+      ctx.textAlign = 'left';
+      const maxDescW = w - 44;
+      let desc = card.desc;
+      while (desc.length > 0 && ctx.measureText(desc).width > maxDescW) {
+        desc = desc.slice(0, -1);
+      }
+      ctx.fillText(desc, x + 34, descY);
     }
 
     ctx.fillStyle = '#4A4E58';
-    ctx.font      = '15px monospace';
+    ctx.font      = `${mobile ? 11 : 15}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText('click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + 26);
+    ctx.fillText(mobile ? 'tap a card' : 'click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + 22);
     ctx.textAlign = 'left';
   }
 }

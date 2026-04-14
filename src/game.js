@@ -28,13 +28,21 @@ ctx.imageSmoothingEnabled = false;
 function resize() {
   canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight;
+  updateZoom();
 }
 resize();
 window.addEventListener('resize', resize);
 
 // ── Zoom / viewport ───────────────────────────────────────────
 
-const ZOOM = CONFIG.camera_zoom;
+let ZOOM = CONFIG.camera_zoom;
+function updateZoom() {
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  if      (minDim < 400) ZOOM = 1.1;
+  else if (minDim < 600) ZOOM = 1.4;
+  else if (minDim < 900) ZOOM = 1.8;
+  else                   ZOOM = CONFIG.camera_zoom;
+}
 function vw() { return canvas.width  / ZOOM; }
 function vh() { return canvas.height / ZOOM; }
 
