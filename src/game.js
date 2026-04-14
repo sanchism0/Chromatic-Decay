@@ -25,14 +25,6 @@ const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-function resize() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-  updateZoom();
-}
-resize();
-window.addEventListener('resize', resize);
-
 // ── Zoom / viewport ───────────────────────────────────────────
 
 let ZOOM = CONFIG.camera_zoom;
@@ -56,6 +48,14 @@ function updateZoom() {
 
   ZOOM = z;
 }
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  updateZoom();
+}
+resize();
+window.addEventListener('resize', resize);
 function vw() { return canvas.width  / ZOOM; }
 function vh() { return canvas.height / ZOOM; }
 

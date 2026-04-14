@@ -12,15 +12,6 @@
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <script>
-    window.addEventListener('error', function(e) {
-      var d = document.getElementById('err');
-      if (!d) { d = document.createElement('div'); d.id = 'err';
-        d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(200,0,40,0.92);color:#fff;font:13px monospace;padding:10px;z-index:9999;white-space:pre-wrap;word-break:break-all;';
-        document.body.appendChild(d); }
-      d.textContent += (e.message || e) + '\n  at ' + (e.filename||'') + ':' + (e.lineno||'') + '\n';
-    });
-  </script>
   <script type="module" src="src/game.js"></script>
 </body>
 </html>
