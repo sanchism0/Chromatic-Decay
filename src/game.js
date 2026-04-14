@@ -37,14 +37,14 @@ function updateZoom() {
   // Base zoom by screen size — desktop unchanged
   let z;
   if      (!mobile)      z = CONFIG.camera_zoom;  // PC always uses config value
-  else if (minDim < 400) z = 0.95;
-  else if (minDim < 600) z = 1.2;
-  else if (minDim < 900) z = 1.5;
+  else if (minDim < 400) z = 1.0;
+  else if (minDim < 600) z = 1.26;
+  else if (minDim < 900) z = 1.58;
   else                   z = CONFIG.camera_zoom;
 
-  // On mobile: also cap zoom so at least 380px of world width is always visible.
+  // On mobile: also cap zoom so at least 362px of world width is always visible.
   // Prevents portrait phones from seeing an overly narrow slice of the map.
-  if (mobile) z = Math.min(z, W / 380);
+  if (mobile) z = Math.min(z, W / 362);
 
   ZOOM = z;
 }
