@@ -144,13 +144,21 @@ export class EchoSystem {
     ctx.arc(sx, sy, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Pink plus / health cross
-    const arm = 5, thick = 2;
-    ctx.fillStyle  = '#FF4488';
-    ctx.shadowBlur = 8;
+    // White center dot
+    ctx.fillStyle  = '#FFFFFF';
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pink plus / health cross (small, on top of white dot)
+    const arm = 3, thick = 1;
+    ctx.fillStyle   = '#FF4488';
+    ctx.shadowBlur  = 5;
     ctx.shadowColor = '#FF4488';
-    ctx.fillRect(sx - thick, sy - arm, thick * 2, arm * 2); // vertical
-    ctx.fillRect(sx - arm,   sy - thick, arm * 2, thick * 2); // horizontal
+    ctx.fillRect(sx - thick, sy - arm, thick * 2, arm * 2);
+    ctx.fillRect(sx - arm,   sy - thick, arm * 2, thick * 2);
     ctx.shadowBlur = 0;
 
     // Channel progress
