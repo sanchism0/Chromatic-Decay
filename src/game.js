@@ -1182,68 +1182,153 @@ function drawWin(W, H) {
 function drawFragmentRescue(W, H) {
   if (!pendingFragment) return;
   const f = pendingFragment;
-  ctx.fillStyle = 'rgba(10,9,6,0.88)'; ctx.fillRect(0, 0, W, H);
-  ctx.textAlign = 'center';
 
-  let y = H * 0.14;
+  // Dim background
+  ctx.fillStyle = 'rgba(10,9,6,0.82)';
+  ctx.fillRect(0, 0, W, H);
 
-  // Subtitle
-  ctx.fillStyle = '#B8882A'; ctx.font = '15px monospace';
-  ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, W / 2, y);
-  y += 52;
+  // ── Card geometry ─────────────────────────────────────────
+  const cardW  = Math.min(400, W - 48);
+  const cardH  = 520;
+  const cardX  = (W - cardW) / 2;
+  const cardY  = (H - cardH) / 2;
+  const radius = 14;
 
-  // Big name
-  ctx.shadowBlur = 28; ctx.shadowColor = f.color;
-  ctx.fillStyle  = f.color;
-  ctx.font       = 'bold 48px monospace';
-  ctx.fillText(f.name, W / 2, y);
+  // Card outer glow
+  ctx.shadowBlur  = 40;
+  ctx.shadowColor = f.color;
+  _roundRect(cardX, cardY, cardW, cardH, radius);
+  ctx.fillStyle = f.color + '22';
+  ctx.fill();
   ctx.shadowBlur = 0;
-  y += 36;
+
+  // Card body gradient (dark, slightly tinted by class color)
+  const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+  grad.addColorStop(0,   '#1A1C26');
+  grad.addColorStop(0.5, '#13151C');
+  grad.addColorStop(1,   '#0D0E12');
+  _roundRect(cardX, cardY, cardW, cardH, radius);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Card border
+  ctx.lineWidth   = 1.5;
+  ctx.strokeStyle = f.color + '99';
+  _roundRect(cardX, cardY, cardW, cardH, radius);
+  ctx.stroke();
+
+  // Color band across the top of the card
+  const bandH = 6;
+  ctx.fillStyle = f.color;
+  ctx.shadowBlur  = 12;
+  ctx.shadowColor = f.color;
+  _roundRect(cardX, cardY, cardW, bandH, radius, true);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // ── Card content ──────────────────────────────────────────
+  ctx.textAlign = 'center';
+  const cx = W / 2;
+  let y = cardY + 28;
+
+  // Fragment recovered tag
+  ctx.fillStyle = '#B8882A';
+  ctx.font      = '11px monospace';
+  ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, y);
+  y += 48;
+
+  // Big character name
+  ctx.shadowBlur  = 24;
+  ctx.shadowColor = f.color;
+  ctx.fillStyle   = f.color;
+  ctx.font        = 'bold 52px monospace';
+  ctx.fillText(f.name, cx, y);
+  ctx.shadowBlur  = 0;
+  y += 32;
 
   // What it was
-  ctx.fillStyle = '#8A8E99'; ctx.font = '16px monospace';
-  ctx.fillText(f.was, W / 2, y);
-  y += 26;
+  ctx.fillStyle = '#8A8E99';
+  ctx.font      = '14px monospace';
+  ctx.fillText(f.was, cx, y);
+  y += 22;
 
-  // Detail line
-  ctx.fillStyle = '#6A6E78'; ctx.font = '13px monospace';
-  ctx.fillText(f.detail, W / 2, y);
+  // Detail / lore line
+  ctx.fillStyle = '#6A6E78';
+  ctx.font      = '12px monospace';
+  ctx.fillText(f.detail || '', cx, y);
   y += 36;
 
   // Divider
-  ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
+  ctx.strokeStyle = f.color + '44';
+  ctx.lineWidth   = 1;
   ctx.beginPath();
-  ctx.moveTo(W / 2 - 140, y); ctx.lineTo(W / 2 + 140, y);
+  ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
   ctx.stroke();
-  y += 30;
+  y += 28;
 
-  // Class unlocked
-  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 16px monospace';
-  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, W / 2, y);
-  y += 26;
+  // Class unlocked banner
+  ctx.fillStyle   = '#FFFFFF';
+  ctx.font        = 'bold 15px monospace';
+  ctx.shadowBlur  = 8;
+  ctx.shadowColor = f.color;
+  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, y);
+  ctx.shadowBlur  = 0;
+  y += 24;
 
   // Class description
-  ctx.fillStyle = '#8A8E99'; ctx.font = '13px monospace';
-  ctx.fillText(f.classDesc, W / 2, y);
-  y += 38;
+  ctx.fillStyle = '#8A8E99';
+  ctx.font      = '12px monospace';
+  ctx.fillText(f.classDesc || '', cx, y);
+  y += 40;
 
-  // Blurb quote
-  ctx.fillStyle = '#C4C8D4'; ctx.font = 'italic 16px monospace';
-  ctx.fillText(`"${f.blurb}"`, W / 2, y);
-  y += 34;
-
-  // Traits note
-  ctx.fillStyle = f.color; ctx.font = '13px monospace';
-  ctx.fillText('Class traits now available in upgrade pool for this run.', W / 2, y);
+  // Italic quote
+  ctx.fillStyle = '#C4C8D4';
+  ctx.font      = 'italic 14px monospace';
+  ctx.fillText(`"${f.blurb}"`, cx, y);
   y += 36;
+
+  // Divider 2
+  ctx.strokeStyle = f.color + '33';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
+  ctx.stroke();
+  y += 24;
+
+  // Traits available note
+  ctx.fillStyle = f.color;
+  ctx.font      = '12px monospace';
+  ctx.fillText('Traits now available in upgrade pool.', cx, y);
+  y += cardY + cardH - y - 22;  // push continue to bottom of card
 
   // Continue prompt
   if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#4A4E58'; ctx.font = '13px monospace';
-    ctx.fillText('SPACE or tap to continue', W / 2, y);
+    ctx.fillStyle = '#4A4E58';
+    ctx.font      = '12px monospace';
+    ctx.fillText('SPACE or tap to continue', cx, cardY + cardH - 18);
   }
 
   ctx.textAlign = 'left';
+}
+
+// Rounded rect path helper (top-only rounding option for color band)
+function _roundRect(x, y, w, h, r, topOnly = false) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  if (topOnly) {
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x,     y + h);
+  } else {
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x,     y + h, x,         y + h - r, r);
+  }
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
 }
 
 // ── Game over screen ──────────────────────────────────────────
