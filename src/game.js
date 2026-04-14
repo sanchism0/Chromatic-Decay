@@ -1183,39 +1183,66 @@ function drawFragmentRescue(W, H) {
   if (!pendingFragment) return;
   const f = pendingFragment;
   ctx.fillStyle = 'rgba(10,9,6,0.88)'; ctx.fillRect(0, 0, W, H);
-  const cy = H * 0.30;
-
-  ctx.shadowBlur = 28; ctx.shadowColor = f.color;
-  ctx.fillStyle = f.color;
-  ctx.font = `bold ${Math.floor(W * 0.042)}px monospace`;
   ctx.textAlign = 'center';
-  ctx.fillText(f.name, W / 2, cy);
+
+  let y = H * 0.14;
+
+  // Subtitle
+  ctx.fillStyle = '#B8882A'; ctx.font = '15px monospace';
+  ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, W / 2, y);
+  y += 52;
+
+  // Big name
+  ctx.shadowBlur = 28; ctx.shadowColor = f.color;
+  ctx.fillStyle  = f.color;
+  ctx.font       = 'bold 48px monospace';
+  ctx.fillText(f.name, W / 2, y);
   ctx.shadowBlur = 0;
+  y += 36;
 
-  ctx.fillStyle = '#B8882A'; ctx.font = '17px monospace';
-  ctx.fillText('— WARDEN FRAGMENT RECOVERED —', W / 2, cy - 28);
-  ctx.fillStyle = '#8A8E99'; ctx.font = '17px monospace';
-  ctx.fillText(f.was, W / 2, cy + 32);
-  ctx.fillStyle = '#6A6E78'; ctx.font = '12px monospace';
-  ctx.fillText(f.detail, W / 2, cy + 52);
+  // What it was
+  ctx.fillStyle = '#8A8E99'; ctx.font = '16px monospace';
+  ctx.fillText(f.was, W / 2, y);
+  y += 26;
 
-  ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1; ctx.beginPath();
-  ctx.moveTo(W/2 - 120, cy + 70); ctx.lineTo(W/2 + 120, cy + 70); ctx.stroke();
+  // Detail line
+  ctx.fillStyle = '#6A6E78'; ctx.font = '13px monospace';
+  ctx.fillText(f.detail, W / 2, y);
+  y += 36;
 
-  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 15px monospace';
-  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, W / 2, cy + 96);
-  ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace';
-  ctx.fillText(f.classDesc, W / 2, cy + 116);
-  ctx.fillStyle = '#C4C8D4'; ctx.font = 'italic 17px monospace';
-  ctx.fillText(`"${f.blurb}"`, W / 2, cy + 154);
+  // Divider
+  ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 140, y); ctx.lineTo(W / 2 + 140, y);
+  ctx.stroke();
+  y += 30;
 
-  ctx.fillStyle = f.color; ctx.font = '12px monospace';
-  ctx.fillText('Class traits now available in upgrade pool for this run.', W / 2, cy + 178);
+  // Class unlocked
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 16px monospace';
+  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, W / 2, y);
+  y += 26;
 
+  // Class description
+  ctx.fillStyle = '#8A8E99'; ctx.font = '13px monospace';
+  ctx.fillText(f.classDesc, W / 2, y);
+  y += 38;
+
+  // Blurb quote
+  ctx.fillStyle = '#C4C8D4'; ctx.font = 'italic 16px monospace';
+  ctx.fillText(`"${f.blurb}"`, W / 2, y);
+  y += 34;
+
+  // Traits note
+  ctx.fillStyle = f.color; ctx.font = '13px monospace';
+  ctx.fillText('Class traits now available in upgrade pool for this run.', W / 2, y);
+  y += 36;
+
+  // Continue prompt
   if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#4A4E58'; ctx.font = '12px monospace';
-    ctx.fillText('SPACE or CLICK to continue', W / 2, cy + 200);
+    ctx.fillStyle = '#4A4E58'; ctx.font = '13px monospace';
+    ctx.fillText('SPACE or tap to continue', W / 2, y);
   }
+
   ctx.textAlign = 'left';
 }
 
