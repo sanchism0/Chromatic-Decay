@@ -37,11 +37,24 @@ window.addEventListener('resize', resize);
 
 let ZOOM = CONFIG.camera_zoom;
 function updateZoom() {
-  const minDim = Math.min(window.innerWidth, window.innerHeight);
-  if      (minDim < 400) ZOOM = 1.1;
-  else if (minDim < 600) ZOOM = 1.4;
-  else if (minDim < 900) ZOOM = 1.8;
-  else                   ZOOM = CONFIG.camera_zoom;
+  const W      = window.innerWidth;
+  const H      = window.innerHeight;
+  const minDim = Math.min(W, H);
+  const mobile = 'ontouchstart' in window;
+
+  // Base zoom by screen size — desktop unchanged
+  let z;
+  if      (!mobile)      z = CONFIG.camera_zoom;  // PC always uses config value
+  else if (minDim < 400) z = 0.95;
+  else if (minDim < 600) z = 1.2;
+  else if (minDim < 900) z = 1.5;
+  else                   z = CONFIG.camera_zoom;
+
+  // On mobile: also cap zoom so at least 380px of world width is always visible.
+  // Prevents portrait phones from seeing an overly narrow slice of the map.
+  if (mobile) z = Math.min(z, W / 380);
+
+  ZOOM = z;
 }
 function vw() { return canvas.width  / ZOOM; }
 function vh() { return canvas.height / ZOOM; }
