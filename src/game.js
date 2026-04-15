@@ -268,7 +268,7 @@ function handleGameOver() {
     echoes:   player.echoesRescued,
     time:     waveSystem.totalTime,
     upgrades: player.upgradesTaken,
-    classId:  player.classId || 'Null',
+    classId:  player.classId || null,
     subclass: player.subclassId || null,
     wave:     Math.max(0, waveSystem.wave - 1), // last *completed* wave
   };
