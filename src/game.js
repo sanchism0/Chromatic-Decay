@@ -121,9 +121,10 @@ function saveArchive(a) {
   localStorage.setItem('chromatic_decay_archive', JSON.stringify(a));
 }
 // ── Supabase config ───────────────────────────────────────────
-const _SB_URL = 'https://kzjvbygxtnyedrfeqmmt.supabase.co';
-const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6anZieWd4dG55ZWRyZmVxbW10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MTE1NjQsImV4cCI6MjA5MTI4NzU2NH0.NXCqGSO4uuCXYDQfw2rgtXGiEDxk0kRTt-iaMG6aUmE';
+const _SB_URL  = 'https://kzjvbygxtnyedrfeqmmt.supabase.co';
+const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6anZieWd4dG55ZWRyZmVxbW10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MTE1NjQsImV4cCI6MjA5MTI4NzU2NH0.NXCqGSO4uuCXYDQfw2rgtXGiEDxk0kRTt-iaMG6aUmE';
 const _SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': _SB_KEY, 'Authorization': `Bearer ${_SB_KEY}` };
+const _platform = 'ontouchstart' in window ? 'mobile' : 'desktop';
 
 // In-memory cache — populated by _refreshScores(), used by draw calls synchronously
 let _cachedScores = [];
@@ -149,7 +150,7 @@ function loadScores() {
 async function _refreshScores() {
   try {
     const res = await fetch(
-      `${_SB_URL}/rest/v1/scores?select=initials,score,wave,class,subclass,time,kills,echoes&order=score.desc&limit=10`,
+      `${_SB_URL}/rest/v1/scores?select=initials,score,wave,class,subclass,time,kills,echoes&platform=eq.${_platform}&order=score.desc&limit=10`,
       { headers: _SB_HEADERS }
     );
     if (!res.ok) throw new Error(res.status);
@@ -638,6 +639,8 @@ function _submitWinScore() {
   saveScore({
     initials:       winInitials.padEnd(3, '_').slice(0, 3),
     score:          wd.finalScore,
+    wave:           15,
+    platform:       _platform,
     kill_score:     wd.killScore,
     time_bonus:     wd.timeBonus,
     class:          player.classId || 'Null',
@@ -645,7 +648,6 @@ function _submitWinScore() {
     time:           Math.floor(wd.completionTime),
     kills:          player.kills,
     echoes:         player.echoesRescued,
-    wave:           15,
     waves_cleared:  15,
     under_target:   wd.completionTime < CONFIG.target_time_seconds,
   });
@@ -670,14 +672,15 @@ function updateAdmin() {
 
 function _submitScore() {
   saveScore({
-    initials: initialsInput.padEnd(3, '_').slice(0, 3),
-    score:    gameOverData.score,
-    wave:     gameOverData.wave || 0,
-    class:    gameOverData.classId,
-    subclass: gameOverData.subclass,
-    time:     Math.floor(gameOverData.time),
-    kills:    gameOverData.kills,
-    echoes:   gameOverData.echoes,
+    initials:  initialsInput.padEnd(3, '_').slice(0, 3),
+    score:     gameOverData.score,
+    wave:      gameOverData.wave || 0,
+    platform:  _platform,
+    class:     gameOverData.classId,
+    subclass:  gameOverData.subclass,
+    time:      Math.floor(gameOverData.time),
+    kills:     gameOverData.kills,
+    echoes:    gameOverData.echoes,
   });
   initialsSubmitted = true;
   state = STATES.TITLE;
@@ -1101,7 +1104,7 @@ function drawTitle(W, H) {
   _drawSciFiCorners(panelX, panelY, panelW, panelH, 7, tealDim + '66');
 
   ctx.fillStyle = tealDim; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('— FREQUENCY RECORDS —', W / 2, panelY + 16);
+  ctx.fillText(`— ${_platform.toUpperCase()} RECORDS —`, W / 2, panelY + 16);
 
   // Column x positions (proportional within panel)
   const _lbCols = {
