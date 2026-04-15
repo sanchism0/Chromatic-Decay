@@ -97,8 +97,8 @@ export class Input {
     };
 
     const abilityBtnPos = () => ({
-      x: canvas.width  - 80,
-      y: canvas.height - 80,
+      x: canvas.width  * 0.82,
+      y: canvas.height - 40 - this._joystickRadius - 44 - 20,
     });
 
     // Track touch start positions to detect taps vs drags
@@ -205,10 +205,10 @@ export class Input {
       const dx  = this._rightTouch.curX - this._rightTouch.baseX;
       const dy  = this._rightTouch.curY - this._rightTouch.baseY;
       const len = Math.sqrt(dx * dx + dy * dy);
-      this.touchAimAngle = len > 12 ? Math.atan2(dy, dx) : this.touchAimAngle;
-    } else {
-      this.touchAimAngle = null;
+      // Only update angle when displacement is meaningful — preserve last angle on release
+      if (len > 12) this.touchAimAngle = Math.atan2(dy, dx);
     }
+    // When rightTouch is null, touchAimAngle intentionally keeps its last value
   }
 
   // Call once per frame AFTER processing, to compute edge states
@@ -249,6 +249,6 @@ export class Input {
   get leftJoystick()   { return this._leftTouch;  }
   get rightJoystick()  { return this._rightTouch; }
   get joystickRadius() { return this._joystickRadius; }
-  get abilityBtnX()    { return this.canvas.width  - 80; }
-  get abilityBtnY()    { return this.canvas.height - 80; }
+  get abilityBtnX()    { return this.canvas.width  * 0.82; }
+  get abilityBtnY()    { return this.canvas.height - 40 - this._joystickRadius - 44 - 20; }
 }

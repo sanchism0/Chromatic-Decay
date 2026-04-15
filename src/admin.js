@@ -233,6 +233,13 @@ export class AdminPanel {
       return true;
     }
 
+    // Clear scores button
+    if (this._hitTest(mouseX, mouseY, layout.clearBtn)) {
+      localStorage.removeItem('chromatic_decay_scores');
+      this._setStatus('✓ Hi-scores cleared');
+      return true;
+    }
+
     // Close button
     if (this._hitTest(mouseX, mouseY, layout.closeBtn)) {
       this.close();
@@ -347,9 +354,9 @@ export class AdminPanel {
 
     const btnY  = H - 52;
     const btnH  = 34;
-    const btnW  = 110;
-    const btnGap = 10;
-    const totalBtnW = btnW * 4 + btnGap * 3;
+    const btnW  = 96;
+    const btnGap = 8;
+    const totalBtnW = btnW * 5 + btnGap * 4;
     const btnStartX = (W - totalBtnW) / 2;
 
     return {
@@ -359,6 +366,7 @@ export class AdminPanel {
       exportBtn: { x: btnStartX + (btnW + btnGap),       y: btnY, w: btnW, h: btnH },
       importBtn: { x: btnStartX + (btnW + btnGap) * 2,   y: btnY, w: btnW, h: btnH },
       resetBtn:  { x: btnStartX + (btnW + btnGap) * 3,   y: btnY, w: btnW, h: btnH },
+      clearBtn:  { x: btnStartX + (btnW + btnGap) * 4,   y: btnY, w: btnW, h: btnH },
       closeBtn:  { x: panelX + panelW - 36, y: 14, w: 24, h: 24 },
     };
   }
@@ -528,6 +536,7 @@ export class AdminPanel {
       { rect: layout.exportBtn, label: 'EXPORT', color: '#4A5070' },
       { rect: layout.importBtn, label: 'IMPORT', color: '#4A5070' },
       { rect: layout.resetBtn,  label: 'RESET',  color: '#7A3030' },
+      { rect: layout.clearBtn,  label: 'SCORES', color: '#7A3050' },
     ];
 
     for (const btn of btns) {

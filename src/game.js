@@ -120,15 +120,57 @@ function loadArchive() {
 function saveArchive(a) {
   localStorage.setItem('chromatic_decay_archive', JSON.stringify(a));
 }
-function loadScores() {
+// ── Supabase config ───────────────────────────────────────────
+const _SB_URL = 'https://kzjvbygxtnyedrfeqmmt.supabase.co';
+const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6anZieWd4dG55ZWRyZmVxbW10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MTE1NjQsImV4cCI6MjA5MTI4NzU2NH0.NXCqGSO4uuCXYDQfw2rgtXGiEDxk0kRTt-iaMG6aUmE';
+const _SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': _SB_KEY, 'Authorization': `Bearer ${_SB_KEY}` };
+
+// In-memory cache — populated by _refreshScores(), used by draw calls synchronously
+let _cachedScores = [];
+
+function _loadLocalScores() {
   try { return JSON.parse(localStorage.getItem('chromatic_decay_scores') || '[]'); }
   catch { return []; }
 }
-function saveScore(entry) {
-  const scores = loadScores();
+
+function _saveLocalScore(entry) {
+  const scores = _loadLocalScores();
   scores.push(entry);
   scores.sort((a, b) => b.score - a.score);
   localStorage.setItem('chromatic_decay_scores', JSON.stringify(scores.slice(0, 50)));
+}
+
+// Returns the best available scores synchronously (Supabase cache, or local fallback)
+function loadScores() {
+  return _cachedScores.length > 0 ? _cachedScores : _loadLocalScores();
+}
+
+// Fetch top 10 from Supabase and update cache. Falls back to localStorage on error.
+async function _refreshScores() {
+  try {
+    const res = await fetch(
+      `${_SB_URL}/rest/v1/scores?select=initials,score,wave,class,subclass,time,kills,echoes&order=score.desc&limit=10`,
+      { headers: _SB_HEADERS }
+    );
+    if (!res.ok) throw new Error(res.status);
+    const rows = await res.json();
+    _cachedScores = rows;
+  } catch {
+    _cachedScores = _loadLocalScores();
+  }
+}
+
+// POST a score to Supabase, also save locally, then refresh cache.
+async function saveScore(entry) {
+  _saveLocalScore(entry);
+  try {
+    await fetch(`${_SB_URL}/rest/v1/scores`, {
+      method:  'POST',
+      headers: { ..._SB_HEADERS, 'Prefer': 'return=minimal' },
+      body:    JSON.stringify(entry),
+    });
+  } catch { /* offline — local save above is the fallback */ }
+  await _refreshScores();
 }
 
 function getUnlockedClasses() {
@@ -603,6 +645,7 @@ function _submitWinScore() {
     time:           Math.floor(wd.completionTime),
     kills:          player.kills,
     echoes:         player.echoesRescued,
+    wave:           15,
     waves_cleared:  15,
     under_target:   wd.completionTime < CONFIG.target_time_seconds,
   });
@@ -629,6 +672,7 @@ function _submitScore() {
   saveScore({
     initials: initialsInput.padEnd(3, '_').slice(0, 3),
     score:    gameOverData.score,
+    wave:     gameOverData.wave || 0,
     class:    gameOverData.classId,
     subclass: gameOverData.subclass,
     time:     Math.floor(gameOverData.time),
@@ -708,6 +752,28 @@ function drawGame(W, H) {
   player.draw(ctx);
   companions.draw(ctx);
   particles.draw(ctx);
+
+  // ── Mobile aim line ───────────────────────────────────────
+  if ('ontouchstart' in window) {
+    const aimLen = 120;
+    const ax = player.x + Math.cos(player.facing) * aimLen;
+    const ay = player.y + Math.sin(player.facing) * aimLen;
+    ctx.save();
+    ctx.setLineDash([4, 7]);
+    ctx.strokeStyle = 'rgba(122,221,212,0.40)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(ax, ay);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Dot at tip
+    ctx.beginPath();
+    ctx.arc(ax, ay, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(122,221,212,0.65)';
+    ctx.fill();
+    ctx.restore();
+  }
 
   resetTransform();
 
@@ -822,16 +888,18 @@ function drawMobileControls(W, H) {
   const lBaseY = lj ? lj.baseY : H - pad - r;
   drawJoystick(lBaseX, lBaseY, lj ? lj.curX : lBaseX, lj ? lj.curY : lBaseY, !!lj);
 
-  // Right joystick (aim)
+  // Right joystick (aim) — same vertical level as left
   const rj = input.rightJoystick;
-  const rBaseX = rj ? rj.baseX : W * 0.82;
-  const rBaseY = rj ? rj.baseY : H - pad - r - 80;
+  const rRestX = W * 0.82;
+  const rRestY = H - pad - r;
+  const rBaseX = rj ? rj.baseX : rRestX;
+  const rBaseY = rj ? rj.baseY : rRestY;
   drawJoystick(rBaseX, rBaseY, rj ? rj.curX : rBaseX, rj ? rj.curY : rBaseY, !!rj);
 
-  // Ability button (fixed bottom-right)
+  // Ability button — above right joystick rest position
+  const abR    = 44;
   const abX    = input.abilityBtnX;
   const abY    = input.abilityBtnY;
-  const abR    = 44;
   const abReady = player.abilityCooldown <= 0 && !!player.classId;
 
   ctx.beginPath();
@@ -1021,9 +1089,9 @@ function drawTitle(W, H) {
   // ── Leaderboard panel ─────────────────────────────────────
   const scores  = loadScores();
   const panelY  = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.start.y + _titleBtns.start.h) + 18;
-  const panelW  = mobile ? W * 0.88 : Math.min(540, W * 0.55);
-  const rowsH   = scores.length > 0 ? 18 + Math.min(scores.length, 5) * 16 + 8 : 0;
-  const panelH  = 28 + rowsH;
+  const panelW  = mobile ? W * 0.88 : Math.min(560, W * 0.58);
+  const rowsH   = scores.length > 0 ? 14 + Math.min(scores.length, 5) * 16 + 6 : 0;
+  const panelH  = 34 + rowsH;
   const panelX  = W / 2 - panelW / 2;
 
   ctx.fillStyle = 'rgba(7,11,18,0.80)';
@@ -1035,18 +1103,43 @@ function drawTitle(W, H) {
   ctx.fillStyle = tealDim; ctx.font = '11px monospace'; ctx.textAlign = 'center';
   ctx.fillText('— FREQUENCY RECORDS —', W / 2, panelY + 16);
 
+  // Column x positions (proportional within panel)
+  const _lbCols = {
+    name:  panelX + panelW * 0.04,
+    cls:   panelX + panelW * 0.18,
+    score: panelX + panelW * 0.56,
+    time:  panelX + panelW * 0.72,
+    wave:  panelX + panelW * 0.88,
+  };
+
   if (scores.length > 0) {
+    // Header row
+    ctx.font      = 'bold 11px monospace';
+    ctx.fillStyle = '#5dbd7a';
+    ctx.textAlign = 'left';
+    ctx.fillText('NAME', _lbCols.name,  panelY + 30);
+    ctx.fillText('CLASS',_lbCols.cls,   panelY + 30);
+    ctx.textAlign = 'right';
+    ctx.fillText('SCORE', _lbCols.score, panelY + 30);
+    ctx.fillText('TIME',  _lbCols.time,  panelY + 30);
+    ctx.fillText('WAVE',  _lbCols.wave,  panelY + 30);
+
+    // Data rows
     scores.slice(0, 5).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'Null');
+      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'null');
+      const rowY = panelY + 44 + i * 16;
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
-      ctx.font      = i === 0 ? 'bold 12px monospace' : '12px monospace';
-      ctx.fillText(
-        `${i+1}.  ${s.initials}   ${s.score.toLocaleString()}   ${formatTime(s.time)}   ${classLabel.toUpperCase()}`,
-        W / 2, panelY + 30 + i * 16
-      );
+      ctx.font      = i === 0 ? 'bold 11px monospace' : '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.initials,                         _lbCols.name,  rowY);
+      ctx.fillText(classLabel.toUpperCase(),            _lbCols.cls,   rowY);
+      ctx.textAlign = 'right';
+      ctx.fillText(s.score.toLocaleString(),            _lbCols.score, rowY);
+      ctx.fillText(s.time != null ? formatTime(s.time) : '—', _lbCols.time, rowY);
+      ctx.fillText(s.wave != null ? s.wave : '—',       _lbCols.wave,  rowY);
     });
   } else {
-    ctx.fillStyle = '#2A2E42'; ctx.font = '11px monospace';
+    ctx.fillStyle = '#2A2E42'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
     ctx.fillText('no records yet', W / 2, panelY + 30);
   }
 
@@ -1193,17 +1286,45 @@ function drawArchive(W, H) {
   // Scores
   const scores = loadScores();
   if (scores.length > 0) {
-    const tableY = cy2 + 50;
-    ctx.fillStyle = '#4A4E58'; ctx.font = '22px monospace';
+    const tableY  = cy2 + 50;
+    const tableW  = Math.min(600, W * 0.88);
+    const tableX  = W / 2 - tableW / 2;
+    ctx.fillStyle = '#4A4E58'; ctx.font = '15px monospace'; ctx.textAlign = 'center';
     ctx.fillText('— TOP RECORDS —', W / 2, tableY);
+
+    // Column x positions
+    const _arCols = {
+      name:  tableX + tableW * 0.04,
+      cls:   tableX + tableW * 0.16,
+      score: tableX + tableW * 0.56,
+      time:  tableX + tableW * 0.72,
+      wave:  tableX + tableW * 0.88,
+    };
+
+    // Header row
+    ctx.font      = 'bold 13px monospace';
+    ctx.fillStyle = '#5dbd7a';
+    ctx.textAlign = 'left';
+    ctx.fillText('NAME',  _arCols.name,  tableY + 18);
+    ctx.fillText('CLASS', _arCols.cls,   tableY + 18);
+    ctx.textAlign = 'right';
+    ctx.fillText('SCORE', _arCols.score, tableY + 18);
+    ctx.fillText('TIME',  _arCols.time,  tableY + 18);
+    ctx.fillText('WAVE',  _arCols.wave,  tableY + 18);
+
+    // Data rows
     scores.slice(0, 8).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'Null');
+      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'null');
+      const rowY = tableY + 34 + i * 15;
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
-      ctx.font = i === 0 ? 'bold 22px monospace' : '22px monospace';
-      ctx.fillText(
-        `${i+1}.  ${s.initials}   ${s.score.toLocaleString()}   ${formatTime(s.time)}   ${classLabel.toUpperCase()}`,
-        W / 2, tableY + 18 + i * 15
-      );
+      ctx.font      = i === 0 ? 'bold 13px monospace' : '13px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.initials,                                   _arCols.name,  rowY);
+      ctx.fillText(classLabel.toUpperCase(),                      _arCols.cls,   rowY);
+      ctx.textAlign = 'right';
+      ctx.fillText(s.score.toLocaleString(),                      _arCols.score, rowY);
+      ctx.fillText(s.time != null ? formatTime(s.time) : '—',    _arCols.time,  rowY);
+      ctx.fillText(s.wave != null ? s.wave : '—',                 _arCols.wave,  rowY);
     });
   }
 
@@ -1699,3 +1820,4 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(ts => { lastTime = ts; requestAnimationFrame(loop); });
+_refreshScores();
