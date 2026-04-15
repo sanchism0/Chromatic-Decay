@@ -337,7 +337,8 @@ export class EnemySystem {
 
   // Spawn a single enemy of the given type at a map edge (used by WaveSystem)
   spawnEnemy(type, map, player) {
-    const spawnPos = map.randomEdgeSpawn(player.x, player.y);
+    const positions = this.enemies.map(e => ({ x: e.x, y: e.y }));
+    const spawnPos  = map.randomSpawn(player.x, player.y, positions);
     const e = new Enemy(type, spawnPos.x, spawnPos.y);
     e.scaleHp(this.elapsedMin);
     this.enemies.push(e);
@@ -406,7 +407,8 @@ export class EnemySystem {
       }
     }
 
-    const spawnPos = map.randomEdgeSpawn(player.x, player.y);
+    const positions = this.enemies.map(e => ({ x: e.x, y: e.y }));
+    const spawnPos  = map.randomSpawn(player.x, player.y, positions);
     const e = new Enemy(type, spawnPos.x, spawnPos.y);
     e.scaleHp(this.elapsedMin);
     this.enemies.push(e);

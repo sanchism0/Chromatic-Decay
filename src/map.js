@@ -161,18 +161,38 @@ export class GameMap {
     return { x: W / 2, y: H * 0.12 };
   }
 
-  randomEdgeSpawn(playerX, playerY, minDist = 300) {
-    const INSET = 40;
-    const candidates = [
-      { x: INSET + Math.random() * (W - INSET * 2), y: INSET },
-      { x: INSET + Math.random() * (W - INSET * 2), y: H - INSET },
-      { x: INSET,     y: INSET + Math.random() * (H - INSET * 2) },
-      { x: W - INSET, y: INSET + Math.random() * (H - INSET * 2) },
-    ];
-    const valid = candidates.filter(c => {
+  // Spawn anywhere on the map at least minPlayerDist from the player
+  // and at least minEnemyDist from each position in enemyPositions.
+  randomSpawn(playerX, playerY, enemyPositions = [], minPlayerDist = 300, minEnemyDist = 110) {
+    const INSET = 60;
+    const candidates = [];
+    for (let i = 0; i < 24; i++) {
+      candidates.push({
+        x: INSET + Math.random() * (W - INSET * 2),
+        y: INSET + Math.random() * (H - INSET * 2),
+      });
+    }
+
+    const passesBoth = c => {
+      const pdx = c.x - playerX, pdy = c.y - playerY;
+      if (pdx * pdx + pdy * pdy < minPlayerDist * minPlayerDist) return false;
+      for (const ep of enemyPositions) {
+        const ex = c.x - ep.x, ey = c.y - ep.y;
+        if (ex * ex + ey * ey < minEnemyDist * minEnemyDist) return false;
+      }
+      return true;
+    };
+
+    const passesPlayer = c => {
       const dx = c.x - playerX, dy = c.y - playerY;
-      return dx * dx + dy * dy > minDist * minDist;
-    });
+      return dx * dx + dy * dy >= minPlayerDist * minPlayerDist;
+    };
+
+    let valid = candidates.filter(passesBoth);
+    if (valid.length > 0) return valid[Math.floor(Math.random() * valid.length)];
+
+    // Fallback: relax enemy spacing, keep player distance
+    valid = candidates.filter(passesPlayer);
     return valid.length > 0 ? valid[Math.floor(Math.random() * valid.length)] : candidates[0];
   }
 
