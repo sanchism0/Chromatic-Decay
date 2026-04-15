@@ -897,32 +897,46 @@ function drawTitle(W, H) {
   ctx.textAlign = 'center';
   if (mobile) {
     const titleSize = Math.max(36, Math.min(52, Math.floor(W * 0.12)));
-    ctx.shadowBlur = 20; ctx.shadowColor = '#5200ff'; ctx.fillStyle = '#FFFFFF';
+    const titleY1   = H * 0.16;
+    ctx.shadowBlur = 22; ctx.shadowColor = teal; ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${titleSize}px monospace`;
-    ctx.fillText('CHROMATIC', W / 2, H * 0.13);
-    ctx.fillText('DECAY',     W / 2, H * 0.13 + titleSize * 1.15);
+    ctx.fillText('CHROMATIC', W / 2, titleY1);
+    ctx.fillText('DECAY',     W / 2, titleY1 + titleSize * 1.15);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#C4C8D4'; ctx.font = '14px monospace';
-    ctx.fillText('The signal is gone. You are not.', W / 2, H * 0.13 + titleSize * 2.3 + 2);
+    // Teal underline
+    const ulW = W * 0.55, ulY = titleY1 + titleSize * 1.15 + 10;
+    ctx.strokeStyle = teal + 'AA'; ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 6; ctx.shadowColor = teal;
+    ctx.beginPath(); ctx.moveTo(W/2 - ulW/2, ulY); ctx.lineTo(W/2 + ulW/2, ulY); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '13px monospace';
+    ctx.fillText('The signal is gone. You are not.', W / 2, titleY1 + titleSize * 2.1);
   } else {
     const titleSize = Math.max(48, Math.min(72, Math.floor(W * 0.052)));
-    ctx.shadowBlur = 24; ctx.shadowColor = '#5200ff'; ctx.fillStyle = '#FFFFFF';
+    const titleY    = H * 0.14;
+    ctx.shadowBlur = 26; ctx.shadowColor = teal; ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${titleSize}px monospace`;
-    ctx.fillText('CHROMATIC DECAY', W / 2, H * 0.22);
+    ctx.fillText('CHROMATIC DECAY', W / 2, titleY);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#C4C8D4'; ctx.font = '18px monospace';
-    ctx.fillText('The signal is gone. You are not.', W / 2, H * 0.22 + titleSize * 0.65);
+    // Teal underline beneath title
+    const ulW = Math.min(520, W * 0.55), ulY = titleY + 14;
+    ctx.strokeStyle = teal + 'AA'; ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 8; ctx.shadowColor = teal;
+    ctx.beginPath(); ctx.moveTo(W/2 - ulW/2, ulY); ctx.lineTo(W/2 + ulW/2, ulY); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '16px monospace';
+    ctx.fillText('The signal is gone. You are not.', W / 2, titleY + titleSize * 0.60);
   }
 
   // ── Buttons ───────────────────────────────────────────────
   if (mobile) {
     const playW = Math.min(W * 0.88, 340);
-    const playH = 58;
+    const playH = 52;
     const playX = W / 2 - playW / 2;
-    const playY = H * 0.38;
+    const playY = H * 0.30;
     const smW   = (playW - 12) / 2;
-    const smH   = 44;
-    const smY   = playY + playH + 14;
+    const smH   = 40;
+    const smY   = playY + playH + 10;
 
     _titleBtns.start   = { x: playX,             y: playY, w: playW, h: playH };
     _titleBtns.archive = { x: playX,             y: smY,   w: smW,   h: smH   };
@@ -932,14 +946,14 @@ function drawTitle(W, H) {
     _drawSciFiBtn(playX,            smY,   smW,   smH,   'ARCHIVE',  false, pulse, tealDim);
     _drawSciFiBtn(playX + smW + 12, smY,   smW,   smH,   'SETTINGS', false, pulse, tealDim);
   } else {
-    const playW  = Math.min(280, W * 0.26);
-    const playH  = 64;
-    const sideW  = Math.min(180, W * 0.17);
-    const sideH  = 52;
-    const gap    = 18;
+    const playW  = Math.min(260, W * 0.24);
+    const playH  = 60;
+    const sideW  = Math.min(170, W * 0.16);
+    const sideH  = 48;
+    const gap    = 16;
     const totalW = sideW + gap + playW + gap + sideW;
     const rowX   = W / 2 - totalW / 2;
-    const rowY   = H * 0.50;
+    const rowY   = H * 0.36;
     const sideY  = rowY + (playH - sideH) / 2;
 
     _titleBtns.archive = { x: rowX,                             y: sideY, w: sideW, h: sideH };
@@ -951,23 +965,36 @@ function drawTitle(W, H) {
     _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
 
-  // ── Local records ─────────────────────────────────────────
-  const scores = loadScores();
-  const recY   = mobile
-    ? _titleBtns.admin.y + _titleBtns.admin.h + 22
-    : _titleBtns.start.y + _titleBtns.start.h + 32;
+  // ── Leaderboard panel ─────────────────────────────────────
+  const scores  = loadScores();
+  const panelY  = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.start.y + _titleBtns.start.h) + 18;
+  const panelW  = mobile ? W * 0.88 : Math.min(540, W * 0.55);
+  const rowsH   = scores.length > 0 ? 18 + Math.min(scores.length, 5) * 16 + 8 : 0;
+  const panelH  = 28 + rowsH;
+  const panelX  = W / 2 - panelW / 2;
+
+  ctx.fillStyle = 'rgba(7,11,18,0.80)';
+  ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, panelH, 4); ctx.fill();
+  ctx.strokeStyle = tealDim + '44'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, panelH, 4); ctx.stroke();
+  _drawSciFiCorners(panelX, panelY, panelW, panelH, 7, tealDim + '66');
+
+  ctx.fillStyle = tealDim; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('— FREQUENCY RECORDS —', W / 2, panelY + 16);
+
   if (scores.length > 0) {
-    ctx.fillStyle = '#2A2E42'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('— FREQUENCY RECORDS —', W / 2, recY);
     scores.slice(0, 5).forEach((s, i) => {
       const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'Null');
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
-      ctx.font      = i === 0 ? 'bold 13px monospace' : '13px monospace';
+      ctx.font      = i === 0 ? 'bold 12px monospace' : '12px monospace';
       ctx.fillText(
         `${i+1}.  ${s.initials}   ${s.score.toLocaleString()}   ${formatTime(s.time)}   ${classLabel.toUpperCase()}`,
-        W / 2, recY + 18 + i * 16
+        W / 2, panelY + 30 + i * 16
       );
     });
+  } else {
+    ctx.fillStyle = '#2A2E42'; ctx.font = '11px monospace';
+    ctx.fillText('no records yet', W / 2, panelY + 30);
   }
 
   // ── Controls hint box (mobile only) ──────────────────────
