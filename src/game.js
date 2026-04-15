@@ -383,6 +383,7 @@ function updatePlaying(dt) {
 
   // Projectiles
   projectiles.update(dt, map, player);
+  projectiles.checkBulletCollisions();
   projectiles.checkPlayerHits(player, particles);
 
   // Companion projectile absorption (Herald)
@@ -748,7 +749,7 @@ function drawGame(W, H) {
 
   // ── Mobile aim line ───────────────────────────────────────
   if ('ontouchstart' in window) {
-    const aimLen = 120;
+    const aimLen = 60;
     const ax = player.x + Math.cos(player.facing) * aimLen;
     const ay = player.y + Math.sin(player.facing) * aimLen;
     ctx.save();
@@ -760,11 +761,6 @@ function drawGame(W, H) {
     ctx.lineTo(ax, ay);
     ctx.stroke();
     ctx.setLineDash([]);
-    // Dot at tip
-    ctx.beginPath();
-    ctx.arc(ax, ay, 3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(122,221,212,0.65)';
-    ctx.fill();
     ctx.restore();
   }
 

@@ -112,6 +112,23 @@ export class ProjectileSystem {
     }
   }
 
+  // Player bullets destroy enemy bullets on collision (unless piercing)
+  checkBulletCollisions() {
+    for (const pp of this.playerProjectiles) {
+      for (const ep of this.enemyProjectiles) {
+        const dx = pp.x - ep.x, dy = pp.y - ep.y;
+        if (dx * dx + dy * dy < 64) { // ~8px combined radius
+          ep.active = false;
+          if (pp.piercing > 0) {
+            pp.piercing--;
+          } else {
+            pp.active = false;
+          }
+        }
+      }
+    }
+  }
+
   // Check enemy projectiles vs player
   checkPlayerHits(player, particles) {
     if (!player.alive) return;
