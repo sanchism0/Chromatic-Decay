@@ -262,7 +262,7 @@ function handleGameOver() {
     upgrades: player.upgradesTaken,
     classId:  player.classId || 'Null',
     subclass: player.subclassId || null,
-    wave:     waveSystem.wave,
+    wave:     Math.max(0, waveSystem.wave - 1), // last *completed* wave
   };
   initialsInput     = '';
   initialsSubmitted = false;
@@ -1367,25 +1367,53 @@ function _formatMMSS(totalSeconds) {
 }
 
 function drawWin(W, H) {
-  ctx.fillStyle = 'rgba(13,14,18,0.96)';
+  // ── Background — deep teal gradient, clearly different from death screen ──
+  const bgGrad = ctx.createRadialGradient(W/2, H*0.35, H*0.05, W/2, H*0.35, H*0.85);
+  bgGrad.addColorStop(0, 'rgba(0,40,36,1)');
+  bgGrad.addColorStop(1, 'rgba(5,10,18,1)');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
+  // Horizontal scan lines for sci-fi feel
+  const t = Date.now() * 0.001;
+  ctx.globalAlpha = 0.04;
+  ctx.fillStyle   = '#00e5ff';
+  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 2);
+  ctx.globalAlpha = 1;
+
   const wd          = waveSystem;
-  const cy          = H * 0.24;
+  const cy          = H * 0.22;
   const underTarget = wd.completionTime < CONFIG.target_time_seconds;
 
+  // Pulse glow behind title
+  const pulse = 0.6 + Math.sin(t * 2.2) * 0.3;
+  ctx.globalAlpha = pulse * 0.18;
+  ctx.fillStyle   = '#00e5ff';
+  ctx.beginPath();
+  ctx.ellipse(W/2, cy - 10, W * 0.35, 55, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
   // Title
-  ctx.shadowBlur  = 22;
-  ctx.shadowColor = '#5200ff';
-  ctx.fillStyle   = '#FFFFFF';
-  ctx.font        = `bold ${Math.floor(W * 0.040)}px monospace`;
+  ctx.shadowBlur  = 28;
+  ctx.shadowColor = '#00e5ff';
+  ctx.fillStyle   = '#00e5ff';
+  ctx.font        = `bold ${Math.floor(W * 0.042)}px monospace`;
   ctx.textAlign   = 'center';
   ctx.fillText('SIGNAL RESTORED', W / 2, cy);
   ctx.shadowBlur  = 0;
 
-  ctx.fillStyle = '#8A8E99';
-  ctx.font      = '15px monospace';
-  ctx.fillText('wave 15 cleared', W / 2, cy + 24);
+  // Decorative line under title
+  const lineW = Math.min(340, W * 0.55);
+  ctx.strokeStyle = '#00e5ff';
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth   = 1;
+  ctx.beginPath(); ctx.moveTo(W/2 - lineW/2, cy + 10); ctx.lineTo(W/2 + lineW/2, cy + 10); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#5ddbb4';
+  ctx.font      = '14px monospace';
+  ctx.fillText('ALL 15 WAVES CLEARED', W / 2, cy + 26);
 
   // Score breakdown
   const lineGap = 22;
@@ -1422,11 +1450,11 @@ function drawWin(W, H) {
   ctx.stroke();
 
   // Final score
-  ctx.shadowBlur  = 14;
-  ctx.shadowColor = '#5200ff';
-  ctx.fillStyle   = '#FFFFFF';
+  ctx.shadowBlur  = 18;
+  ctx.shadowColor = '#00e5ff';
+  ctx.fillStyle   = '#00e5ff';
   ctx.font        = 'bold 22px monospace';
-  ctx.fillText(`Final score:  ${wd.finalScore.toLocaleString()}`, W / 2, ly + 16);
+  ctx.fillText(`FINAL SCORE:  ${wd.finalScore.toLocaleString()}`, W / 2, ly + 16);
   ctx.shadowBlur  = 0;
   ly += 50;
 
@@ -1468,12 +1496,15 @@ function drawWin(W, H) {
       _kbdBtns = [];
     }
   } else {
-    ctx.fillStyle = '#B8882A';
-    ctx.font      = 'bold 22px monospace';
+    ctx.shadowBlur  = 10;
+    ctx.shadowColor = '#00e5ff';
+    ctx.fillStyle   = '#00e5ff';
+    ctx.font        = 'bold 20px monospace';
     ctx.fillText('SCORE RECORDED', W / 2, ly + 18);
+    ctx.shadowBlur  = 0;
     if (Math.floor(Date.now() / 600) % 2 === 0) {
-      ctx.fillStyle = '#C4C8D4';
-      ctx.font      = '17px monospace';
+      ctx.fillStyle = '#5ddbb4';
+      ctx.font      = '16px monospace';
       ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
     }
     _kbdBtns = [];
