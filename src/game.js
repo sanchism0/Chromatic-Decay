@@ -812,136 +812,181 @@ const _ENEMY_COLORS = ['#7B3FFF', '#FFEE22', '#55FF11', '#FF5500', '#FF0066'];
 
 let _titleParts = [];
 
+// ── Sci-fi button helpers ─────────────────────────────────────
+
+function _drawSciFiCorners(x, y, w, h, size, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 2;
+  const s = size;
+  ctx.beginPath();
+  ctx.moveTo(x,     y + s); ctx.lineTo(x,   y);     ctx.lineTo(x + s, y);
+  ctx.moveTo(x+w-s, y);     ctx.lineTo(x+w, y);     ctx.lineTo(x+w,   y + s);
+  ctx.moveTo(x,     y+h-s); ctx.lineTo(x,   y + h); ctx.lineTo(x + s, y + h);
+  ctx.moveTo(x+w-s, y + h); ctx.lineTo(x+w, y + h); ctx.lineTo(x+w,   y+h-s);
+  ctx.stroke();
+}
+
+function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
+  const hovered   = input.mouseX >= x && input.mouseX <= x+w &&
+                    input.mouseY >= y && input.mouseY <= y+h;
+  const glowAlpha = (isPlay ? 0.50 : 0.28) + pulse * (isPlay ? 0.35 : 0.18);
+  const alphaHex  = Math.round(glowAlpha * 255).toString(16).padStart(2, '0');
+
+  ctx.fillStyle = hovered ? '#0D1A28' : '#070B12';
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.fill();
+
+  ctx.shadowBlur  = (isPlay ? 18 : 8) + pulse * 10;
+  ctx.shadowColor = color;
+  ctx.strokeStyle = color + alphaHex;
+  ctx.lineWidth   = isPlay ? 1.5 : 1;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.stroke();
+  ctx.shadowBlur  = 0;
+
+  _drawSciFiCorners(x, y, w, h, 10, color);
+
+  if (isPlay) {
+    const wingLen = 18;
+    const wy = y + h / 2;
+    ctx.strokeStyle = color + '99'; ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 6; ctx.shadowColor = color;
+    ctx.beginPath(); ctx.moveTo(x - 2,   wy - 3); ctx.lineTo(x - 2 - wingLen,        wy - 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 2,   wy + 3); ctx.lineTo(x - 2 - wingLen * 0.55, wy + 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+w + 2, wy - 3); ctx.lineTo(x+w + 2 + wingLen,        wy - 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+w + 2, wy + 3); ctx.lineTo(x+w + 2 + wingLen * 0.55, wy + 3); ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  const fontSize = isPlay
+    ? Math.max(18, Math.min(26, Math.floor(w * 0.13)))
+    : Math.max(13, Math.min(18, Math.floor(w * 0.11)));
+  if (hovered || isPlay) { ctx.shadowBlur = 8; ctx.shadowColor = color; }
+  ctx.fillStyle = hovered ? '#FFFFFF' : (isPlay ? '#E0FFF8' : '#7ADDD4');
+  ctx.font      = `bold ${fontSize}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x + w / 2, y + h / 2 + Math.ceil(fontSize * 0.36));
+  ctx.shadowBlur = 0;
+}
+
+// ── Title screen ──────────────────────────────────────────────
+
 function drawTitle(W, H) {
+  const mobile = W < 600;
+  const pulse  = Math.sin(Date.now() * 0.003) * 0.5 + 0.5;
+  const teal    = '#00E5CC';
+  const tealDim = '#00897B';
+
   // ── Background particles ──────────────────────────────────
   if (Math.random() < 0.10) {
     const col = _ENEMY_COLORS[Math.floor(Math.random() * _ENEMY_COLORS.length)];
     _titleParts.push({
-      x:       Math.random() * W,
-      y:       H + 10,
-      vy:      -(40 + Math.random() * 90),
-      vx:      (Math.random() - 0.5) * 18,
-      color:   col,
-      size:    3 + Math.random() * 6,
-      life:    4 + Math.random() * 4,
-      maxLife: 8,
+      x: Math.random() * W, y: H + 10,
+      vy: -(40 + Math.random() * 90), vx: (Math.random() - 0.5) * 18,
+      color: col, size: 3 + Math.random() * 6, life: 4 + Math.random() * 4, maxLife: 8,
     });
   }
   _titleParts = _titleParts.filter(p => {
-    p.x   += p.vx * (1/60);
-    p.y   += p.vy * (1/60);
-    p.life -= 1/60;
-    const a = Math.min(0.7, (p.life / p.maxLife) * 1.4);
-    ctx.globalAlpha = a;
-    ctx.shadowBlur  = 10;
-    ctx.shadowColor = p.color;
-    ctx.fillStyle   = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    p.x += p.vx * (1/60); p.y += p.vy * (1/60); p.life -= 1/60;
+    ctx.globalAlpha = Math.min(0.7, (p.life / p.maxLife) * 1.4);
+    ctx.shadowBlur = 10; ctx.shadowColor = p.color; ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
     return p.life > 0;
   });
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur  = 0;
+  ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 
   // ── Title ─────────────────────────────────────────────────
-  const cy = H * 0.32;
-
-  // Title — min 48px, glow purple per UI spec
-  const titleSize = Math.max(48, Math.min(64, Math.floor(W * 0.052)));
-  ctx.shadowBlur  = 24;
-  ctx.shadowColor = '#5200ff';
-  ctx.fillStyle   = '#FFFFFF';
-  ctx.font        = `bold ${titleSize}px monospace`;
-  ctx.textAlign   = 'center';
-  ctx.fillText('CHROMATIC DECAY', W / 2, cy);
-  ctx.shadowBlur = 0;
-
-  // Subtitle
-  ctx.fillStyle = '#C4C8D4'; ctx.font = '22px monospace';
-  ctx.fillText('The signal is gone. You are not.', W / 2, cy + titleSize * 0.6 + 8);
-
-  // ── START button ──────────────────────────────────────────
-  const btnW  = Math.min(400, W * 0.90);
-  const btnH  = 56;
-  const btnX  = W / 2 - btnW / 2;
-  const btnY  = cy + titleSize * 0.6 + 36;
-  _titleBtns.start = { x: btnX, y: btnY, w: btnW, h: btnH };
-
-  const pulse = Math.sin(Date.now() * 0.003) * 0.5 + 0.5;
-
-  // Button fill
-  ctx.fillStyle = '#1E2130';
-  ctx.beginPath();
-  ctx.roundRect(btnX, btnY, btnW, btnH, 4);
-  ctx.fill();
-
-  // Button border — pulses subtly
-  ctx.shadowBlur  = 12 + pulse * 10;
-  ctx.shadowColor = '#5200ff';
-  ctx.strokeStyle = `rgba(82,0,255,${0.4 + pulse * 0.5})`;
-  ctx.lineWidth   = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(btnX, btnY, btnW, btnH, 4);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font      = 'bold 24px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('PLAY', W / 2, btnY + btnH / 2 + 7);
+  if (mobile) {
+    const titleSize = Math.max(36, Math.min(52, Math.floor(W * 0.12)));
+    ctx.shadowBlur = 20; ctx.shadowColor = '#5200ff'; ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${titleSize}px monospace`;
+    ctx.fillText('CHROMATIC', W / 2, H * 0.13);
+    ctx.fillText('DECAY',     W / 2, H * 0.13 + titleSize * 1.15);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '14px monospace';
+    ctx.fillText('The signal is gone. You are not.', W / 2, H * 0.13 + titleSize * 2.3 + 2);
+  } else {
+    const titleSize = Math.max(48, Math.min(72, Math.floor(W * 0.052)));
+    ctx.shadowBlur = 24; ctx.shadowColor = '#5200ff'; ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${titleSize}px monospace`;
+    ctx.fillText('CHROMATIC DECAY', W / 2, H * 0.22);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '18px monospace';
+    ctx.fillText('The signal is gone. You are not.', W / 2, H * 0.22 + titleSize * 0.65);
+  }
 
-  // ── Controls hint ─────────────────────────────────────────
-  ctx.fillStyle = '#4A4E58'; ctx.font = '15px monospace';
-  ctx.fillText('WASD  move  ·  MOUSE  aim  ·  CLICK  fire  ·  SPACE / F  ability  ·  ESC  pause', W / 2, btnY + btnH + 20);
+  // ── Buttons ───────────────────────────────────────────────
+  if (mobile) {
+    const playW = Math.min(W * 0.88, 340);
+    const playH = 58;
+    const playX = W / 2 - playW / 2;
+    const playY = H * 0.38;
+    const smW   = (playW - 12) / 2;
+    const smH   = 44;
+    const smY   = playY + playH + 14;
 
-  // ── Archive + Admin buttons ───────────────────────────────
-  const smBtnW = Math.min(160, W * 0.18);
-  const smBtnH = 44;
-  const smBtnGap = 12;
-  const smBtnTotalW = smBtnW * 2 + smBtnGap;
-  const smBtnStartX = W / 2 - smBtnTotalW / 2;
-  const smBtnY = btnY + btnH + 40;
+    _titleBtns.start   = { x: playX,             y: playY, w: playW, h: playH };
+    _titleBtns.archive = { x: playX,             y: smY,   w: smW,   h: smH   };
+    _titleBtns.admin   = { x: playX + smW + 12,  y: smY,   w: smW,   h: smH   };
 
-  _titleBtns.archive = { x: smBtnStartX,                     y: smBtnY, w: smBtnW, h: smBtnH };
-  _titleBtns.admin   = { x: smBtnStartX + smBtnW + smBtnGap, y: smBtnY, w: smBtnW, h: smBtnH };
+    _drawSciFiBtn(playX,            playY, playW, playH, 'PLAY',     true,  pulse, teal);
+    _drawSciFiBtn(playX,            smY,   smW,   smH,   'ARCHIVE',  false, pulse, tealDim);
+    _drawSciFiBtn(playX + smW + 12, smY,   smW,   smH,   'SETTINGS', false, pulse, tealDim);
+  } else {
+    const playW  = Math.min(280, W * 0.26);
+    const playH  = 64;
+    const sideW  = Math.min(180, W * 0.17);
+    const sideH  = 52;
+    const gap    = 18;
+    const totalW = sideW + gap + playW + gap + sideW;
+    const rowX   = W / 2 - totalW / 2;
+    const rowY   = H * 0.50;
+    const sideY  = rowY + (playH - sideH) / 2;
 
-  for (const [btn, label] of [[_titleBtns.archive, 'ARCHIVE'], [_titleBtns.admin, 'ADMIN']]) {
-    const hovered = input.mouseX >= btn.x && input.mouseX <= btn.x + btn.w &&
-                    input.mouseY >= btn.y && input.mouseY <= btn.y + btn.h;
-    ctx.fillStyle   = hovered ? '#1E2130' : '#0D0F17';
-    ctx.strokeStyle = hovered ? '#C4C8D4' : '#2A2E42';
-    ctx.lineWidth   = 1;
-    ctx.beginPath();
-    ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 4);
-    ctx.fill();
-    ctx.stroke();
+    _titleBtns.archive = { x: rowX,                             y: sideY, w: sideW, h: sideH };
+    _titleBtns.start   = { x: rowX + sideW + gap,               y: rowY,  w: playW, h: playH };
+    _titleBtns.admin   = { x: rowX + sideW + gap + playW + gap, y: sideY, w: sideW, h: sideH };
 
-    ctx.fillStyle = hovered ? '#FFFFFF' : '#4A4E58';
-    ctx.font      = '22px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2 + 5);
+    _drawSciFiBtn(_titleBtns.archive.x, _titleBtns.archive.y, sideW, sideH, 'ARCHIVE',  false, pulse, tealDim);
+    _drawSciFiBtn(_titleBtns.start.x,   _titleBtns.start.y,   playW, playH, 'PLAY',     true,  pulse, teal);
+    _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
 
   // ── Local records ─────────────────────────────────────────
-  const scores  = loadScores();
-  const scoresY = smBtnY + smBtnH + 28;
+  const scores = loadScores();
+  const recY   = mobile
+    ? _titleBtns.admin.y + _titleBtns.admin.h + 22
+    : _titleBtns.start.y + _titleBtns.start.h + 32;
   if (scores.length > 0) {
-    ctx.fillStyle = '#2A2E42'; ctx.font = '15px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('— FREQUENCY RECORDS —', W / 2, scoresY);
+    ctx.fillStyle = '#2A2E42'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('— FREQUENCY RECORDS —', W / 2, recY);
     scores.slice(0, 5).forEach((s, i) => {
       const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'Null');
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
-      ctx.font      = i === 0 ? 'bold 15px monospace' : '15px monospace';
+      ctx.font      = i === 0 ? 'bold 13px monospace' : '13px monospace';
       ctx.fillText(
-        `${i + 1}.  ${s.initials}   ${s.score.toLocaleString()}   ${formatTime(s.time)}   ${classLabel.toUpperCase()}`,
-        W / 2, scoresY + 18 + i * 17
+        `${i+1}.  ${s.initials}   ${s.score.toLocaleString()}   ${formatTime(s.time)}   ${classLabel.toUpperCase()}`,
+        W / 2, recY + 18 + i * 16
       );
     });
   }
 
-  // Version — smallest text, bottom of screen per UI spec
-  ctx.fillStyle = '#8A8E99'; ctx.font = '15px monospace';
-  ctx.fillText('v0.3.0', W / 2, H - 12);
+  // ── Controls hint box (mobile only) ──────────────────────
+  if (mobile) {
+    const boxH = 72, boxX = 14, boxW = W - 28;
+    const boxY = H - boxH - 30;
+    ctx.fillStyle = 'rgba(7,11,18,0.85)';
+    ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.fill();
+    ctx.strokeStyle = tealDim + '55'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.stroke();
+    _drawSciFiCorners(boxX, boxY, boxW, boxH, 8, tealDim + '88');
+    ctx.fillStyle = '#6A8E8A'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('WASD  move  ·  MOUSE  aim  ·  CLICK  fire', boxX + 14, boxY + 26);
+    ctx.fillText('SPACE / F  ability  ·  ESC  pause',          boxX + 14, boxY + 46);
+  }
+
+  // ── Version ───────────────────────────────────────────────
+  ctx.fillStyle = '#4A4E58'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('v0.3.0', W / 2, H - 8);
   ctx.textAlign = 'left';
 }
 
