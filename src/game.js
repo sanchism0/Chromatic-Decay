@@ -174,6 +174,8 @@ function startRun() {
   // Reset win screen state
   winInitials          = '';
   winInitialsSubmitted = false;
+  _kbdOverlay          = false;
+  _kbdIconBtn          = null;
 
   // Wave system — enable manual spawn mode and start wave 1
   enemies.manualSpawnMode = true;
@@ -221,6 +223,8 @@ function handleGameOver() {
   };
   initialsInput     = '';
   initialsSubmitted = false;
+  _kbdOverlay       = false;
+  _kbdIconBtn       = null;
   state = STATES.GAMEOVER;
 }
 
@@ -508,27 +512,61 @@ function _showNextUpgrade() {
 // Stored kbd button rects for tap hit-testing — populated each draw frame
 let _kbdBtns = [];
 
+// Keyboard icon button rect — populated each draw frame on mobile initials screens
+let _kbdIconBtn = null;
+
+// Keyboard overlay state (mobile) — shown when user taps the keyboard icon
+let _kbdOverlay = false;   // is overlay open?
+let _kbdOverlayInput = ''; // current input being edited in overlay
+let _kbdOverlayCb = null;  // { setValue, submit } callbacks
+
 function _handleKbdTap(initials, setFn, submitFn) {
   if (!input.mouseJustClicked) return;
   const mx = input.mouseX, my = input.mouseY;
   for (const btn of _kbdBtns) {
     if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
       if (btn.key === 'DEL') {
-        setFn(initials.slice(0, -1));
+        const v = initials.slice(0, -1);
+        setFn(v);
+        if (_kbdOverlay) _kbdOverlayInput = v;
       } else if (btn.key === 'OK') {
-        if (initials.length > 0) submitFn();
+        if (initials.length > 0) {
+          _kbdOverlay = false;
+          _kbdOverlayCb = null;
+          submitFn();
+        }
       } else if (initials.length < 3) {
-        setFn(initials + btn.key);
+        const v = initials + btn.key;
+        setFn(v);
+        if (_kbdOverlay) _kbdOverlayInput = v;
       }
       return;
     }
   }
 }
 
+// Opens the keyboard overlay for mobile initials entry
+function _openKbdOverlay(currentVal, setFn, submitFn) {
+  _kbdOverlay      = true;
+  _kbdOverlayInput = currentVal;
+  _kbdOverlayCb    = { setValue: setFn, submit: submitFn };
+}
+
 function updateGameOver() {
   if (!initialsSubmitted) {
     if (input.justPressed.space && initialsInput.length > 0) _submitScore();
-    _handleKbdTap(initialsInput, v => { initialsInput = v; }, _submitScore);
+    if (_kbdOverlay) {
+      _handleKbdTap(_kbdOverlayInput, v => { initialsInput = v; _kbdOverlayInput = v; }, _submitScore);
+    } else {
+      _handleKbdTap(initialsInput, v => { initialsInput = v; }, _submitScore);
+      // Keyboard icon tap — detect via _kbdIconBtn
+      if (input.mouseJustClicked && _kbdIconBtn && 'ontouchstart' in window) {
+        const b = _kbdIconBtn;
+        if (input.mouseX >= b.x && input.mouseX <= b.x+b.w && input.mouseY >= b.y && input.mouseY <= b.y+b.h) {
+          _openKbdOverlay(initialsInput, v => { initialsInput = v; }, _submitScore);
+        }
+      }
+    }
   } else {
     if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
   }
@@ -537,7 +575,17 @@ function updateGameOver() {
 function updateWin() {
   if (!winInitialsSubmitted) {
     if (input.justPressed.space && winInitials.length > 0) _submitWinScore();
-    _handleKbdTap(winInitials, v => { winInitials = v; }, _submitWinScore);
+    if (_kbdOverlay) {
+      _handleKbdTap(_kbdOverlayInput, v => { winInitials = v; _kbdOverlayInput = v; }, _submitWinScore);
+    } else {
+      _handleKbdTap(winInitials, v => { winInitials = v; }, _submitWinScore);
+      if (input.mouseJustClicked && _kbdIconBtn && 'ontouchstart' in window) {
+        const b = _kbdIconBtn;
+        if (input.mouseX >= b.x && input.mouseX <= b.x+b.w && input.mouseY >= b.y && input.mouseY <= b.y+b.h) {
+          _openKbdOverlay(winInitials, v => { winInitials = v; }, _submitWinScore);
+        }
+      }
+    }
   } else {
     if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
   }
@@ -640,8 +688,8 @@ function draw() {
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
-    case STATES.GAMEOVER:        drawGameOver(W, H);       break;
-    case STATES.WIN:             drawWin(W, H);            break;
+    case STATES.GAMEOVER:        drawGameOver(W, H); if (_kbdOverlay) drawKbdOverlay(W, H); break;
+    case STATES.WIN:             drawWin(W, H);      if (_kbdOverlay) drawKbdOverlay(W, H); break;
     case STATES.FRAGMENT_RESCUE: drawGame(W, H); drawFragmentRescue(W, H); break;
     case STATES.ARCHIVE:         drawArchive(W, H);        break;
     case STATES.ADMIN:           adminPanel.draw(ctx, canvas); break;
@@ -913,7 +961,7 @@ function drawTitle(W, H) {
     ctx.fillText('The signal is gone. You are not.', W / 2, titleY1 + titleSize * 2.1);
   } else {
     const titleSize = Math.max(48, Math.min(72, Math.floor(W * 0.052)));
-    const titleY    = H * 0.14;
+    const titleY    = H * 0.20;
     ctx.shadowBlur = 26; ctx.shadowColor = teal; ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${titleSize}px monospace`;
     ctx.fillText('CHROMATIC DECAY', W / 2, titleY);
@@ -933,7 +981,7 @@ function drawTitle(W, H) {
     const playW = Math.min(W * 0.88, 340);
     const playH = 52;
     const playX = W / 2 - playW / 2;
-    const playY = H * 0.30;
+    const playY = H * 0.44;
     const smW   = (playW - 12) / 2;
     const smH   = 40;
     const smY   = playY + playH + 10;
@@ -953,7 +1001,7 @@ function drawTitle(W, H) {
     const gap    = 16;
     const totalW = sideW + gap + playW + gap + sideW;
     const rowX   = W / 2 - totalW / 2;
-    const rowY   = H * 0.36;
+    const rowY   = H * 0.42;
     const sideY  = rowY + (playH - sideH) / 2;
 
     _titleBtns.archive = { x: rowX,                             y: sideY, w: sideW, h: sideH };
@@ -1278,9 +1326,21 @@ function drawWin(W, H) {
     ctx.shadowBlur  = 0;
     ctx.fillStyle   = '#4A4E58';
     ctx.font        = '12px monospace';
-    ctx.fillText('ontouchstart' in window ? 'tap letters below' : 'type 3 letters · ENTER to confirm', W / 2, ly + 56);
-    if ('ontouchstart' in window) drawOnScreenKeyboard(W, ly + 72, winInitials);
-    else _kbdBtns = [];
+    if ('ontouchstart' in window) {
+      ctx.fillText('tap ⌨ to enter initials', W / 2, ly + 56);
+      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = ly + 68;
+      _kbdIconBtn = { x: ibX, y: ibY, w: ibW, h: ibH };
+      ctx.fillStyle   = 'rgba(0,137,123,0.25)';
+      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.fill();
+      ctx.strokeStyle = '#00897B'; ctx.lineWidth = 1.5;
+      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.stroke();
+      ctx.fillStyle = '#00E5CC'; ctx.font = '26px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('⌨', ibX + ibW/2, ibY + ibH/2 + 9);
+      _kbdBtns = [];
+    } else {
+      ctx.fillText('type 3 letters · ENTER to confirm', W / 2, ly + 56);
+      _kbdBtns = [];
+    }
   } else {
     ctx.fillStyle = '#B8882A';
     ctx.font      = 'bold 22px monospace';
@@ -1506,6 +1566,51 @@ function drawOnScreenKeyboard(W, startY, currentInput) {
   return startY + rows.length * (btnH + gap);
 }
 
+// ── Mobile keyboard overlay ───────────────────────────────────
+
+function drawKbdOverlay(W, H) {
+  if (!_kbdOverlay) return;
+
+  // Full-screen dim
+  ctx.fillStyle = 'rgba(7,9,14,0.93)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#7ADDD4'; ctx.font = '13px monospace';
+  ctx.fillText('ENTER YOUR INITIALS', W / 2, H * 0.18);
+
+  // Initials display
+  ctx.shadowBlur = 10; ctx.shadowColor = '#00E5CC';
+  ctx.fillStyle  = '#FFFFFF'; ctx.font = 'bold 38px monospace';
+  ctx.fillText(_kbdOverlayInput.padEnd(3, '_').split('').join('  '), W / 2, H * 0.18 + 46);
+  ctx.shadowBlur = 0;
+
+  // Keyboard
+  const kbdY = H * 0.18 + 72;
+  drawOnScreenKeyboard(W, kbdY, _kbdOverlayInput);
+
+  // SAVE button — replaces OK key, shown prominently at bottom
+  const saveW = Math.min(200, W * 0.55), saveH = 44;
+  const saveX = W / 2 - saveW / 2;
+  const saveY = kbdY + 4 * (40 + 5) + 14;  // below 4 keyboard rows
+  const canSave = _kbdOverlayInput.length > 0;
+
+  ctx.fillStyle   = canSave ? 'rgba(0,137,123,0.7)' : 'rgba(74,78,88,0.3)';
+  _roundRect(saveX, saveY, saveW, saveH, 6);
+  ctx.fill();
+  ctx.strokeStyle = canSave ? '#00E5CC' : '#4A4E58'; ctx.lineWidth = 1.5;
+  _roundRect(saveX, saveY, saveW, saveH, 6);
+  ctx.stroke();
+  ctx.fillStyle = canSave ? '#FFFFFF' : '#4A4E58';
+  ctx.font = 'bold 15px monospace';
+  ctx.fillText('SAVE', W / 2, saveY + saveH / 2 + 5);
+
+  // Register SAVE in _kbdBtns so _handleKbdTap can pick it up via 'OK' key
+  _kbdBtns.push({ x: saveX, y: saveY, w: saveW, h: saveH, key: 'OK' });
+
+  ctx.textAlign = 'left';
+}
+
 // ── Game over screen ──────────────────────────────────────────
 
 function drawGameOver(W, H) {
@@ -1550,9 +1655,22 @@ function drawGameOver(W, H) {
     ctx.fillText(initialsInput.padEnd(3, '_').split('').join(' '), W/2, iy + 36);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#4A4E58'; ctx.font = '12px monospace';
-    ctx.fillText('ontouchstart' in window ? 'tap letters below' : 'type 3 letters · ENTER to confirm', W/2, iy + 56);
-    if ('ontouchstart' in window) drawOnScreenKeyboard(W, iy + 72, initialsInput);
-    else _kbdBtns = [];
+    if ('ontouchstart' in window) {
+      ctx.fillText('tap ⌨ to enter initials', W/2, iy + 56);
+      // Keyboard icon button
+      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = iy + 68;
+      _kbdIconBtn = { x: ibX, y: ibY, w: ibW, h: ibH };
+      ctx.fillStyle   = 'rgba(0,137,123,0.25)';
+      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.fill();
+      ctx.strokeStyle = '#00897B'; ctx.lineWidth = 1.5;
+      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.stroke();
+      ctx.fillStyle = '#00E5CC'; ctx.font = '26px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('⌨', ibX + ibW/2, ibY + ibH/2 + 9);
+      _kbdBtns = [];
+    } else {
+      ctx.fillText('type 3 letters · ENTER to confirm', W/2, iy + 56);
+      _kbdBtns = [];
+    }
   } else {
     ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
     ctx.fillText('SCORE RECORDED', W/2, iy + 18);
