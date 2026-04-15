@@ -165,12 +165,20 @@ async function _refreshScores() {
 async function saveScore(entry) {
   _saveLocalScore(entry);
   try {
-    await fetch(`${_SB_URL}/rest/v1/scores`, {
+    const res = await fetch(`${_SB_URL}/rest/v1/scores`, {
       method:  'POST',
       headers: { ..._SB_HEADERS, 'Prefer': 'return=minimal' },
       body:    JSON.stringify(entry),
     });
-  } catch { /* offline — local save above is the fallback */ }
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('[Chromatic Decay] Score save failed:', res.status, body);
+    } else {
+      console.log('[Chromatic Decay] Score saved to Supabase:', entry);
+    }
+  } catch (err) {
+    console.error('[Chromatic Decay] Score save error (offline?):', err);
+  }
   await _refreshScores();
 }
 
