@@ -327,6 +327,17 @@ function updatePlaying(dt) {
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
 
+  // ── Auto-trigger ability when an enemy is within 200px ───
+  if (player.classId && player.abilityCooldown <= 0) {
+    const r2 = 200 * 200;
+    const inRange = enemies.enemies.some(e => {
+      if (!e.isAlive) return false;
+      const dx = e.x - player.x, dy = e.y - player.y;
+      return dx * dx + dy * dy <= r2;
+    });
+    if (inRange) player._useAbility();
+  }
+
   // Circuit Breaker stun: signal set in player._useAbility(), applied here
   if (player._circuitBreakerActivated) {
     player._circuitBreakerActivated = false;
@@ -908,30 +919,6 @@ function drawMobileControls(W, H) {
   const rBaseX = rj ? rj.baseX : rRestX;
   const rBaseY = rj ? rj.baseY : rRestY;
   drawJoystick(rBaseX, rBaseY, rj ? rj.curX : rBaseX, rj ? rj.curY : rBaseY, !!rj);
-
-  // Ability button — above right joystick rest position
-  const abR    = 44;
-  const abX    = input.abilityBtnX;
-  const abY    = input.abilityBtnY;
-  const abReady = player.abilityCooldown <= 0 && !!player.classId;
-
-  ctx.beginPath();
-  ctx.arc(abX, abY, abR, 0, Math.PI * 2);
-  ctx.fillStyle = abReady ? 'rgba(255,245,194,0.18)' : 'rgba(74,78,88,0.25)';
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(abX, abY, abR, 0, Math.PI * 2);
-  ctx.strokeStyle = abReady ? 'rgba(255,245,194,0.70)' : 'rgba(74,78,88,0.55)';
-  ctx.lineWidth   = 2;
-  if (abReady) { ctx.shadowBlur = 10; ctx.shadowColor = '#fff5c2'; }
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = abReady ? '#fff5c2' : '#4A4E58';
-  ctx.font      = '18px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('ABILITY', abX, abY + 6);
-  ctx.textAlign = 'left';
 }
 
 // ── Title ─────────────────────────────────────────────────────

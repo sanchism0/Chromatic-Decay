@@ -11,7 +11,7 @@ export class Input {
     };
     // Edge detection — true for exactly one frame
     this.justPressed = {
-      escape: false, space: false, f: false, touchAbility: false,
+      escape: false, space: false, f: false,
     };
     this._prevEscape = false;
     this._prevSpace  = false;
@@ -29,12 +29,9 @@ export class Input {
     this.touchMoveY    = 0;
     this.touchAimAngle = null;   // radians from right joystick, null = inactive
 
-    this._joystickRadius    = 72;
-    this._leftTouch         = null;  // { id, baseX, baseY, curX, curY }
-    this._rightTouch        = null;
-    this._abilityTouchId    = null;
-    this._abilityTouchDown  = false;
-    this._prevAbilityTouch  = false;
+    this._joystickRadius = 72;
+    this._leftTouch      = null;  // { id, baseX, baseY, curX, curY }
+    this._rightTouch     = null;
 
     this._bindEvents();
     this._bindTouchEvents();
@@ -84,7 +81,6 @@ export class Input {
 
   _bindTouchEvents() {
     const canvas = this.canvas;
-    const abilityBtnRadius = 44;
 
     const getCanvasPos = (touch) => {
       const rect = canvas.getBoundingClientRect();
@@ -95,11 +91,6 @@ export class Input {
         y: (touch.clientY - rect.top)  * scaleY,
       };
     };
-
-    const abilityBtnPos = () => ({
-      x: canvas.width  * 0.82,
-      y: canvas.height - 40 - this._joystickRadius - 44 - 20,
-    });
 
     // Track touch start positions to detect taps vs drags
     this._touchStartPos = {};
@@ -115,15 +106,6 @@ export class Input {
         this.mouseX = x;
         this.mouseY = y;
         this._touchStartPos[t.identifier] = { x, y };
-
-        const ab = abilityBtnPos();
-
-        // Ability button takes priority
-        if (Math.hypot(x - ab.x, y - ab.y) < abilityBtnRadius) {
-          this._abilityTouchId   = t.identifier;
-          this._abilityTouchDown = true;
-          continue;
-        }
 
         // Left half → move joystick
         if (x < W / 2 && !this._leftTouch) {
@@ -170,18 +152,14 @@ export class Input {
 
         if (this._leftTouch   && t.identifier === this._leftTouch.id)   this._leftTouch   = null;
         if (this._rightTouch  && t.identifier === this._rightTouch.id)  this._rightTouch  = null;
-        if (t.identifier === this._abilityTouchId) {
-          this._abilityTouchId   = null;
-          this._abilityTouchDown = false;
-        }
       }
       this._updateTouchState();
     }, { passive: false });
 
     canvas.addEventListener('touchcancel', e => {
-      this._leftTouch = null; this._rightTouch = null;
-      this._abilityTouchId = null; this._abilityTouchDown = false;
-      this._touchStartPos  = {};
+      this._leftTouch     = null;
+      this._rightTouch    = null;
+      this._touchStartPos = {};
       this._updateTouchState();
     }, { passive: false });
   }
@@ -240,15 +218,13 @@ export class Input {
     };
   }
 
-  // Ability button — Space, F, or touch ability button
+  // Ability — keyboard only (Space or F); auto-trigger handled by game.js
   get abilityJustPressed() {
-    return this.justPressed.space || this.justPressed.f || this.justPressed.touchAbility;
+    return this.justPressed.space || this.justPressed.f;
   }
 
   // Expose joystick state for HUD drawing
   get leftJoystick()   { return this._leftTouch;  }
   get rightJoystick()  { return this._rightTouch; }
   get joystickRadius() { return this._joystickRadius; }
-  get abilityBtnX()    { return this.canvas.width  * 0.82; }
-  get abilityBtnY()    { return this.canvas.height - 40 - this._joystickRadius - 44 - 20; }
 }
