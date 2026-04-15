@@ -960,20 +960,25 @@ function drawTitle(W, H) {
     ctx.fillStyle = '#7ADDD4'; ctx.font = '13px monospace';
     ctx.fillText('The signal is gone. You are not.', W / 2, titleY1 + titleSize * 2.1);
   } else {
-    const titleSize = Math.max(48, Math.min(72, Math.floor(W * 0.052)));
-    const titleY    = H * 0.20;
+    // Anchor title block just above button row
+    const playH    = 60;
+    const rowY     = H * 0.42;
+    const titleSize = Math.max(36, Math.min(52, Math.floor(W * 0.040)));
+    const blockH   = titleSize + 10 + 18 + 10; // title + underline gap + subtitle + padding
+    const titleY   = rowY - blockH - 14;
+
     ctx.shadowBlur = 26; ctx.shadowColor = teal; ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${titleSize}px monospace`;
     ctx.fillText('CHROMATIC DECAY', W / 2, titleY);
     ctx.shadowBlur = 0;
-    // Teal underline beneath title
-    const ulW = Math.min(520, W * 0.55), ulY = titleY + 14;
+
+    const ulW = Math.min(520, W * 0.55), ulY = titleY + 10;
     ctx.strokeStyle = teal + 'AA'; ctx.lineWidth = 1.5;
-    ctx.shadowBlur = 8; ctx.shadowColor = teal;
+    ctx.shadowBlur = 6; ctx.shadowColor = teal;
     ctx.beginPath(); ctx.moveTo(W/2 - ulW/2, ulY); ctx.lineTo(W/2 + ulW/2, ulY); ctx.stroke();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#7ADDD4'; ctx.font = '16px monospace';
-    ctx.fillText('The signal is gone. You are not.', W / 2, titleY + titleSize * 0.60);
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '15px monospace';
+    ctx.fillText('The signal is gone. You are not.', W / 2, ulY + 22);
   }
 
   // ── Buttons ───────────────────────────────────────────────
