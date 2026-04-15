@@ -150,7 +150,7 @@ function loadScores() {
 async function _refreshScores() {
   try {
     const res = await fetch(
-      `${_SB_URL}/rest/v1/scores?select=initials,score,wave,class,subclass,time,kills,echoes&platform=eq.${_platform}&order=score.desc&limit=10`,
+      `${_SB_URL}/rest/v1/scores?select=initials,score,wave,class,time&platform=eq.${_platform}&order=score.desc&limit=10`,
       { headers: _SB_HEADERS }
     );
     if (!res.ok) throw new Error(res.status);
@@ -637,19 +637,12 @@ function updateWin() {
 function _submitWinScore() {
   const wd = waveSystem;
   saveScore({
-    initials:       winInitials.padEnd(3, '_').slice(0, 3),
-    score:          wd.finalScore,
-    wave:           15,
-    platform:       _platform,
-    kill_score:     wd.killScore,
-    time_bonus:     wd.timeBonus,
-    class:          player.classId || 'Null',
-    subclass:       player.subclassId || null,
-    time:           Math.floor(wd.completionTime),
-    kills:          player.kills,
-    echoes:         player.echoesRescued,
-    waves_cleared:  15,
-    under_target:   wd.completionTime < CONFIG.target_time_seconds,
+    initials:  winInitials.padEnd(3, '_').slice(0, 3),
+    score:     wd.finalScore,
+    wave:      15,
+    platform:  _platform,
+    class:     player.classId || null,
+    time:      Math.floor(wd.completionTime),
   });
   winInitialsSubmitted = true;
 }
@@ -676,11 +669,8 @@ function _submitScore() {
     score:     gameOverData.score,
     wave:      gameOverData.wave || 0,
     platform:  _platform,
-    class:     gameOverData.classId,
-    subclass:  gameOverData.subclass,
+    class:     gameOverData.classId || null,
     time:      Math.floor(gameOverData.time),
-    kills:     gameOverData.kills,
-    echoes:    gameOverData.echoes,
   });
   initialsSubmitted = true;
   state = STATES.TITLE;
@@ -1129,7 +1119,7 @@ function drawTitle(W, H) {
 
     // Data rows
     scores.slice(0, 5).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'null');
+      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'No Class');
       const rowY = panelY + 44 + i * 16;
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
       ctx.font      = i === 0 ? 'bold 11px monospace' : '11px monospace';
@@ -1317,7 +1307,7 @@ function drawArchive(W, H) {
 
     // Data rows
     scores.slice(0, 8).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'null');
+      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'No Class');
       const rowY = tableY + 34 + i * 15;
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
       ctx.font      = i === 0 ? 'bold 13px monospace' : '13px monospace';
