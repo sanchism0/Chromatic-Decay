@@ -71,16 +71,22 @@ const FIELD_GROUPS = [
 
 // ── AdminPanel class ──────────────────────────────────────────
 
+const ADMIN_PASSWORD = 'decay';   // ← change this to whatever you want
+
 export class AdminPanel {
   constructor() {
-    this.active       = false;
-    this._scrollY     = 0;           // vertical scroll offset (px)
-    this._maxScrollY  = 0;
-    this._hovered     = null;        // { group, field }
-    this._editingKey  = null;        // CONFIG key being typed into
-    this._editBuffer  = '';          // raw string being edited
-    this._statusMsg   = '';
-    this._statusTimer = 0;
+    this.active         = false;
+    this._authenticated = false;
+    this._pwBuffer      = '';
+    this._pwFailed      = false;
+    this._pwFailTimer   = 0;
+    this._scrollY       = 0;
+    this._maxScrollY    = 0;
+    this._hovered       = null;
+    this._editingKey    = null;
+    this._editBuffer    = '';
+    this._statusMsg     = '';
+    this._statusTimer   = 0;
 
     // Local shadow of CONFIG values — applied on demand
     this._values = this._snapshot();
@@ -103,15 +109,20 @@ export class AdminPanel {
   }
 
   open() {
-    this.active   = true;
-    this._scrollY = 0;
-    this._values  = this._snapshot();  // refresh from current CONFIG
+    this.active         = true;
+    this._authenticated = false;
+    this._pwBuffer      = '';
+    this._pwFailed      = false;
+    this._scrollY       = 0;
+    this._values        = this._snapshot();
   }
 
   close() {
-    this.active      = false;
-    this._editingKey = null;
-    this._editBuffer = '';
+    this.active         = false;
+    this._authenticated = false;
+    this._pwBuffer      = '';
+    this._editingKey    = null;
+    this._editBuffer    = '';
   }
 
   _setStatus(msg) {
@@ -123,6 +134,28 @@ export class AdminPanel {
 
   handleKey(e) {
     if (!this.active) return false;
+
+    // ── Password gate ─────────────────────────────────────────
+    if (!this._authenticated) {
+      if (e.key === 'Escape') { this.close(); return true; }
+      if (e.key === 'Backspace') { this._pwBuffer = this._pwBuffer.slice(0, -1); return true; }
+      if (e.key === 'Enter') {
+        if (this._pwBuffer === ADMIN_PASSWORD) {
+          this._authenticated = true;
+          this._pwBuffer      = '';
+        } else {
+          this._pwFailed    = true;
+          this._pwFailTimer = 1.5;
+          this._pwBuffer    = '';
+        }
+        return true;
+      }
+      if (e.key.length === 1 && this._pwBuffer.length < 20) {
+        this._pwBuffer += e.key;
+        return true;
+      }
+      return true;
+    }
 
     if (this._editingKey) {
       if (e.key === 'Escape') {
@@ -170,6 +203,7 @@ export class AdminPanel {
 
   handleClick(mouseX, mouseY, canvas) {
     if (!this.active) return false;
+    if (!this._authenticated) return false;
 
     const layout = this._layout(canvas.width, canvas.height);
 
@@ -334,6 +368,7 @@ export class AdminPanel {
   update(dt) {
     if (!this.active) return;
     this._statusTimer = Math.max(0, this._statusTimer - dt);
+    this._pwFailTimer = Math.max(0, this._pwFailTimer - dt);
   }
 
   // ── Draw ─────────────────────────────────────────────────────
@@ -342,6 +377,53 @@ export class AdminPanel {
     if (!this.active) return;
 
     const W = canvas.width, H = canvas.height;
+
+    // ── Password overlay ──────────────────────────────────────
+    if (!this._authenticated) {
+      ctx.fillStyle = 'rgba(10,11,16,0.97)';
+      ctx.fillRect(0, 0, W, H);
+
+      const cy = H * 0.40;
+      ctx.fillStyle = '#B8882A';
+      ctx.font      = 'bold 15px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('ADMIN ACCESS', W / 2, cy - 20);
+
+      ctx.fillStyle = '#4A4E58';
+      ctx.font      = '11px monospace';
+      ctx.fillText('enter password', W / 2, cy);
+
+      // Password input box
+      const boxW = 260, boxH = 36;
+      const boxX = W / 2 - boxW / 2, boxY = cy + 12;
+      ctx.fillStyle   = '#13151C';
+      drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 4);
+      ctx.fill();
+      ctx.strokeStyle = this._pwFailed && this._pwFailTimer > 0 ? '#cc3344' : '#4A5070';
+      ctx.lineWidth   = 1.5;
+      drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 4);
+      ctx.stroke();
+
+      const masked = '●'.repeat(this._pwBuffer.length) + '|';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font      = 'bold 16px monospace';
+      ctx.fillText(masked, W / 2, boxY + boxH / 2 + 6);
+
+      if (this._pwFailed && this._pwFailTimer > 0) {
+        ctx.fillStyle   = '#cc3344';
+        ctx.globalAlpha = Math.min(1, this._pwFailTimer);
+        ctx.font        = '11px monospace';
+        ctx.fillText('incorrect password', W / 2, boxY + boxH + 18);
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.fillStyle = '#2A2E42';
+      ctx.font      = '10px monospace';
+      ctx.fillText('ENTER to confirm  ·  ESC to cancel', W / 2, boxY + boxH + (this._pwFailed ? 34 : 20));
+      ctx.textAlign = 'left';
+      return;
+    }
+
     const layout = this._layout(W, H);
 
     // Backdrop
