@@ -1207,7 +1207,8 @@ function drawWin(W, H) {
     ctx.fillStyle   = '#4A4E58';
     ctx.font        = '12px monospace';
     ctx.fillText('ontouchstart' in window ? 'tap letters below' : 'type 3 letters · ENTER to confirm', W / 2, ly + 56);
-    drawOnScreenKeyboard(W, ly + 72, winInitials);
+    if ('ontouchstart' in window) drawOnScreenKeyboard(W, ly + 72, winInitials);
+    else _kbdBtns = [];
   } else {
     ctx.fillStyle = '#B8882A';
     ctx.font      = 'bold 22px monospace';
@@ -1478,7 +1479,8 @@ function drawGameOver(W, H) {
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#4A4E58'; ctx.font = '12px monospace';
     ctx.fillText('ontouchstart' in window ? 'tap letters below' : 'type 3 letters · ENTER to confirm', W/2, iy + 56);
-    drawOnScreenKeyboard(W, iy + 72, initialsInput);
+    if ('ontouchstart' in window) drawOnScreenKeyboard(W, iy + 72, initialsInput);
+    else _kbdBtns = [];
   } else {
     ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
     ctx.fillText('SCORE RECORDED', W/2, iy + 18);
