@@ -615,6 +615,60 @@ export class Player {
     ctx.shadowBlur  = 0;
     ctx.globalAlpha = 1;
 
+    // Ability cooldown / ready ring
+    if (this.classId && this.abilityCooldownMax > 0) {
+      const ringR   = s + 14;
+      const ready   = this.abilityCooldown <= 0;
+      const cdPct   = ready ? 1 : 1 - this.abilityCooldown / this.abilityCooldownMax;
+      const t       = Date.now() * 0.003;
+
+      if (ready) {
+        // Outer pulse ring — slow breathe
+        const pulse = 0.55 + Math.sin(t * 1.8) * 0.35;
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = '#fff5c2';
+        ctx.lineWidth   = 1.5;
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = '#fff5c2';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, ringR + 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Inner cyan ring — rotating dashes (lightning feel)
+        const dashRotate = t * 1.2;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(dashRotate);
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth   = 2;
+        ctx.shadowBlur  = 12;
+        ctx.shadowColor = '#00e5ff';
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      } else {
+        // Charging arc — fills clockwise from top as cooldown ticks down
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth   = 1.5;
+        ctx.shadowBlur  = 6;
+        ctx.shadowColor = '#00e5ff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, ringR,
+          -Math.PI / 2,
+          -Math.PI / 2 + Math.PI * 2 * cdPct);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
+    }
+
     // Shield ring
     if (this.shield > 0) {
       const shieldRatio = this.shield / 80;
