@@ -1134,7 +1134,7 @@ function drawTitle(W, H) {
 
     // Data rows
     scores.slice(0, 5).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'No Class');
+      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
       const rowY = panelY + 44 + i * 16;
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
       ctx.font      = i === 0 ? 'bold 11px monospace' : '11px monospace';
@@ -1322,7 +1322,7 @@ function drawArchive(W, H) {
 
     // Data rows
     scores.slice(0, 8).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class || 'No Class');
+      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
       const rowY = tableY + 34 + i * 15;
       ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
       ctx.font      = i === 0 ? 'bold 13px monospace' : '13px monospace';
