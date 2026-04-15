@@ -345,6 +345,14 @@ export class EnemySystem {
     return e;
   }
 
+  // Spawn at an explicit position (used by wave system after charge resolves)
+  spawnEnemyAt(type, x, y) {
+    const e = new Enemy(type, x, y);
+    e.scaleHp(this.elapsedMin);
+    this.enemies.push(e);
+    return e;
+  }
+
   _getMix(elapsedMin) {
     const brackets = CONFIG.population_time_brackets;
     let idx = 0;

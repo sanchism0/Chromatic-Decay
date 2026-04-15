@@ -15,7 +15,7 @@ import { TrapSystem }       from './traps.js';
 import { HUD }              from './hud.js';
 import { LoreFeed }         from './lore.js';
 import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
-import { WaveSystem } from './waves.js';
+import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
 
@@ -746,6 +746,30 @@ function drawGame(W, H) {
   player.draw(ctx);
   companions.draw(ctx);
   particles.draw(ctx);
+
+  // ── Charging zones (pre-spawn indicators) ────────────────
+  if (waveSystem && waveSystem.pendingSpawns.length > 0) {
+    for (const ps of waveSystem.pendingSpawns) {
+      const progress = 1 - ps.chargeTimer / 1.0; // 0→1 as charge completes
+      const flash    = Math.sin(Date.now() * 0.018) * 0.5 + 0.5; // 0–1 pulse
+      const alpha    = 0.25 + flash * 0.45;
+      const radius   = 18 + (1 - progress) * 14; // shrinks as it charges up
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = CHARGE_COLORS[ps.type] || '#ffffff';
+      ctx.shadowBlur  = 12;
+      ctx.shadowColor = CHARGE_COLORS[ps.type] || '#ffffff';
+      ctx.lineWidth   = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(ps.x, ps.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur  = 0;
+      ctx.restore();
+    }
+  }
 
   // ── Mobile aim line ───────────────────────────────────────
   if ('ontouchstart' in window) {

@@ -4,6 +4,16 @@
 
 import { CONFIG } from './config.js';
 
+// Per-type gap between consecutive spawns of the same type (seconds)
+const SPAWN_GAPS = { violet: 0.5, yellow: 0.5, green: 0.5, orange: 0.5, pink: 5.0 };
+// How long the charging zone flashes before the enemy actually appears
+const CHARGE_TIME = 1.0;
+// Color of each type's charging zone — also used by game.js for rendering
+export const CHARGE_COLORS = {
+  violet: '#5200ff', yellow: '#e9ff6a', green: '#8dff6a',
+  orange: '#fd6c1d', pink:   '#f81d78',
+};
+
 // ── Wave compositions ─────────────────────────────────────────
 // enemies: { type: count }  —  pink = boss
 // sequentialBosses: each subsequent boss spawns when current boss hits 50% HP
@@ -46,14 +56,17 @@ export class WaveSystem {
     this.killScore      = 0;      // total kill points earned this run
 
     // Per-wave spawn state
-    this.waveSpawnQueue = [];     // flat list of type strings queued to spawn
-    this.spawnTimer     = 0;      // stagger timer between spawns
-    this.spawnInterval  = 0.18;   // seconds between each staggered spawn
+    this.waveSpawnQueue  = [];    // flat shuffled list of non-pink types waiting to be announced
+    this._typeCooldowns  = {};    // { type: secondsRemaining } — per-type spawn gap tracking
+
+    // Pending spawns — announced but not yet spawned; exposed for game.js (charging zone draw)
+    this.pendingSpawns   = [];    // [{ type, x, y, chargeTimer }]
 
     // Boss tracking (sequential bosses)
     this.activeBoss      = null;  // reference to most-recently-spawned boss enemy
     this.pendingBosses   = 0;     // bosses still waiting to spawn this wave
     this._bossTriggered  = false; // prevents double-spawn on 50% HP check
+    this._bossCharging   = false; // true while a pink is in the pending charge queue
 
     // Level granting — game.js reads and decrements this
     this.pendingLevels  = 0;
@@ -80,15 +93,17 @@ export class WaveSystem {
     const waveData = WAVE_DATA[waveId - 1];
     if (!waveData) return;
 
-    this.wave           = waveId;
-    this.waveTimer      = waveData.timer;
-    this.active         = true;
-    this.waveClearFlag  = false;
-    this.timerExpired   = false;
-    this.spawnTimer     = 0;
-    this.activeBoss     = null;
-    this._bossTriggered = false;
-    this.pendingBosses  = waveData.enemies.pink || 0;
+    this.wave            = waveId;
+    this.waveTimer       = waveData.timer;
+    this.active          = true;
+    this.waveClearFlag   = false;
+    this.timerExpired    = false;
+    this.activeBoss      = null;
+    this._bossTriggered  = false;
+    this._bossCharging   = false;
+    this._typeCooldowns  = {};
+    this.pendingSpawns   = [];
+    this.pendingBosses   = waveData.enemies.pink || 0;
 
     // Build shuffled spawn queue — non-boss types only
     this.waveSpawnQueue = [];
@@ -128,8 +143,7 @@ export class WaveSystem {
     // Add new bosses
     const newBosses = waveData.enemies.pink || 0;
     this.pendingBosses += newBosses;
-    // Spawn a boss immediately if none is currently active
-    if (newBosses > 0 && (!this.activeBoss || !this.activeBoss.isAlive)) {
+    if (newBosses > 0 && !this.activeBoss && !this._bossCharging) {
       this._spawnBoss(enemySystem, map, player);
       this.pendingBosses--;
     }
@@ -150,31 +164,54 @@ export class WaveSystem {
       }
     }
 
-    // Staggered enemy spawning from queue
+    // ── Tick per-type cooldowns ───────────────────────────────
+    for (const type of Object.keys(this._typeCooldowns)) {
+      this._typeCooldowns[type] = Math.max(0, this._typeCooldowns[type] - dt);
+    }
+
+    // ── Announce next enemy from queue (respects per-type gap) ──
     if (this.waveSpawnQueue.length > 0) {
-      this.spawnTimer -= dt;
-      if (this.spawnTimer <= 0) {
-        this.spawnTimer = this.spawnInterval;
-        const type = this.waveSpawnQueue.shift();
-        enemySystem.spawnEnemy(type, map, player);
+      for (let i = 0; i < this.waveSpawnQueue.length; i++) {
+        const type = this.waveSpawnQueue[i];
+        if ((this._typeCooldowns[type] || 0) <= 0) {
+          this.waveSpawnQueue.splice(i, 1);
+          this._announceSpawn(type, map, player, enemySystem);
+          this._typeCooldowns[type] = SPAWN_GAPS[type] || 0.5;
+          break; // one announcement per frame
+        }
       }
     }
 
-    // Sequential boss logic: null out dead boss reference
+    // ── Resolve pending (charging) spawns ────────────────────
+    for (let i = this.pendingSpawns.length - 1; i >= 0; i--) {
+      const ps = this.pendingSpawns[i];
+      ps.chargeTimer -= dt;
+      if (ps.chargeTimer <= 0) {
+        const e = enemySystem.spawnEnemyAt(ps.type, ps.x, ps.y);
+        if (ps.type === 'pink') {
+          this.activeBoss    = e;
+          this._bossCharging = false;
+          this._bossTriggered = false;
+        }
+        this.pendingSpawns.splice(i, 1);
+      }
+    }
+
+    // ── Sequential boss logic ─────────────────────────────────
     if (this.activeBoss && !this.activeBoss.isAlive) {
       this.activeBoss     = null;
       this._bossTriggered = false;
     }
 
     const waveData = WAVE_DATA[this.wave - 1];
-    if (this.pendingBosses > 0 && waveData && waveData.sequentialBosses) {
+    if (this.pendingBosses > 0 && waveData && waveData.sequentialBosses && !this._bossCharging) {
       if (!this.activeBoss) {
-        // Previous boss died — spawn next
+        // Previous boss died — announce next
         this._spawnBoss(enemySystem, map, player);
         this.pendingBosses--;
       } else if (!this._bossTriggered &&
                  this.activeBoss.hp / this.activeBoss.maxHp <= CONFIG.boss_spawn_threshold) {
-        // Current boss at 50% HP — trigger next spawn
+        // Current boss at 50% HP — announce next
         this._bossTriggered = true;
         this._spawnBoss(enemySystem, map, player);
         this.pendingBosses--;
@@ -223,10 +260,18 @@ export class WaveSystem {
   }
 
   _spawnBoss(enemySystem, map, player) {
-    const e             = enemySystem.spawnEnemy('pink', map, player);
-    this.activeBoss     = e;
-    this._bossTriggered = false;
-    return e;
+    // Bosses use the charge system — activeBoss is set when charge resolves
+    this._bossCharging = true;
+    this._announceSpawn('pink', map, player, enemySystem);
+  }
+
+  _announceSpawn(type, map, player, enemySystem) {
+    const occupied = [
+      ...enemySystem.enemies.map(e => ({ x: e.x, y: e.y })),
+      ...this.pendingSpawns.map(p => ({ x: p.x, y: p.y })),
+    ];
+    const pos = map.randomSpawn(player.x, player.y, occupied);
+    this.pendingSpawns.push({ type, x: pos.x, y: pos.y, chargeTimer: CHARGE_TIME });
   }
 
   // ── Convenience getters ───────────────────────────────────────
