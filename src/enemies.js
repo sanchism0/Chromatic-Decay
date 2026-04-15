@@ -105,16 +105,49 @@ class Enemy {
     const spd = (speedOverride !== undefined ? speedOverride : this.cfg.move_speed) * (1 - combinedSlow);
     const step = spd * dt;
 
-    // Split-axis movement: resolve X and Y collisions separately so enemies
-    // slide along server walls and navigate around corners instead of pinning.
-    let nx = this.x + n.x * step;
+    // ── Wall-steering ────────────────────────────────────────────
+    // Probe ahead along the current steered direction. If blocked, rotate the
+    // steer angle around the obstacle. Once clear, decay back to the direct path.
+    if (this._steerAngle === undefined) { this._steerAngle = 0; this._stuckTimer = 0; }
+
+    const baseAngle = Math.atan2(n.y, n.x);
+    const probeDist = Math.max(30, this.size * 2.5);
+    const probeX    = this.x + Math.cos(baseAngle + this._steerAngle) * probeDist;
+    const probeY    = this.y + Math.sin(baseAngle + this._steerAngle) * probeDist;
+    let probeHit    = false;
+    for (const obs of map.obstacles) {
+      if (circleVsRect(probeX, probeY, this.size + 2, obs.x, obs.y, obs.w, obs.h)) {
+        probeHit = true; break;
+      }
+    }
+
+    if (probeHit) {
+      // Pick a steer side on first contact, then ramp up the angle
+      if (Math.abs(this._steerAngle) < 0.1) {
+        this._steerAngle = (Math.random() < 0.5 ? 1 : -1) * 0.4;
+      }
+      this._steerAngle = Math.sign(this._steerAngle) *
+        Math.min(Math.abs(this._steerAngle) + 2.5 * dt, Math.PI * 0.75);
+    } else if (Math.abs(this._steerAngle) > 0.01) {
+      // Path clear — gradually return to direct route
+      this._steerAngle *= (1 - dt * 2.5);
+      if (Math.abs(this._steerAngle) < 0.01) this._steerAngle = 0;
+    }
+
+    const finalAngle = baseAngle + this._steerAngle;
+    const fnx = Math.cos(finalAngle);
+    const fny = Math.sin(finalAngle);
+
+    // ── Split-axis collision resolution ──────────────────────────
+    const prevX = this.x, prevY = this.y;
+
+    let nx = this.x + fnx * step;
     let ny = this.y;
     for (const obs of map.obstacles) {
       const hit = circleVsRect(nx, ny, this.size + 1, obs.x, obs.y, obs.w, obs.h);
       if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
     }
-
-    ny += n.y * step;
+    ny += fny * step;
     for (const obs of map.obstacles) {
       const hit = circleVsRect(nx, ny, this.size + 1, obs.x, obs.y, obs.w, obs.h);
       if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
@@ -122,6 +155,19 @@ class Enemy {
 
     this.x = clamp(nx, this.size, CONFIG.map_width  - this.size);
     this.y = clamp(ny, this.size, CONFIG.map_height - this.size);
+
+    // ── Stuck detection ──────────────────────────────────────────
+    // If the enemy barely moved despite wanting to, flip to a random steer side
+    const moved = Math.hypot(this.x - prevX, this.y - prevY);
+    if (step > 0.3 && moved < step * 0.25) {
+      this._stuckTimer += dt;
+      if (this._stuckTimer > 0.25) {
+        this._steerAngle = (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.4);
+        this._stuckTimer = 0;
+      }
+    } else {
+      this._stuckTimer = Math.max(0, this._stuckTimer - dt * 1.5);
+    }
   }
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)

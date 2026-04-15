@@ -119,6 +119,17 @@ export class ParticleSystem {
     }
   }
 
+  bulletCollision(x, y) {
+    const rainbow = ['#ff4466', '#ff9933', '#ffee33', '#66ff44', '#33ccff', '#aa44ff', '#ff44cc'];
+    const count = 6;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 40 + Math.random() * 60;
+      const color = rainbow[Math.floor(Math.random() * rainbow.length)];
+      this._spawn(x, y, Math.cos(a) * spd, Math.sin(a) * spd, color, 1.5 + Math.random() * 1.5, 0.25 + Math.random() * 0.15, true, 'circle');
+    }
+  }
+
   fragmentDiscovery(x, y) {
     // Golden burst, sustained
     for (let i = 0; i < 30; i++) {

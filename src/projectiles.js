@@ -113,11 +113,12 @@ export class ProjectileSystem {
   }
 
   // Player bullets destroy enemy bullets on collision (unless piercing)
-  checkBulletCollisions() {
+  checkBulletCollisions(particles) {
     for (const pp of this.playerProjectiles) {
       for (const ep of this.enemyProjectiles) {
         const dx = pp.x - ep.x, dy = pp.y - ep.y;
         if (dx * dx + dy * dy < 64) { // ~8px combined radius
+          if (particles) particles.bulletCollision((pp.x + ep.x) / 2, (pp.y + ep.y) / 2);
           ep.active = false;
           if (pp.piercing > 0) {
             pp.piercing--;

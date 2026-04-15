@@ -327,9 +327,9 @@ function updatePlaying(dt) {
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
 
-  // ── Auto-trigger ability when an enemy is within 200px ───
+  // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
-    const r2 = 200 * 200;
+    const r2 = 50 * 50;
     const inRange = enemies.enemies.some(e => {
       if (!e.isAlive) return false;
       const dx = e.x - player.x, dy = e.y - player.y;
@@ -394,7 +394,7 @@ function updatePlaying(dt) {
 
   // Projectiles
   projectiles.update(dt, map, player);
-  projectiles.checkBulletCollisions();
+  projectiles.checkBulletCollisions(particles);
   projectiles.checkPlayerHits(player, particles);
 
   // Companion projectile absorption (Herald)
