@@ -27,7 +27,7 @@ const SUBCLASS_DATA = {
 // Per-class ability cooldowns (seconds)
 const ABILITY_COOLDOWNS = {
   warden:  12,
-  breaker: 8,
+  breaker: 16,
   ghost:   6,
   weaver:  10,
   herald:  14,
