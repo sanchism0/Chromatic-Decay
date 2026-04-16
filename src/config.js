@@ -50,7 +50,7 @@ export const CONFIG = {
     },
     green: {
       base_hp:              60,
-      move_speed:           144,      // 3 × 60, −20%
+      move_speed:           130,      // 3 × 60, −20%, −10%
       aggro_range:          200,
       projectile_damage:    12,
       projectile_fire_rate: 0.8,
