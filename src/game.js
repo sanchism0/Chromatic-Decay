@@ -1298,6 +1298,8 @@ function drawTitle(W, H) {
 // ── Paused overlay ────────────────────────────────────────────
 
 function drawPaused(W, H) {
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur  = 0;
   ctx.fillStyle = 'rgba(13,14,18,0.6)'; ctx.fillRect(0, 0, W, H);
 
   const cx = W / 2;
