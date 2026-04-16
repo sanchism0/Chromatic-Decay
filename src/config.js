@@ -80,7 +80,7 @@ export const CONFIG = {
       base_hp:              900,
       move_speed:           55,       // slow drift between dashes
       aggro_range:          300,
-      projectile_damage:    249,      // flat bullet hit damage
+      projectile_damage:    30,       // flat bullet hit damage
       beam_damage:          180,      // 180 × dt @ 60fps = 3 damage/frame
       projectile_fire_rate: 2.0,      // high fire rate
       residual_drop:        60,

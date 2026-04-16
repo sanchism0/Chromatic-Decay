@@ -552,7 +552,7 @@ export class EnemySystem {
       const dx = e.x - player.x, dy = e.y - player.y;
       const minDist = e.size + player.size / 2;
       if (dx * dx + dy * dy < minDist * minDist) {
-        const damage = e.type === 'green' ? 14 : (e.type === 'yellow' ? 7 : 4); // +20%
+        const damage = e.type === 'green' ? 7 : (e.type === 'yellow' ? 14 : 4);
         if (player.takeDamage(damage)) {
           particles.playerHit(player.x, player.y);
         }
