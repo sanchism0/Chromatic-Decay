@@ -98,12 +98,24 @@ export function stopAmbient() {
   _ambientNodes = null;
 }
 
-// ── Player shoot (positive — crisp descending ping) ───────────
+// ── Player shoot (positive — 3 randomised variations) ─────────
 
 export function sfxShoot() {
   const ctx = _ac();
   const t   = ctx.currentTime;
-  _osc('sine', 1100, t, 0.06, 0.14, 750);
+  const v   = Math.floor(Math.random() * 3);
+  if (v === 0) {
+    // High clean ping descending
+    _osc('sine', 1100, t, 0.06, 0.13, 750);
+  } else if (v === 1) {
+    // Slightly lower, triangle — softer texture
+    _osc('triangle', 900, t, 0.07, 0.12, 620);
+    _osc('sine', 1400, t, 0.025, 0.07, 1400); // short high transient
+  } else {
+    // Double-tap feel — two very quick partials
+    _osc('sine', 1050, t,        0.04, 0.11, 800);
+    _osc('sine', 1300, t + 0.02, 0.04, 0.08, 950);
+  }
 }
 
 // ── Enemy kill (positive — ascending 2-note resolve per type) ─
@@ -153,6 +165,81 @@ export function sfxFragmentPickup() {
   run.forEach((f, i) => _osc('sine', f, t + i * 0.065, 0.38, 0.12));
   // Held resolution chord underneath
   [261.6, 392, 523.2].forEach(f => _osc('sine', f, t + 0.35, 0.9, 0.07));
+}
+
+// ── Title screen music ────────────────────────────────────────
+// Sparse arpeggiated melody over a dark pad — melancholic, digital
+
+let _titleNodes = null;
+
+export function startTitleMusic() {
+  if (_titleNodes) return;
+  const ctx = _ac();
+
+  // Dark pad — two detuned sine waves, low and slow
+  const pad1 = ctx.createOscillator();
+  const pad2 = ctx.createOscillator();
+  pad1.type = 'sine'; pad1.frequency.value = 110;   // A2
+  pad2.type = 'sine'; pad2.frequency.value = 146.8; // D3 — a fourth above, slightly melancholic
+  const padGain = ctx.createGain();
+  padGain.gain.value = 0.06;
+  pad1.connect(padGain); pad2.connect(padGain);
+
+  // Slow LFO tremolo on pad
+  const lfo     = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.type            = 'sine';
+  lfo.frequency.value = 0.3; // very slow pulse
+  lfoGain.gain.value  = 0.03;
+  lfo.connect(lfoGain);
+  lfoGain.connect(padGain.gain);
+
+  padGain.connect(ctx.destination);
+  pad1.start(); pad2.start(); lfo.start();
+
+  // Arpeggiated melody — sparse notes on a loop
+  // A minor pentatonic: A3 C4 E4 G4 A4
+  const melody = [220, 261.6, 329.6, 392, 440, 392, 329.6, 261.6];
+  const noteLen = 1.1; // seconds between notes
+  let noteIdx = 0;
+  let stopped = false;
+
+  function scheduleNote() {
+    if (stopped) return;
+    const t    = ctx.currentTime;
+    const freq = melody[noteIdx % melody.length];
+    noteIdx++;
+
+    // Skip some notes randomly for sparseness
+    if (Math.random() > 0.35) {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.linearRampToValueAtTime(0.09, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.65);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.7);
+    }
+
+    setTimeout(scheduleNote, noteLen * 1000);
+  }
+
+  scheduleNote();
+
+  _titleNodes = {
+    pad1, pad2, lfo,
+    stop() { stopped = true; try { pad1.stop(); pad2.stop(); lfo.stop(); } catch(_) {} }
+  };
+}
+
+export function stopTitleMusic() {
+  if (!_titleNodes) return;
+  _titleNodes.stop();
+  _titleNodes = null;
 }
 
 // ── Resume after user gesture (call on first input) ───────────

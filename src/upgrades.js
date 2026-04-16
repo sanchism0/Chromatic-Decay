@@ -472,7 +472,8 @@ export class UpgradeScreen {
     const archiveState = this._archiveState(unlockedClasses);
     const classSkills  = this._buildClassPool(unlockedClasses);
     this.cards = this._generateOffer(classSkills, archiveState);
-    this.active  = true;
+    // No cards available — skip the screen entirely
+    this.active  = this.cards.length > 0;
     this.hovered = -1;
   }
 

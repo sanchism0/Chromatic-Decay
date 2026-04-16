@@ -18,7 +18,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -256,6 +256,7 @@ function startRun() {
   // Start wave 1 (needs player + map to be ready)
   waveSystem.startWave(1, enemies, map, player);
 
+  stopTitleMusic();
   startAmbient();
   state = STATES.PLAYING;
 }
@@ -320,6 +321,7 @@ function _hitBtn(btn) {
 
 function updateTitle() {
   resumeAudio();
+  startTitleMusic();
   if (input.justPressed.space) { startRun(); return; }
   if (!input.mouseJustClicked)  return;
 
