@@ -1390,7 +1390,7 @@ function drawArchive(W, H) {
   };
 
   const foundCount = fragments.filter(id => archive[id]).length;
-  const pageW      = Math.min(680, W - 32);
+  const pageW      = Math.min(880, W - 48);
   const pageX      = W / 2 - pageW / 2;
 
   ctx.fillStyle = 'rgba(13,14,18,0.97)';
@@ -1399,16 +1399,16 @@ function drawArchive(W, H) {
   // ── Header ────────────────────────────────────────────────────
   ctx.shadowBlur = 20; ctx.shadowColor = '#B8882A';
   ctx.fillStyle  = '#B8882A'; ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('— WARDEN ARCHIVE —', W / 2, 42);
+  ctx.fillText('— WARDEN ARCHIVE —', W / 2, 44);
   ctx.shadowBlur = 0;
   ctx.fillStyle  = '#C4C8D4'; ctx.font = '13px monospace';
-  ctx.fillText(`${foundCount} / 5 FRAGMENTS RECOVERED`, W / 2, 62);
+  ctx.fillText(`${foundCount} / 5 FRAGMENTS RECOVERED`, W / 2, 66);
 
   // ── Fragment slots row ────────────────────────────────────────
-  const slotW   = Math.min(110, (pageW - 48) / 5);
-  const slotH   = 72;
-  const slotGap = Math.floor((pageW - slotW * 5) / 4);
-  const slotY   = 82;
+  const slotGap = 14;
+  const slotW   = Math.floor((pageW - slotGap * 4) / 5);
+  const slotH   = Math.max(160, Math.min(200, H * 0.22));
+  const slotY   = 90;
 
   for (let i = 0; i < 5; i++) {
     const id   = fragments[i];
@@ -1419,52 +1419,56 @@ function drawArchive(W, H) {
     ctx.fillStyle   = isFound ? 'rgba(28,30,42,0.95)' : 'rgba(16,17,22,0.8)';
     ctx.strokeStyle = isFound ? data.color + 'CC' : '#2A2E42';
     ctx.lineWidth   = isFound ? 1.5 : 1;
-    if (isFound) { ctx.shadowBlur = 8; ctx.shadowColor = data.color; }
-    ctx.beginPath(); ctx.roundRect(sx, slotY, slotW, slotH, 5); ctx.fill(); ctx.stroke();
+    if (isFound) { ctx.shadowBlur = 10; ctx.shadowColor = data.color; }
+    ctx.beginPath(); ctx.roundRect(sx, slotY, slotW, slotH, 6); ctx.fill(); ctx.stroke();
     ctx.shadowBlur = 0;
 
     ctx.textAlign = 'center';
     if (isFound) {
-      ctx.fillStyle = data.color; ctx.font = 'bold 14px monospace';
-      ctx.fillText(data.name, sx + slotW / 2, slotY + 20);
+      // Top accent bar
+      ctx.fillStyle = data.color + '55';
+      ctx.fillRect(sx, slotY, slotW, 4);
+
+      ctx.fillStyle = data.color; ctx.font = 'bold 15px monospace';
+      ctx.fillText(data.name, sx + slotW / 2, slotY + 28);
       ctx.fillStyle = '#C4C8D4'; ctx.font = '11px monospace';
-      ctx.fillText(data.class.toUpperCase(), sx + slotW / 2, slotY + 34);
+      ctx.fillText(data.class.toUpperCase(), sx + slotW / 2, slotY + 45);
       ctx.strokeStyle = data.color + '33'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(sx + 10, slotY + 40); ctx.lineTo(sx + slotW - 10, slotY + 40); ctx.stroke();
-      ctx.fillStyle = data.color + '99'; ctx.font = 'italic 10px monospace';
-      _wrapText(ctx, `"${data.blurb}"`, sx + slotW / 2, slotY + 52, slotW - 12, 12, 'center');
+      ctx.beginPath(); ctx.moveTo(sx + 12, slotY + 54); ctx.lineTo(sx + slotW - 12, slotY + 54); ctx.stroke();
+      ctx.fillStyle = data.color + 'BB'; ctx.font = 'italic 11px monospace';
+      _wrapText(ctx, `"${data.blurb}"`, sx + slotW / 2, slotY + 72, slotW - 20, 15, 'center');
     } else if (!data.built) {
-      ctx.fillStyle = '#3A3E52'; ctx.font = 'bold 11px monospace';
-      ctx.fillText(data.name, sx + slotW / 2, slotY + 22);
-      ctx.fillStyle = '#3A3E52'; ctx.font = '10px monospace';
-      ctx.fillText('COMING SOON', sx + slotW / 2, slotY + 36);
-      ctx.fillStyle = '#2A2E42'; ctx.font = '9px monospace';
-      ctx.fillText(data.class.toUpperCase(), sx + slotW / 2, slotY + 50);
+      ctx.fillStyle = '#2A2E42'; ctx.font = 'bold 12px monospace';
+      ctx.fillText(data.name, sx + slotW / 2, slotY + 30);
+      ctx.fillStyle = '#2E3248'; ctx.font = '10px monospace';
+      ctx.fillText('COMING SOON', sx + slotW / 2, slotY + 48);
+      ctx.fillStyle = '#252840'; ctx.font = '9px monospace';
+      ctx.fillText(data.class.toUpperCase(), sx + slotW / 2, slotY + 64);
     } else {
-      ctx.fillStyle = '#2A2E42'; ctx.font = '22px monospace';
-      ctx.fillText('?', sx + slotW / 2, slotY + slotH / 2 + 7);
+      ctx.fillStyle = '#2A2E42'; ctx.font = '28px monospace';
+      ctx.fillText('?', sx + slotW / 2, slotY + slotH / 2 + 10);
       ctx.fillStyle = '#3A3E52'; ctx.font = '10px monospace';
-      ctx.fillText('NOT FOUND', sx + slotW / 2, slotY + slotH - 8);
+      ctx.fillText('NOT FOUND', sx + slotW / 2, slotY + slotH - 14);
     }
   }
 
-  // ── Divider ───────────────────────────────────────────────────
-  const divY1 = slotY + slotH + 18;
+  // ── Divider + entries heading pinned at ~40% down ─────────────
+  const divY1 = Math.max(slotY + slotH + 22, Math.floor(H * 0.40));
   ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(pageX, divY1); ctx.lineTo(pageX + pageW, divY1); ctx.stroke();
 
   // ── Lore Entries as chapter list ──────────────────────────────
   ctx.fillStyle = '#B8882A'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('— COLLECTED ENTRIES —', W / 2, divY1 + 16);
+  ctx.fillText('— COLLECTED ENTRIES —', W / 2, divY1 + 18);
 
   const _loreDefs = [
     { key: 'world', label: 'THE CHROMATIC DECAY', sub: 'Incident Report  //  World History', color: '#8ab4d4', num: '001' },
     { key: 'raze',  label: 'RAZE',                sub: 'Breaker Fragment  //  Class Origin', color: '#fff5c2', num: '002' },
   ];
 
-  const entryH   = 54;
-  const entryGap = 10;
-  let   entryY   = divY1 + 30;
+  const entryH   = 60;
+  const entryGap = 12;
+  let   entryY   = divY1 + 34;
 
   _loreDefs.forEach((def, i) => {
     const isUnlocked = def.key === 'world' || !!archive['raze'];
