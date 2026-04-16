@@ -2052,12 +2052,13 @@ function drawFragmentRescue(W, H) {
 
     ctx.fillStyle = f.color;
     ctx.font      = `bold ${ls ? 11 : 13}px monospace`;
-    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 16 : 24));
+    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 16 : 22));
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font      = `bold ${ls ? 16 : 24}px monospace`;
+    ctx.font      = `bold ${ls ? 15 : 20}px monospace`;
     ctx.shadowBlur = 12; ctx.shadowColor = '#FFFFFF';
-    ctx.fillText('–25% FIRE RATE  ·  +25% DAMAGE', cx, pillY + (ls ? 38 : 62));
+    ctx.fillText('–25% FIRE RATE', cx, pillY + (ls ? 34 : 50));
+    ctx.fillText('+25% DAMAGE', cx, pillY + (ls ? 50 : 74));
     ctx.shadowBlur = 0;
   }
 
