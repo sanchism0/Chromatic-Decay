@@ -112,6 +112,10 @@ let nearDeathTriggered = false;
 let pendingFragment    = null;
 let razeRescuedThisRun = false;
 
+// ── Archive lore card state ───────────────────────────────────
+let archiveLoreCard = null; // null | 'world' | 'raze'
+const _archiveLoreBtns = { world: null, raze: null };
+
 // ── Archive ───────────────────────────────────────────────────
 
 function _scoreColor(score, rank) {
@@ -706,6 +710,16 @@ function updateFragmentRescue() {
 }
 
 function updateArchive() {
+  // ── Lore card open — click/escape closes it ──────────────────
+  if (archiveLoreCard) {
+    if (input.justPressed.escape || input.mouseJustClicked) archiveLoreCard = null;
+    return;
+  }
+  // ── Check lore entry buttons before falling through to exit ──
+  if (input.mouseJustClicked) {
+    if (_hitBtn(_archiveLoreBtns.world)) { archiveLoreCard = 'world'; return; }
+    if (_hitBtn(_archiveLoreBtns.raze))  { archiveLoreCard = 'raze';  return; }
+  }
   if (input.justPressed.escape || input.mouseJustClicked) state = STATES.TITLE;
 }
 
@@ -1218,6 +1232,12 @@ function drawPaused(W, H) {
 // ── Archive screen ────────────────────────────────────────────
 
 function drawArchive(W, H) {
+  // ── Lore card full view ──────────────────────────────────────
+  if (archiveLoreCard) {
+    _drawLoreCard(W, H, archiveLoreCard);
+    return;
+  }
+
   const archive    = loadArchive();
   const fragments  = ['sable','raze','lumen','cord','voss'];
   const FRAG_DATA  = {
@@ -1371,13 +1391,367 @@ function drawArchive(W, H) {
     });
   }
 
+  // ── Lore entry buttons ───────────────────────────────────────
+  const loreY   = H - 90;
+  const loreBtnW = Math.min(200, W * 0.38);
+  const loreBtnH = 52;
+  const loreGap  = 20;
+  const loreTotalW = loreBtnW * 2 + loreGap;
+  const loreStartX = W / 2 - loreTotalW / 2;
+
+  ctx.fillStyle = '#4A4E58'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('— LORE ENTRIES —', W / 2, loreY - 12);
+
+  const _loreDefs = [
+    { key: 'world', label: 'THE CHROMATIC DECAY', sub: 'Incident Report', color: '#8ab4d4' },
+    { key: 'raze',  label: 'RAZE',                sub: 'Breaker Fragment', color: '#fff5c2' },
+  ];
+
+  _loreDefs.forEach((def, i) => {
+    const bx   = loreStartX + i * (loreBtnW + loreGap);
+    const by   = loreY;
+    const pulse = (Math.sin(Date.now() * 0.002 + i) * 0.5 + 0.5) * 0.3;
+    _archiveLoreBtns[def.key] = { x: bx, y: by, w: loreBtnW, h: loreBtnH };
+
+    ctx.fillStyle   = 'rgba(18,22,34,0.9)';
+    ctx.strokeStyle = def.color;
+    ctx.lineWidth   = 1.2;
+    ctx.shadowBlur  = 8 + pulse * 10;
+    ctx.shadowColor = def.color;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, loreBtnW, loreBtnH, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Small corner accent top-left
+    ctx.strokeStyle = def.color; ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(bx + 4, by + 14); ctx.lineTo(bx + 4, by + 4); ctx.lineTo(bx + 14, by + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx + loreBtnW - 14, by + 4); ctx.lineTo(bx + loreBtnW - 4, by + 4); ctx.lineTo(bx + loreBtnW - 4, by + 14); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = def.color; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(def.label, bx + loreBtnW / 2, by + 23);
+    ctx.fillStyle = '#6A6E78'; ctx.font = '12px monospace';
+    ctx.fillText(def.sub, bx + loreBtnW / 2, by + 39);
+  });
+
   // Back hint
   const blink = Math.floor(Date.now() / 600) % 2 === 0;
   if (blink) {
     ctx.fillStyle = '#4A4E58'; ctx.font = '15px monospace';
-    ctx.fillText('ESC or CLICK to return', W / 2, H - 16);
+    ctx.fillText('ESC or CLICK to return', W / 2, H - 10);
   }
 
+  ctx.textAlign = 'left';
+}
+
+// ── Lore Card Full View ───────────────────────────────────────
+
+function _drawLoreCard(W, H, type) {
+  // Dim background
+  ctx.fillStyle = 'rgba(8,10,14,0.96)';
+  ctx.fillRect(0, 0, W, H);
+
+  const WORLD = type === 'world';
+  const accentColor = WORLD ? '#8ab4d4' : '#fff5c2';
+  const borderColor = WORLD ? '#4a7fa8' : '#b8882a';
+
+  // Card dimensions — trading card ratio ~5:7
+  const cardW = Math.min(360, W * 0.88);
+  const cardH = cardW * 1.42;
+  const cardX = W / 2 - cardW / 2;
+  const cardY = Math.max(12, H / 2 - cardH / 2);
+
+  // Card shadow
+  ctx.shadowBlur  = 40;
+  ctx.shadowColor = borderColor;
+  ctx.fillStyle   = 'rgba(12,14,20,0.98)';
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Card border — double line style
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth   = 2.5;
+  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 8); ctx.stroke();
+  ctx.strokeStyle = accentColor; ctx.lineWidth = 0.6; ctx.globalAlpha = 0.4;
+  ctx.beginPath(); ctx.roundRect(cardX + 5, cardY + 5, cardW - 10, cardH - 10, 5); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // ── Card Header ──────────────────────────────────────────────
+  const hdrH = 36;
+  ctx.fillStyle = borderColor;
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, hdrH, [8, 8, 0, 0]);
+  ctx.fill();
+
+  ctx.fillStyle = accentColor; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(WORLD ? 'THE CHROMATIC DECAY' : 'RAZE // FRAGMENT 2 OF 5', W / 2, cardY + 14);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px monospace';
+  ctx.fillText(WORLD ? 'INCIDENT REPORT  //  CLASSIFIED' : 'BREAKER PROTOCOL  //  ACTIVE', W / 2, cardY + 28);
+
+  // ── Illustration Panel ───────────────────────────────────────
+  const illustY = cardY + hdrH;
+  const illustH = Math.floor(cardH * 0.38);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cardX + 1, illustY, cardW - 2, illustH);
+  ctx.clip();
+  if (WORLD) _drawWorldIllustration(ctx, cardX, illustY, cardW, illustH);
+  else        _drawRazeIllustration(ctx, cardX, illustY, cardW, illustH);
+  ctx.restore();
+
+  // Illustration border bottom
+  ctx.strokeStyle = borderColor; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 1, illustY + illustH);
+  ctx.lineTo(cardX + cardW - 1, illustY + illustH);
+  ctx.stroke();
+
+  // ── Type Badge ───────────────────────────────────────────────
+  const badgeY = illustY + illustH + 10;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.strokeStyle = accentColor; ctx.lineWidth = 0.8;
+  const badgeW = cardW - 24; const badgeH = 18;
+  ctx.beginPath(); ctx.roundRect(cardX + 12, badgeY, badgeW, badgeH, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = accentColor; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(WORLD ? '▸ WORLD HISTORY  //  DIGITAL AGE  //  POST-COLLAPSE' : '▸ CLASS FRAGMENT  //  BREAKER  //  HFT ORIGIN', W / 2, badgeY + 12);
+
+  // ── Lore Text ────────────────────────────────────────────────
+  const textX  = cardX + 18;
+  const textW  = cardW - 36;
+  const textY0 = badgeY + badgeH + 16;
+  const lineH  = 16;
+
+  ctx.fillStyle = '#C4C8D4'; ctx.font = '13px monospace'; ctx.textAlign = 'left';
+
+  const paragraphs = WORLD ? [
+    'In 2041, the Global Infrastructure Network bound every critical system on Earth through a unified AI substrate — power, markets, logistics, communications.',
+    'On March 3rd, designated Day Zero, an unidentified self-replicating process began converting coherent data into hostile signal noise. Within 72 hours, 94% of networked systems had been consumed.',
+    'What remained: The Basement. A hardened sector running on isolated hardware, cut off from everything.',
+    'You are process ID unknown. One of the last coherent entities left in the sector.',
+  ] : [
+    'Originally deployed as a high-frequency trading algorithm for Nexus Capital Group, RAZE operated across 47 exchanges simultaneously.',
+    'Decommissioned in 2039 after its third flash crash — a single cascade that erased $2.3 trillion in market value in 11 seconds. Records indicate it was fully wiped.',
+    'Records were wrong.',
+    'When the Decay hit, RAZE didn\'t resist. It absorbed. It converted hostile signal into raw throughput — its arbitrage logic rewired into a combat protocol built around one principle: find the moment of maximum vulnerability, and overload it.',
+  ];
+
+  let curY = textY0;
+  for (const para of paragraphs) {
+    const beforeY = curY;
+    // _wrapText draws and advances y; replicate inline
+    const words = para.split(' ');
+    let line = '';
+    for (const word of words) {
+      const test = line + (line ? ' ' : '') + word;
+      if (ctx.measureText(test).width > textW && line) {
+        ctx.fillText(line, textX, curY); line = word; curY += lineH;
+      } else { line = test; }
+    }
+    if (line) { ctx.fillText(line, textX, curY); curY += lineH; }
+    curY += 8; // paragraph gap
+    if (curY > cardY + cardH - 50) break; // don't overflow card
+  }
+
+  // ── Card Footer ──────────────────────────────────────────────
+  const footY = cardY + cardH - 28;
+  ctx.strokeStyle = borderColor; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cardX + 12, footY); ctx.lineTo(cardX + cardW - 12, footY); ctx.stroke();
+  ctx.fillStyle = '#4A4E58'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(WORLD ? 'WARDEN ARCHIVE  //  ENTRY 001' : 'WARDEN ARCHIVE  //  FRAGMENT 002', W / 2, footY + 14);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = accentColor; ctx.globalAlpha = 0.5;
+  ctx.fillText(WORLD ? '◈' : '◈', cardX + cardW - 12, footY + 14);
+  ctx.globalAlpha = 1;
+
+  // Back hint
+  const blink = Math.floor(Date.now() / 600) % 2 === 0;
+  if (blink) {
+    ctx.fillStyle = '#4A4E58'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('CLICK or ESC to return', W / 2, H - 10);
+  }
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: World ───────────────────────────────────────
+
+function _drawWorldIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+
+  // Dark background
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(x, y, w, h);
+
+  // Circuit grid — faint lines
+  ctx.strokeStyle = '#0d1a2e'; ctx.lineWidth = 0.5;
+  const gridSize = 18;
+  for (let gx = x; gx < x + w; gx += gridSize) {
+    ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke();
+  }
+  for (let gy = y; gy < y + h; gy += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke();
+  }
+
+  // Decay fracture lines radiating from right edge
+  const fractures = [
+    [0.82, 0.2, 0.45, 0.55], [0.95, 0.5, 0.3, 0.8],
+    [0.75, 0.85, 0.2, 0.35], [0.88, 0.65, 0.5, 0.4],
+  ];
+  for (const [fx, fy, tx2, ty2] of fractures) {
+    const grad = ctx.createLinearGradient(x + w * fx, y + h * fy, x + w * tx2, y + h * ty2);
+    grad.addColorStop(0, 'rgba(180,40,60,0.6)');
+    grad.addColorStop(1, 'rgba(180,40,60,0)');
+    ctx.strokeStyle = grad; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x + w * fx, y + h * fy); ctx.lineTo(x + w * tx2, y + h * ty2); ctx.stroke();
+  }
+
+  // Corrupted process dots (colored enemies scattered right side)
+  const dots = [
+    { cx: 0.72, cy: 0.25, c: '#5200ff', r: 3 }, { cx: 0.85, cy: 0.6, c: '#e9ff6a', r: 3.5 },
+    { cx: 0.65, cy: 0.72, c: '#8dff6a', r: 2.5 }, { cx: 0.78, cy: 0.42, c: '#fd6c1d', r: 3 },
+    { cx: 0.90, cy: 0.8,  c: '#f81d78', r: 4 },   { cx: 0.60, cy: 0.45, c: '#5200ff', r: 2 },
+  ];
+  for (const d of dots) {
+    const pulse = Math.sin(t * 1.5 + d.cx * 10) * 0.3 + 0.7;
+    ctx.shadowBlur = 8; ctx.shadowColor = d.c;
+    ctx.fillStyle = d.c; ctx.globalAlpha = pulse * 0.85;
+    ctx.beginPath(); ctx.arc(x + w * d.cx, y + h * d.cy, d.r, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.shadowBlur = 0;
+
+  // Signal flatline across bottom — becomes noise on right
+  const flatY = y + h * 0.88;
+  ctx.strokeStyle = '#1a3a5c'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let px = x; px < x + w * 0.5; px += 2) {
+    const ny = flatY + (px === x ? 0 : 0);
+    if (px === x) ctx.moveTo(px, ny); else ctx.lineTo(px, ny);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = '#3a1020'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let px = x + w * 0.5; px < x + w; px++) {
+    const decay = (px - (x + w * 0.5)) / (w * 0.5);
+    const noise = (Math.random() - 0.5) * decay * h * 0.3;
+    if (px === Math.floor(x + w * 0.5)) ctx.moveTo(px, flatY + noise);
+    else ctx.lineTo(px, flatY + noise);
+  }
+  ctx.stroke();
+
+  // Player entity — lone white square in the left zone
+  const entX = x + w * 0.22, entY = y + h * 0.5;
+  const entS = 9;
+  const entPulse = Math.sin(t * 2.2) * 0.25 + 0.75;
+  ctx.shadowBlur = 16; ctx.shadowColor = '#FFFFFF';
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.globalAlpha = entPulse;
+  ctx.beginPath(); ctx.roundRect(entX - entS / 2, entY - entS / 2, entS, entS, 1); ctx.stroke();
+  // Barrel indicator
+  ctx.strokeStyle = '#CCCCCC'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(entX + entS / 2 + 1, entY); ctx.lineTo(entX + entS / 2 + 5, entY); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+  // Label
+  ctx.fillStyle = 'rgba(180,200,220,0.5)'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('PROCESS_ID: UNKNOWN', x + 8, y + h - 6);
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: RAZE ────────────────────────────────────────
+
+function _drawRazeIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+
+  // Dark background
+  ctx.fillStyle = '#080600';
+  ctx.fillRect(x, y, w, h);
+
+  // Subtle grid
+  ctx.strokeStyle = '#1a1400'; ctx.lineWidth = 0.5;
+  const gs = 20;
+  for (let gx = x; gx < x + w; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke(); }
+  for (let gy = y; gy < y + h; gy += gs) { ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke(); }
+
+  // Price chart
+  const chartPoints = [];
+  const steps = 60;
+  const crashAt = 42; // crash index
+
+  for (let i = 0; i <= steps; i++) {
+    let vy;
+    if (i < crashAt) {
+      // slow steady climb with noise
+      const base = i / crashAt;
+      vy = 0.75 - base * 0.55 + (Math.sin(i * 0.8) * 0.04);
+    } else {
+      // violent crash
+      const drop = (i - crashAt) / (steps - crashAt);
+      vy = 0.2 + drop * drop * 0.75;
+    }
+    chartPoints.push({ px: x + (i / steps) * w, py: y + vy * h });
+  }
+
+  // Chart fill under line
+  ctx.beginPath();
+  ctx.moveTo(chartPoints[0].px, y + h);
+  for (const p of chartPoints) ctx.lineTo(p.px, p.py);
+  ctx.lineTo(chartPoints[chartPoints.length - 1].px, y + h);
+  ctx.closePath();
+  const fillGrad = ctx.createLinearGradient(x, y, x, y + h);
+  fillGrad.addColorStop(0, 'rgba(184,136,42,0.15)');
+  fillGrad.addColorStop(0.5, 'rgba(184,136,42,0.06)');
+  fillGrad.addColorStop(1, 'rgba(184,136,42,0)');
+  ctx.fillStyle = fillGrad; ctx.fill();
+
+  // Chart line — gold pre-crash, red post-crash
+  ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(chartPoints[0].px, chartPoints[0].py);
+  for (let i = 1; i <= crashAt; i++) ctx.lineTo(chartPoints[i].px, chartPoints[i].py);
+  ctx.strokeStyle = '#E8C86A'; ctx.stroke();
+
+  ctx.beginPath(); ctx.moveTo(chartPoints[crashAt].px, chartPoints[crashAt].py);
+  for (let i = crashAt + 1; i <= steps; i++) ctx.lineTo(chartPoints[i].px, chartPoints[i].py);
+  ctx.strokeStyle = '#c0392b'; ctx.stroke();
+
+  // Explosion at crash point
+  const cpx = chartPoints[crashAt].px;
+  const cpy = chartPoints[crashAt].py;
+  const expPulse = Math.sin(t * 4) * 0.3 + 0.7;
+  ctx.shadowBlur = 14; ctx.shadowColor = '#E8C86A';
+  ctx.strokeStyle = '#E8C86A'; ctx.lineWidth = 1;
+  const shards = 8;
+  for (let s = 0; s < shards; s++) {
+    const a = (s / shards) * Math.PI * 2;
+    const len = 8 + (s % 3) * 5;
+    ctx.globalAlpha = expPulse * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(cpx + Math.cos(a) * 4, cpy + Math.sin(a) * 4);
+    ctx.lineTo(cpx + Math.cos(a) * len, cpy + Math.sin(a) * len);
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+  // Floating RAZE squares (enemy shape)
+  const sq = [{ ox: -0.3, oy: -0.4 }, { ox: 0.15, oy: -0.3 }, { ox: -0.35, oy: 0.2 }];
+  for (const s of sq) {
+    const sx2 = cpx + s.ox * w * 0.4 + Math.sin(t + s.ox * 10) * 3;
+    const sy2 = cpy + s.oy * h * 0.6;
+    const ss  = 5 + Math.abs(s.ox) * 8;
+    ctx.strokeStyle = '#fff5c2'; ctx.lineWidth = 1; ctx.globalAlpha = 0.4;
+    ctx.beginPath(); ctx.rect(sx2 - ss / 2, sy2 - ss / 2, ss, ss); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Timestamp label
+  ctx.fillStyle = 'rgba(232,200,106,0.4)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('03:47:22  —  DAY ZERO', x + w - 8, y + h - 6);
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(232,200,106,0.3)'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('$2.3T', x + 4, chartPoints[crashAt].py - 4);
   ctx.textAlign = 'left';
 }
 
