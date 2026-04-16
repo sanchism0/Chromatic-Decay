@@ -642,7 +642,8 @@ export class UpgradeScreen {
     const headerGap = landscape ? 20 : narrow ? 36 : 50;
     const headerY = layout[0].y - headerGap;
 
-    ctx.fillStyle = '#4A4E58';
+    // Header
+    ctx.fillStyle = 'rgba(180,190,210,0.5)';
     ctx.font      = `${compact ? 11 : 15}px monospace`;
     ctx.textAlign = 'center';
     if (!landscape) {
@@ -658,78 +659,97 @@ export class UpgradeScreen {
       const isHovered       = i === this.hovered;
       const classColor      = card.class ? CLASS_COLORS[card.class] : null;
       const tierLabel       = card.tier ? `T${card.tier}` : null;
+      const isClass         = !!card.class;
 
-      // Card background
-      ctx.fillStyle = isHovered ? '#1E2130' : '#13151C';
+      // Card background — class cards get a subtle tint
+      ctx.fillStyle = isHovered
+        ? (classColor ? classColor + '18' : '#1E2130')
+        : (isClass    ? classColor + '0C' : '#13151C');
       drawRoundedRect(ctx, x, y, w, h, 6);
       ctx.fill();
 
-      // Card border
+      // Card border — class cards always show their color, not dimmed
       ctx.strokeStyle = isHovered
-        ? (classColor || '#4A5070')
-        : (classColor ? classColor + '55' : '#2A2E42');
-      ctx.lineWidth = isHovered ? 1.5 : 1;
+        ? (classColor || '#6A70A0')
+        : (classColor ? classColor + 'AA' : '#3A3E52');
+      ctx.lineWidth = isHovered ? 2 : 1.5;
+      if (classColor) {
+        ctx.shadowBlur  = isHovered ? 16 : 6;
+        ctx.shadowColor = classColor;
+      }
       drawRoundedRect(ctx, x, y, w, h, 6);
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
-      if (isHovered && classColor) {
-        ctx.shadowBlur  = 14;
+      // Color accent bar on left edge for class cards
+      if (isClass) {
+        ctx.fillStyle   = classColor + (isHovered ? 'FF' : 'CC');
+        ctx.shadowBlur  = isHovered ? 10 : 4;
         ctx.shadowColor = classColor;
-        drawRoundedRect(ctx, x, y, w, h, 6);
-        ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(x, y + 6, 3, h - 12, 2);
+        ctx.fill();
         ctx.shadowBlur = 0;
       }
 
       const nameFontSize = compact ? 13 : 20;
       const descFontSize = compact ? 11 : 16;
-      const tagFontSize  = compact ? 9  : 13;
-      const numFontSize  = compact ? 10 : 14;
+      const tagFontSize  = compact ? 9  : 12;
+      const numFontSize  = compact ? 10 : 13;
       const nameY        = landscape ? y + 18 : narrow ? y + 24 : y + 32;
-      const divY         = landscape ? y + 25 : narrow ? y + 32 : y + 42;
-      const descY        = landscape ? y + 40 : narrow ? y + 52 : y + 66;
+      const divY         = landscape ? y + 25 : narrow ? y + 32 : y + 44;
+      const descY        = landscape ? y + 40 : narrow ? y + 52 : y + 68;
 
-      // Class + tier tag (top-right)
+      // Class + tier tag (top-right) — bright, readable
       if (card.class) {
-        const tag = tierLabel ? `${card.class.toUpperCase()} ${tierLabel}` : card.class.toUpperCase();
-        ctx.fillStyle = classColor || '#8A8E99';
-        ctx.font      = `${tagFontSize}px monospace`;
-        ctx.textAlign = 'right';
-        ctx.fillText(tag, x + w - 10, y + 14);
+        const tag = tierLabel ? `${card.class.toUpperCase()}  ${tierLabel}` : card.class.toUpperCase();
+        ctx.fillStyle   = classColor;
+        ctx.font        = `bold ${tagFontSize}px monospace`;
+        ctx.textAlign   = 'right';
+        ctx.shadowBlur  = 6;
+        ctx.shadowColor = classColor;
+        ctx.fillText(tag, x + w - 12, y + (landscape ? 12 : 16));
+        ctx.shadowBlur  = 0;
       }
 
-      // Number key hint
-      ctx.fillStyle = '#4A4E58';
+      // Number key hint — slightly brighter
+      ctx.fillStyle = 'rgba(180,190,210,0.5)';
       ctx.font      = `${numFontSize}px monospace`;
       ctx.textAlign = 'left';
-      ctx.fillText(`[${i + 1}]`, x + 10, nameY);
+      ctx.fillText(`[${i + 1}]`, x + 12, nameY);
 
-      // Upgrade name
-      ctx.fillStyle = isHovered ? (classColor || '#FFFFFF') : '#C4C8D4';
+      // Upgrade name — always white, class cards get glow on hover
+      ctx.fillStyle = '#FFFFFF';
       ctx.font      = `bold ${nameFontSize}px monospace`;
-      ctx.fillText(card.name, x + 34, nameY);
+      if (isHovered && classColor) {
+        ctx.shadowBlur  = 10;
+        ctx.shadowColor = classColor;
+      }
+      ctx.fillText(card.name, x + 36, nameY);
+      ctx.shadowBlur = 0;
 
-      // Divider line
-      ctx.strokeStyle = '#1E2130';
+      // Divider line — slightly more visible
+      ctx.strokeStyle = classColor ? classColor + '33' : '#2A2E42';
       ctx.lineWidth   = 1;
       ctx.beginPath();
-      ctx.moveTo(x + 34, divY);
-      ctx.lineTo(x + w - 12, divY);
+      ctx.moveTo(x + 36, divY);
+      ctx.lineTo(x + w - 14, divY);
       ctx.stroke();
 
-      // Description — truncate to card width
-      ctx.fillStyle = '#8A8E99';
+      // Description — bright white, no more grey
+      ctx.fillStyle = isClass ? '#E8EAF0' : '#C8CCD8';
       ctx.font      = `${descFontSize}px monospace`;
       ctx.textAlign = 'left';
-      const maxDescW = w - 44;
+      const maxDescW = w - 52;
       let desc = card.desc;
       while (desc.length > 0 && ctx.measureText(desc).width > maxDescW) {
         desc = desc.slice(0, -1);
       }
-      ctx.fillText(desc, x + 34, descY);
-
+      ctx.fillText(desc, x + 36, descY);
     }
 
-    ctx.fillStyle = '#4A4E58';
+    // Footer hint — slightly brighter
+    ctx.fillStyle = 'rgba(180,190,210,0.6)';
     ctx.font      = `${compact ? 11 : 15}px monospace`;
     ctx.textAlign = 'center';
     ctx.fillText(compact ? 'tap a card' : 'click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + (landscape ? 14 : 22));
