@@ -460,6 +460,7 @@ export class UpgradeScreen {
     this.takenCounts = {};     // id → times taken (generics only — for decay)
     this._companions = null;
     this._traps      = null;
+    this.waveContext = null;   // { type: 'early'|'timeout', bonusPts, secondsRemaining }
   }
 
   setSystems(companions, traps) {
@@ -642,12 +643,32 @@ export class UpgradeScreen {
     const headerGap = landscape ? 20 : narrow ? 36 : 50;
     const headerY = layout[0].y - headerGap;
 
-    // Header
+    // Header — wave context banner
+    ctx.textAlign = 'center';
+    const wc = this.waveContext;
+    if (wc && !landscape) {
+      if (wc.type === 'early') {
+        ctx.fillStyle = '#8dff6a';
+        ctx.font      = `bold ${compact ? 11 : 14}px monospace`;
+        ctx.fillText(
+          wc.bonusPts > 0
+            ? `WAVE CLEARED  ·  +${wc.bonusPts} BONUS PTS`
+            : 'WAVE CLEARED',
+          W / 2, headerY - (narrow ? 30 : 46)
+        );
+      } else {
+        ctx.fillStyle = '#fd6c1d';
+        ctx.font      = `bold ${compact ? 11 : 14}px monospace`;
+        ctx.fillText(
+          "TIME'S UP  ·  NEXT WAVE INCOMING  ·  NO BONUS",
+          W / 2, headerY - (narrow ? 30 : 46)
+        );
+      }
+    }
     ctx.fillStyle = 'rgba(180,190,210,0.5)';
     ctx.font      = `${compact ? 11 : 15}px monospace`;
-    ctx.textAlign = 'center';
     if (!landscape) {
-      ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (narrow ? 18 : 28));
+      ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (narrow ? 14 : 24));
     }
     ctx.fillStyle = '#FFFFFF';
     ctx.font      = `bold ${compact ? 18 : 28}px monospace`;

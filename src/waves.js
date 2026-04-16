@@ -81,6 +81,9 @@ export class WaveSystem {
     this.timeBonus      = 0;
     this.finalScore     = 0;
 
+    // Wave-end context — read by upgrade screen to explain why upgrades appeared
+    this.lastClearBonus = null; // { type: 'early'|'timeout', bonusPts, secondsRemaining }
+
     this.active         = false;  // wave is actively running
   }
 
@@ -242,6 +245,12 @@ export class WaveSystem {
     const bonusLevels      = Math.floor(this.bonusBank / CONFIG.seconds_per_bonus_level);
     this.bonusBank         = this.bonusBank % CONFIG.seconds_per_bonus_level;
     this.pendingLevels     = 2 + bonusLevels; // guaranteed 2 + earned bonuses
+
+    // Award bonus points and store context for upgrade screen header
+    const type     = secondsRemaining > 0 ? 'early' : 'timeout';
+    const bonusPts = Math.round(secondsRemaining * 10);
+    if (bonusPts > 0) this.killScore += bonusPts;
+    this.lastClearBonus = { type, bonusPts, secondsRemaining: Math.floor(secondsRemaining) };
 
     if (this.wave === 15) {
       this._onWin();

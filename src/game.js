@@ -18,7 +18,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -121,6 +121,9 @@ const _archiveLoreBtns = { world: null, raze: null, close: null };
 // ── Pause menu state ──────────────────────────────────────────
 let pauseQuitConfirm = false;
 const _pauseBtns = { quit: null, confirmYes: null, confirmNo: null };
+
+// ── Wave timer sound state (reset each wave) ──────────────────
+let _timerSounds = { wave: 0, warned: false, ticks: {} };
 
 // ── Archive ───────────────────────────────────────────────────
 
@@ -483,6 +486,23 @@ function updatePlaying(dt) {
   // Wave system update — after all kills processed so enemy count is accurate
   waveSystem.update(dt, enemies, map, player);
 
+  // ── Wave timer sound cues ──────────────────────────────────
+  if (waveSystem.active && waveSystem.waveTimer > 0) {
+    if (_timerSounds.wave !== waveSystem.wave) {
+      _timerSounds = { wave: waveSystem.wave, warned: false, ticks: {} };
+    }
+    if (!_timerSounds.warned && waveSystem.waveTimer <= 10) {
+      _timerSounds.warned = true;
+      sfxTimerWarning();
+    }
+    for (const n of [5, 4, 3, 2, 1]) {
+      if (!_timerSounds.ticks[n] && waveSystem.waveTimer <= n) {
+        _timerSounds.ticks[n] = true;
+        sfxCountdownTick(n);
+      }
+    }
+  }
+
   // Wave timer expired — end the wave and give a level-up
   // Surviving enemies carry over into the next wave
   if (waveSystem.timerExpired) {
@@ -675,6 +695,8 @@ function _showNextUpgrade() {
   upgradeUI.present(player, unlockedClasses);
   if (upgradeUI.active) {
     if (player.upgradesTaken === 0) lore.trigger('upgrade_first');
+    // Pass wave-end context to upgrade screen header on first upgrade of this batch
+    upgradeUI.waveContext = waveSystem ? waveSystem.lastClearBonus : null;
     state = STATES.UPGRADE;
   }
 }

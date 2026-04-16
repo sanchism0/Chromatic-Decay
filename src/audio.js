@@ -242,6 +242,27 @@ export function stopTitleMusic() {
   _titleNodes = null;
 }
 
+// ── Wave timer warning @ 10s (urgent but not negative) ────────
+
+export function sfxTimerWarning() {
+  const ctx = _ac();
+  const t   = ctx.currentTime;
+  // Two sharp pulses — attention-grabbing
+  _osc('square', 880,  t,        0.07, 0.10);
+  _osc('square', 1100, t + 0.12, 0.07, 0.10);
+}
+
+// ── Countdown ticks 5→1 (pitch rises as time runs out) ────────
+
+export function sfxCountdownTick(n) {
+  const ctx  = _ac();
+  const t    = ctx.currentTime;
+  const freqs = { 5: 440, 4: 494, 3: 554, 2: 622, 1: 880 };
+  const freq  = freqs[n] || 440;
+  const peak  = n === 1 ? 0.20 : 0.12;
+  _osc('square', freq, t, 0.07, peak);
+}
+
 // ── Resume after user gesture (call on first input) ───────────
 
 export function resumeAudio() {

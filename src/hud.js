@@ -90,44 +90,23 @@ export class HUD {
       ctx.fillText(`— WAVE ${waveSystem.wave} —`, resX, pad + 16);
     }
 
-    // ── Score / Timers / Kills (top right) ────────────────────
-    // Kill score from wave system (falls back to frequency score)
+    // ── Score / Wave timer (top right) ───────────────────────
     const score = waveSystem ? waveSystem.killScore : player.frequencyScore(elapsed);
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#8A8E99';
+    ctx.fillStyle = '#C4C8D4';
     ctx.font      = '21px monospace';
     ctx.fillText(`SCORE  ${score.toLocaleString()}`, W - pad, pad + 20);
 
-    // Overall stopwatch — turns amber when bonus window closes
     if (waveSystem) {
-      const timeColor = waveSystem.bonusWindowClosed ? '#fff5c2' : '#6A6E78';
-      ctx.fillStyle   = timeColor;
-      ctx.font        = '21px monospace';
-      ctx.fillText(waveSystem.totalTimeStr, W - pad, pad + 44);
-
-      // Wave countdown — urgent red when < 10s
-      const waveTimerLow = waveSystem.waveTimer > 0 && waveSystem.waveTimer < 10;
-      ctx.fillStyle = waveTimerLow ? '#f81d78' : '#4A4E58';
-      if (waveTimerLow) { ctx.shadowBlur = 5; ctx.shadowColor = '#f81d78'; }
-      ctx.font = '21px monospace';
-      ctx.fillText(`${waveSystem.waveTimerStr} wave`, W - pad, pad + 68);
+      // Wave countdown — yellow at ≤10s, bright yellow + glow at ≤5s
+      const wt  = waveSystem.waveTimer;
+      const low = wt > 0 && wt <= 10;
+      const hot = wt > 0 && wt <= 5;
+      ctx.fillStyle = low ? '#e9ff6a' : '#A0A4B0';
+      if (hot) { ctx.shadowBlur = 8; ctx.shadowColor = '#e9ff6a'; }
+      ctx.font = low ? 'bold 21px monospace' : '21px monospace';
+      ctx.fillText(`${waveSystem.waveTimerStr} wave`, W - pad, pad + 44);
       ctx.shadowBlur = 0;
-    } else {
-      ctx.fillStyle = '#6A6E78';
-      ctx.font      = '21px monospace';
-      ctx.fillText(formatTime(elapsed), W - pad, pad + 44);
-    }
-
-    if (this.killFlash > 0) {
-      ctx.globalAlpha = this.killFlash / 0.15;
-      ctx.fillStyle   = '#FFFFFF';
-      ctx.font        = 'bold 22px monospace';
-      ctx.fillText(`✕ ${player.kills}`, W - pad, pad + 92);
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.fillStyle = '#4A4E58';
-      ctx.font      = '21px monospace';
-      ctx.fillText(`✕ ${player.kills}`, W - pad, pad + 92);
     }
 
     // ── Class + Subclass display (bottom-left) ─────────────────
