@@ -114,7 +114,7 @@ let razeRescuedThisRun = false;
 
 // ── Archive lore card state ───────────────────────────────────
 let archiveLoreCard = null; // null | 'world' | 'raze'
-const _archiveLoreBtns = { world: null, raze: null };
+const _archiveLoreBtns = { world: null, raze: null, close: null };
 
 // ── Archive ───────────────────────────────────────────────────
 
@@ -710,9 +710,13 @@ function updateFragmentRescue() {
 }
 
 function updateArchive() {
-  // ── Lore card open — click/escape closes it ──────────────────
+  // ── Lore card open — X button, escape, or outside-card click closes it ──
   if (archiveLoreCard) {
-    if (input.justPressed.escape || input.mouseJustClicked) archiveLoreCard = null;
+    if (input.justPressed.escape) { archiveLoreCard = null; return; }
+    if (input.mouseJustClicked) {
+      // Always close — X button or tapping anywhere outside the text area
+      archiveLoreCard = null;
+    }
     return;
   }
   // ── Check lore entry buttons before falling through to exit ──
@@ -1492,6 +1496,21 @@ function _drawLoreCard(W, H, type) {
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px monospace';
   ctx.fillText(WORLD ? 'INCIDENT REPORT  //  CLASSIFIED' : 'BREAKER PROTOCOL  //  ACTIVE', W / 2, cardY + 28);
 
+  // ── Close (X) button — top-right of card ────────────────────
+  const xSize = 32;
+  const xBx = cardX + cardW - xSize - 6;
+  const xBy = cardY + 2;
+  _archiveLoreBtns.close = { x: xBx, y: xBy, w: xSize, h: xSize };
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.strokeStyle = accentColor; ctx.lineWidth = 1; ctx.globalAlpha = 0.7;
+  ctx.beginPath(); ctx.roundRect(xBx, xBy, xSize, xSize, 4); ctx.fill(); ctx.stroke();
+  ctx.globalAlpha = 1;
+  const xCx = xBx + xSize / 2, xCy = xBy + xSize / 2, xArm = 7;
+  ctx.strokeStyle = accentColor; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(xCx - xArm, xCy - xArm); ctx.lineTo(xCx + xArm, xCy + xArm); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(xCx + xArm, xCy - xArm); ctx.lineTo(xCx - xArm, xCy + xArm); ctx.stroke();
+  ctx.lineCap = 'butt';
+
   // ── Illustration Panel ───────────────────────────────────────
   const illustY = cardY + hdrH;
   const illustH = Math.floor(cardH * 0.38);
@@ -1567,12 +1586,6 @@ function _drawLoreCard(W, H, type) {
   ctx.fillText(WORLD ? '◈' : '◈', cardX + cardW - 12, footY + 14);
   ctx.globalAlpha = 1;
 
-  // Back hint
-  const blink = Math.floor(Date.now() / 600) % 2 === 0;
-  if (blink) {
-    ctx.fillStyle = '#4A4E58'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('CLICK or ESC to return', W / 2, H - 10);
-  }
   ctx.textAlign = 'left';
 }
 
