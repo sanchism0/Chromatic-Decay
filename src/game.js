@@ -2057,9 +2057,12 @@ function drawFragmentRescue(W, H) {
     ctx.fillStyle = '#FFFFFF';
     ctx.font      = `bold ${ls ? 15 : 20}px monospace`;
     ctx.shadowBlur = 12; ctx.shadowColor = '#FFFFFF';
-    ctx.fillText('–25% FIRE RATE', cx, pillY + (ls ? 34 : 50));
-    ctx.fillText('+25% DAMAGE', cx, pillY + (ls ? 50 : 74));
+    ctx.textAlign = 'left';
+    const pillTextX = cardX + 16 + (cardW - 32) * 0.18;
+    ctx.fillText('–25%  FIRE RATE', pillTextX, pillY + (ls ? 34 : 50));
+    ctx.fillText('+25%  DAMAGE',    pillTextX, pillY + (ls ? 50 : 74));
     ctx.shadowBlur = 0;
+    ctx.textAlign = 'center';
   }
 
   // ── ZONE D: traits line at ~80% ──────────────────────────
