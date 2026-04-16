@@ -115,7 +115,7 @@ let pendingFragment    = null;
 
 function _scoreColor(score, rank) {
   if (rank === 0)        return '#f81d78'; // 1st place — magenta
-  if (score >= 6000)     return '#fd6c1d'; // 6–9k — orange
+  if (score >= 6000)     return '#fd6c1d'; // 6k+ — orange
   if (score >= 3000)     return '#e9ff6a'; // 3–6k — yellow
   return '#4A4E58';                        // 0–3k — grey
 }
