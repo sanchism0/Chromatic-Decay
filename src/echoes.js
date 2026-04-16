@@ -122,7 +122,7 @@ export class EchoSystem {
   }
 
   _drawEcho(ctx, sx, sy, pulse, echo) {
-    const outerR = 10 + pulse * 5;
+    const outerR = 13 + pulse * 6;
     const alpha  = 0.55 + pulse * 0.35;
 
     // Outer expanding ring
@@ -141,7 +141,7 @@ export class EchoSystem {
     ctx.shadowBlur  = 12;
     ctx.shadowColor = '#C4C8D4';
     ctx.beginPath();
-    ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 8, 0, Math.PI * 2);
     ctx.fill();
 
     // White center dot
@@ -149,11 +149,11 @@ export class EchoSystem {
     ctx.shadowBlur = 6;
     ctx.shadowColor = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
     ctx.fill();
 
     // Pink plus / health cross (small, on top of white dot)
-    const arm = 3, thick = 1;
+    const arm = 4, thick = 1.5;
     ctx.fillStyle   = '#FFB3D4';
     ctx.shadowBlur  = 14;
     ctx.shadowColor = '#FF80BB';
@@ -175,8 +175,9 @@ export class EchoSystem {
 
   _drawFragment(ctx, sx, sy, pulse, echo) {
     // Fragments are dramatically more visible — large, golden, hard to miss
-    const outerR = 18 + pulse * 8;
-    const coreR  = 10 + pulse * 3;
+    const _mob   = 'ontouchstart' in window;
+    const outerR = _mob ? 13 + pulse * 5 : 18 + pulse * 8;
+    const coreR  = _mob ?  7 + pulse * 2 : 10 + pulse * 3;
 
     // Large outer glow ring
     ctx.globalAlpha = 0.3 + pulse * 0.2;

@@ -49,6 +49,11 @@ class Enemy {
 
   get size() { return this.cfg.size; }
 
+  // On mobile, hitbox scales up to match the larger visual size
+  get hitSize() {
+    return 'ontouchstart' in window ? this.cfg.size * 1.35 : this.cfg.size;
+  }
+
   get isAlive() { return this.alive && this.hp > 0; }
 
   scaleHp(elapsedMinutes) {
@@ -312,7 +317,7 @@ class Enemy {
       for (let i = 0; i < tLen - 1; i++) {
         const pt    = this._trail[i];
         const frac  = (i + 1) / tLen;          // 0 = oldest, 1 = newest
-        const r     = cfg.size * 0.28 * frac;
+        const r     = drawSize * 0.28 * frac;
         const alpha = frac * 0.35;
         ctx.globalAlpha  = alpha;
         ctx.shadowBlur   = 0;
@@ -323,6 +328,9 @@ class Enemy {
       }
       ctx.globalAlpha = 1;
     }
+
+    const _mob     = 'ontouchstart' in window;
+    const drawSize = _mob ? cfg.size * 1.35 : cfg.size;
 
     ctx.save();
     ctx.translate(this.x, this.y);
@@ -338,7 +346,7 @@ class Enemy {
     ctx.lineWidth = this.type === 'pink' ? 2.5 : 1.5;
     ctx.fillStyle = flashColor;
 
-    drawEnemyShape(ctx, cfg.shape, 0, 0, cfg.size);
+    drawEnemyShape(ctx, cfg.shape, 0, 0, drawSize);
     ctx.fill();
     ctx.stroke();
 
@@ -502,7 +510,7 @@ export class EnemySystem {
       for (const e of this.enemies) {
         if (!e.isAlive) continue;
         const dx = e.x - proj.x, dy = e.y - proj.y;
-        if (dx * dx + dy * dy < (e.size + 3) * (e.size + 3)) {
+        if (dx * dx + dy * dy < (e.hitSize + 3) * (e.hitSize + 3)) {
           // ── Volatile Signal: bonus damage based on travel distance ──
           let dmg = proj.damage;
           if (player && player.volatileSignal) {

@@ -596,7 +596,8 @@ export class Player {
     if (!this.alive) return;
     if (this.invincible > 0 && Math.floor(this.flashTimer * 12) % 2 === 1) return;
 
-    const s = this.size / 2;
+    const _mob = 'ontouchstart' in window;
+    const s = _mob ? this.size / 2 * 1.35 : this.size / 2;
 
     // Movement trail — fading white smear behind the player
     const tLen = this._trail.length;
