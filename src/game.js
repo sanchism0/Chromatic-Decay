@@ -1955,8 +1955,8 @@ function drawFragmentRescue(W, H) {
 
   // ── Card geometry ─────────────────────────────────────────
   const landscape = ('ontouchstart' in window) && H < W;   // mobile in landscape only
-  const cardW  = Math.min(400, W - 48);
-  const cardH  = Math.min(f.id === 'raze' ? 550 : 520, H - 24);
+  const cardW  = Math.min(420, W - 32);
+  const cardH  = Math.min(f.id === 'raze' ? 580 : 540, H - 24);
   const cardX  = (W - cardW) / 2;
   const cardY  = (H - cardH) / 2;
   const radius = 14;
@@ -1994,106 +1994,101 @@ function drawFragmentRescue(W, H) {
   ctx.shadowBlur = 0;
 
   // ── Card content ──────────────────────────────────────────
-  // Landscape: tighter spacing + smaller fonts to fit the shorter card
-  const nameFontSize  = landscape ? 30  : 52;
-  const tagGap        = landscape ? 20  : 44;
-  const afterName     = landscape ? 14  : 30;
-  const bodyFont      = landscape ? 11  : 13;
-  const bodyLineH     = landscape ? 14  : 20;
-  const detailLineH   = landscape ? 13  : 18;
-  const divGap        = landscape ? 10  : 22;
-  const sectionGap    = landscape ? 6   : 10;
-
+  const ls  = landscape; // shorthand
   ctx.textAlign = 'center';
-  const cx      = W / 2;
-  const maxTW   = cardW - 48;
-  let y = cardY + (landscape ? 18 : 28);
+  const cx  = W / 2;
+  const maxTW = cardW - 48;
+  let y = cardY + (ls ? 16 : 22);
 
-  // Fragment recovered tag
-  ctx.fillStyle = '#B8882A';
-  ctx.font      = '11px monospace';
+  // ── SECTION 1: Identity header (small, dimmed) ────────────
+  ctx.fillStyle = f.color + 'BB';
+  ctx.font      = `${ls ? 10 : 11}px monospace`;
   ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, y);
-  y += tagGap;
+  y += ls ? 4 : 6;
 
-  // Big character name
-  ctx.shadowBlur  = landscape ? 14 : 24;
+  // Fragment name — large but not the hero anymore
+  ctx.shadowBlur  = ls ? 10 : 18;
   ctx.shadowColor = f.color;
   ctx.fillStyle   = f.color;
-  ctx.font        = `bold ${nameFontSize}px monospace`;
-  ctx.fillText(f.name, cx, y);
+  ctx.font        = `bold ${ls ? 26 : 40}px monospace`;
+  ctx.fillText(f.name, cx, y + (ls ? 20 : 30));
   ctx.shadowBlur  = 0;
-  y += afterName;
+  y += ls ? 32 : 46;
 
-  // What it was
-  ctx.fillStyle = '#8A8E99';
-  ctx.font      = `${bodyFont}px monospace`;
-  y = _wrapText(ctx, f.was, cx, y, maxTW, bodyLineH, 'center') + 2;
+  // Lore flavour — small, dimmed, clearly secondary
+  ctx.fillStyle = f.color + '88';
+  ctx.font      = `italic ${ls ? 10 : 11}px monospace`;
+  y = _wrapText(ctx, `${f.was} ${f.detail || ''}`.trim(), cx, y, maxTW, ls ? 13 : 16, 'center') + (ls ? 6 : 10);
 
-  // Detail / lore line
-  if (!landscape) {
-    ctx.fillStyle = '#6A6E78';
-    ctx.font      = '12px monospace';
-    y = _wrapText(ctx, f.detail || '', cx, y, maxTW, detailLineH, 'center') + sectionGap;
-  }
+  // ── Divider ───────────────────────────────────────────────
+  ctx.strokeStyle = f.color + '55';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cardX + 20, y); ctx.lineTo(cardX + cardW - 20, y); ctx.stroke();
+  y += ls ? 10 : 16;
 
-  // Divider
-  ctx.strokeStyle = f.color + '44';
-  ctx.lineWidth   = 1;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
-  ctx.stroke();
-  y += divGap;
-
-  // Class unlocked banner
-  ctx.fillStyle   = '#FFFFFF';
-  ctx.font        = `bold ${landscape ? 12 : 14}px monospace`;
-  ctx.shadowBlur  = 8;
+  // ── SECTION 2: GAMEPLAY IMPACT — hero zone ────────────────
+  // Class unlocked — brightest line on the card
+  ctx.shadowBlur  = ls ? 10 : 16;
   ctx.shadowColor = f.color;
+  ctx.fillStyle   = '#FFFFFF';
+  ctx.font        = `bold ${ls ? 15 : 20}px monospace`;
   ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, y);
   ctx.shadowBlur  = 0;
-  y += landscape ? 14 : 22;
+  y += ls ? 14 : 20;
 
-  // Class description
-  ctx.fillStyle = '#8A8E99';
-  ctx.font      = `${bodyFont}px monospace`;
-  y = _wrapText(ctx, f.classDesc || '', cx, y, maxTW, detailLineH, 'center') + sectionGap;
+  // Class play-style — bright white, readable
+  ctx.fillStyle = '#E8EAF0';
+  ctx.font      = `${ls ? 11 : 13}px monospace`;
+  y = _wrapText(ctx, f.classDesc || '', cx, y, maxTW, ls ? 15 : 19, 'center') + (ls ? 8 : 14);
 
-  // Italic quote — skip in landscape if running short on space
-  if (!landscape) {
-    ctx.fillStyle = '#C4C8D4';
-    ctx.font      = 'italic 13px monospace';
-    y = _wrapText(ctx, `"${f.blurb}"`, cx, y, maxTW, 18, 'center') + sectionGap;
+  // Passive / traits block — accent color, biggest impact statement
+  if (f.id === 'raze') {
+    // Passive pill background
+    const pillH = ls ? 36 : 48;
+    const pillY = y;
+    ctx.fillStyle   = f.color + '22';
+    ctx.strokeStyle = f.color + 'CC';
+    ctx.lineWidth   = 1.5;
+    ctx.shadowBlur  = 12;
+    ctx.shadowColor = f.color;
+    ctx.beginPath(); ctx.roundRect(cardX + 16, pillY, cardW - 32, pillH, 6); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = f.color;
+    ctx.font      = `bold ${ls ? 11 : 13}px monospace`;
+    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 13 : 17));
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font      = `bold ${ls ? 13 : 17}px monospace`;
+    ctx.shadowBlur = 8; ctx.shadowColor = '#FFFFFF';
+    ctx.fillText('–25% FIRE RATE  ·  +25% DAMAGE', cx, pillY + (ls ? 27 : 37));
+    ctx.shadowBlur = 0;
+    y += pillH + (ls ? 8 : 14);
   }
 
-  // Divider 2
-  ctx.strokeStyle = f.color + '33';
-  ctx.lineWidth   = 1;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
-  ctx.stroke();
-  y += landscape ? 10 : 18;
+  // Traits line
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font      = `${ls ? 11 : 13}px monospace`;
+  ctx.fillText('10 class traits now available in the upgrade pool.', cx, y);
+  y += ls ? 14 : 20;
 
-  // Traits available note
-  ctx.fillStyle = f.color;
-  ctx.font      = '11px monospace';
-  ctx.fillText('Traits now available in upgrade pool.', cx, y);
+  // ── Divider ───────────────────────────────────────────────
+  if (!ls) {
+    ctx.strokeStyle = f.color + '33';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cardX + 20, y); ctx.lineTo(cardX + cardW - 20, y); ctx.stroke();
+    y += 14;
 
-  // Breaker passive reminder
-  if (f.id === 'raze') {
-    y += landscape ? 14 : 20;
-    ctx.fillStyle   = '#fff5c2';
-    ctx.font        = `bold ${landscape ? 11 : 12}px monospace`;
-    ctx.shadowBlur  = 8;
-    ctx.shadowColor = '#fff5c2';
-    ctx.fillText('PASSIVE ACTIVATED: -25% fire rate  /  +25% damage', cx, y);
-    ctx.shadowBlur  = 0;
+    // Lore quote — dim, at the bottom, clearly optional reading
+    ctx.fillStyle = f.color + '66';
+    ctx.font      = 'italic 11px monospace';
+    _wrapText(ctx, `"${f.blurb}"`, cx, y, maxTW, 16, 'center');
   }
 
   // Continue prompt pinned to card bottom
   if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#4A4E58';
+    ctx.fillStyle = '#C4C8D4';
     ctx.font      = '11px monospace';
-    ctx.fillText('SPACE or tap to continue', cx, cardY + cardH - 12);
+    ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
   }
 
   ctx.textAlign = 'left';
