@@ -491,6 +491,14 @@ function updatePlaying(dt) {
         pendingFragment = frag;
         lore.trigger(frag.loreId);
         const archive = loadArchive();
+
+        // Breaker passive: finding RAZE gives -25% fire rate, +25% damage this run
+        // Applies every run when RAZE is rescued — not just the first time
+        if (rescued.fragmentId === 'raze') {
+          player.fireRateMultiplier *= 0.75;
+          player.damageMultiplier   *= 1.25;
+        }
+
         if (!archive[rescued.fragmentId]) {
           archive[rescued.fragmentId] = true;
           saveArchive(archive);

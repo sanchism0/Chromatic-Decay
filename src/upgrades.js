@@ -590,15 +590,27 @@ export class UpgradeScreen {
   }
 
   _cardLayouts(W, H) {
-    const landscape = H < 500;   // phone in landscape — height is the constraint
+    const landscape = H < 500;   // phone in landscape — lay cards side by side
     const narrow    = W < 600;   // phone in portrait
-    const cardW  = Math.min(500, W * 0.92);
-    // In landscape, fit all 3 cards + header + footer within H
-    let cardH, gap;
+
     if (landscape) {
-      gap   = 6;
-      cardH = Math.floor((H - 90) / 3) - gap;   // 90px budget for header + footer
-    } else if (narrow) {
+      // 3 cards side by side, leaving room for a small header above
+      const headerH = 36;
+      const gap     = 8;
+      const cardW   = Math.floor((W - gap * 4) / 3);
+      const cardH   = H - headerH - gap * 2;
+      const startY  = headerH + gap;
+      return [0, 1, 2].map(i => ({
+        x: gap + i * (cardW + gap),
+        y: startY,
+        w: cardW,
+        h: cardH,
+      }));
+    }
+
+    const cardW  = Math.min(500, W * 0.92);
+    let cardH, gap;
+    if (narrow) {
       gap = 10; cardH = 90;
     } else {
       gap = 18; cardH = 120;
@@ -713,6 +725,7 @@ export class UpgradeScreen {
         desc = desc.slice(0, -1);
       }
       ctx.fillText(desc, x + 34, descY);
+
     }
 
     ctx.fillStyle = '#4A4E58';
