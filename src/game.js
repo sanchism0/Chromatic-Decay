@@ -1954,7 +1954,7 @@ function drawFragmentRescue(W, H) {
   ctx.fillRect(0, 0, W, H);
 
   // ── Card geometry ─────────────────────────────────────────
-  const landscape = H < W * 0.7;   // phone in landscape orientation
+  const landscape = ('ontouchstart' in window) && H < W;   // mobile in landscape only
   const cardW  = Math.min(400, W - 48);
   const cardH  = Math.min(f.id === 'raze' ? 550 : 520, H - 24);
   const cardX  = (W - cardW) / 2;
