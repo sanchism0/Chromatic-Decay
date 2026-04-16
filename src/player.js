@@ -170,6 +170,9 @@ export class Player {
     // ── Ghost class: alpha transparency ─────────────────────
     this._drawAlpha = 1.0;
 
+    // ── Movement trail ───────────────────────────────────────
+    this._trail = [];
+
     // ── Systems back-ref (set by game.js) ───────────────────
     this._companions = null;
     this._traps      = null;
@@ -298,6 +301,10 @@ export class Player {
 
     this.x = clamp(nx, r, CONFIG.map_width  - r);
     this.y = clamp(ny, r, CONFIG.map_height - r);
+
+    // Record trail position (cap at 8 points)
+    this._trail.push({ x: this.x, y: this.y });
+    if (this._trail.length > 8) this._trail.shift();
 
     // ── Facing — right joystick overrides mouse ──────────────
     if (input.touchAimAngle !== null) {
@@ -590,6 +597,24 @@ export class Player {
     if (this.invincible > 0 && Math.floor(this.flashTimer * 12) % 2 === 1) return;
 
     const s = this.size / 2;
+
+    // Movement trail — fading white smear behind the player
+    const tLen = this._trail.length;
+    if (tLen > 1) {
+      for (let i = 0; i < tLen - 1; i++) {
+        const pt    = this._trail[i];
+        const frac  = (i + 1) / tLen;
+        const r     = s * 0.65 * frac;
+        const alpha = frac * 0.3 * this._drawAlpha;
+        ctx.globalAlpha  = alpha;
+        ctx.shadowBlur   = 0;
+        ctx.fillStyle    = this.glowColor || '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, Math.max(1, r), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
 
     ctx.save();
     ctx.globalAlpha = this._drawAlpha;

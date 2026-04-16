@@ -42,6 +42,9 @@ class Enemy {
     this.beamTargetX  = 0;
     this.beamTargetY  = 0;
     this.beamCooldown = 0;
+
+    // Movement trail
+    this._trail = [];
   }
 
   get size() { return this.cfg.size; }
@@ -168,6 +171,10 @@ class Enemy {
     } else {
       this._stuckTimer = Math.max(0, this._stuckTimer - dt * 1.5);
     }
+
+    // Record trail position (cap at 8 points)
+    this._trail.push({ x: this.x, y: this.y });
+    if (this._trail.length > 8) this._trail.shift();
   }
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)
@@ -298,6 +305,24 @@ class Enemy {
     if (!this.alive) return;
 
     const cfg = this.cfg;
+
+    // Movement trail — fading dots behind the enemy
+    const tLen = this._trail.length;
+    if (tLen > 1) {
+      for (let i = 0; i < tLen - 1; i++) {
+        const pt    = this._trail[i];
+        const frac  = (i + 1) / tLen;          // 0 = oldest, 1 = newest
+        const r     = cfg.size * 0.28 * frac;
+        const alpha = frac * 0.35;
+        ctx.globalAlpha  = alpha;
+        ctx.shadowBlur   = 0;
+        ctx.fillStyle    = cfg.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, Math.max(1, r), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
 
     ctx.save();
     ctx.translate(this.x, this.y);

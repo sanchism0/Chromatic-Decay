@@ -173,7 +173,17 @@ export class GameMap {
       });
     }
 
+    const PAD = 22; // enemy half-size + margin
+    const inWall = c => {
+      for (const obs of this.obstacles) {
+        if (c.x + PAD > obs.x && c.x - PAD < obs.x + obs.w &&
+            c.y + PAD > obs.y && c.y - PAD < obs.y + obs.h) return true;
+      }
+      return false;
+    };
+
     const passesBoth = c => {
+      if (inWall(c)) return false;
       const pdx = c.x - playerX, pdy = c.y - playerY;
       if (pdx * pdx + pdy * pdy < minPlayerDist * minPlayerDist) return false;
       for (const ep of enemyPositions) {
@@ -184,6 +194,7 @@ export class GameMap {
     };
 
     const passesPlayer = c => {
+      if (inWall(c)) return false;
       const dx = c.x - playerX, dy = c.y - playerY;
       return dx * dx + dy * dy >= minPlayerDist * minPlayerDist;
     };
