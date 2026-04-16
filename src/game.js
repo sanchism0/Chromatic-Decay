@@ -1954,8 +1954,9 @@ function drawFragmentRescue(W, H) {
   ctx.fillRect(0, 0, W, H);
 
   // ── Card geometry ─────────────────────────────────────────
+  const landscape = H < W * 0.7;   // phone in landscape orientation
   const cardW  = Math.min(400, W - 48);
-  const cardH  = f.id === 'raze' ? 550 : 520;
+  const cardH  = Math.min(f.id === 'raze' ? 550 : 520, H - 24);
   const cardX  = (W - cardW) / 2;
   const cardY  = (H - cardH) / 2;
   const radius = 14;
@@ -1993,35 +1994,47 @@ function drawFragmentRescue(W, H) {
   ctx.shadowBlur = 0;
 
   // ── Card content ──────────────────────────────────────────
+  // Landscape: tighter spacing + smaller fonts to fit the shorter card
+  const nameFontSize  = landscape ? 30  : 52;
+  const tagGap        = landscape ? 20  : 44;
+  const afterName     = landscape ? 14  : 30;
+  const bodyFont      = landscape ? 11  : 13;
+  const bodyLineH     = landscape ? 14  : 20;
+  const detailLineH   = landscape ? 13  : 18;
+  const divGap        = landscape ? 10  : 22;
+  const sectionGap    = landscape ? 6   : 10;
+
   ctx.textAlign = 'center';
   const cx      = W / 2;
-  const maxTW   = cardW - 48;   // max text width with 24px padding each side
-  let y = cardY + 28;
+  const maxTW   = cardW - 48;
+  let y = cardY + (landscape ? 18 : 28);
 
   // Fragment recovered tag
   ctx.fillStyle = '#B8882A';
   ctx.font      = '11px monospace';
   ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, y);
-  y += 44;
+  y += tagGap;
 
   // Big character name
-  ctx.shadowBlur  = 24;
+  ctx.shadowBlur  = landscape ? 14 : 24;
   ctx.shadowColor = f.color;
   ctx.fillStyle   = f.color;
-  ctx.font        = 'bold 52px monospace';
+  ctx.font        = `bold ${nameFontSize}px monospace`;
   ctx.fillText(f.name, cx, y);
   ctx.shadowBlur  = 0;
-  y += 30;
+  y += afterName;
 
   // What it was
   ctx.fillStyle = '#8A8E99';
-  ctx.font      = '13px monospace';
-  y = _wrapText(ctx, f.was, cx, y, maxTW, 20, 'center') + 2;
+  ctx.font      = `${bodyFont}px monospace`;
+  y = _wrapText(ctx, f.was, cx, y, maxTW, bodyLineH, 'center') + 2;
 
   // Detail / lore line
-  ctx.fillStyle = '#6A6E78';
-  ctx.font      = '12px monospace';
-  y = _wrapText(ctx, f.detail || '', cx, y, maxTW, 18, 'center') + 10;
+  if (!landscape) {
+    ctx.fillStyle = '#6A6E78';
+    ctx.font      = '12px monospace';
+    y = _wrapText(ctx, f.detail || '', cx, y, maxTW, detailLineH, 'center') + sectionGap;
+  }
 
   // Divider
   ctx.strokeStyle = f.color + '44';
@@ -2029,26 +2042,28 @@ function drawFragmentRescue(W, H) {
   ctx.beginPath();
   ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
   ctx.stroke();
-  y += 22;
+  y += divGap;
 
   // Class unlocked banner
   ctx.fillStyle   = '#FFFFFF';
-  ctx.font        = 'bold 14px monospace';
+  ctx.font        = `bold ${landscape ? 12 : 14}px monospace`;
   ctx.shadowBlur  = 8;
   ctx.shadowColor = f.color;
   ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, y);
   ctx.shadowBlur  = 0;
-  y += 22;
+  y += landscape ? 14 : 22;
 
   // Class description
   ctx.fillStyle = '#8A8E99';
-  ctx.font      = '12px monospace';
-  y = _wrapText(ctx, f.classDesc || '', cx, y, maxTW, 18, 'center') + 10;
+  ctx.font      = `${bodyFont}px monospace`;
+  y = _wrapText(ctx, f.classDesc || '', cx, y, maxTW, detailLineH, 'center') + sectionGap;
 
-  // Italic quote
-  ctx.fillStyle = '#C4C8D4';
-  ctx.font      = 'italic 13px monospace';
-  y = _wrapText(ctx, `"${f.blurb}"`, cx, y, maxTW, 18, 'center') + 10;
+  // Italic quote — skip in landscape if running short on space
+  if (!landscape) {
+    ctx.fillStyle = '#C4C8D4';
+    ctx.font      = 'italic 13px monospace';
+    y = _wrapText(ctx, `"${f.blurb}"`, cx, y, maxTW, 18, 'center') + sectionGap;
+  }
 
   // Divider 2
   ctx.strokeStyle = f.color + '33';
@@ -2056,7 +2071,7 @@ function drawFragmentRescue(W, H) {
   ctx.beginPath();
   ctx.moveTo(cardX + 24, y); ctx.lineTo(cardX + cardW - 24, y);
   ctx.stroke();
-  y += 18;
+  y += landscape ? 10 : 18;
 
   // Traits available note
   ctx.fillStyle = f.color;
@@ -2065,9 +2080,9 @@ function drawFragmentRescue(W, H) {
 
   // Breaker passive reminder
   if (f.id === 'raze') {
-    y += 20;
+    y += landscape ? 14 : 20;
     ctx.fillStyle   = '#fff5c2';
-    ctx.font        = 'bold 12px monospace';
+    ctx.font        = `bold ${landscape ? 11 : 12}px monospace`;
     ctx.shadowBlur  = 8;
     ctx.shadowColor = '#fff5c2';
     ctx.fillText('PASSIVE ACTIVATED: -25% fire rate  /  +25% damage', cx, y);
@@ -2078,7 +2093,7 @@ function drawFragmentRescue(W, H) {
   if (Math.floor(Date.now() / 550) % 2 === 0) {
     ctx.fillStyle = '#4A4E58';
     ctx.font      = '11px monospace';
-    ctx.fillText('SPACE or tap to continue', cx, cardY + cardH - 16);
+    ctx.fillText('SPACE or tap to continue', cx, cardY + cardH - 12);
   }
 
   ctx.textAlign = 'left';

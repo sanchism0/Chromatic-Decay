@@ -595,11 +595,11 @@ export class UpgradeScreen {
     const narrow    = W < 600;   // phone in portrait
 
     if (landscape) {
-      // 3 cards side by side, leaving room for a small header above
+      // 3 cards side by side — cap height so they don't fill the whole screen
       const headerH = 36;
       const gap     = 8;
       const cardW   = Math.floor((W - gap * 4) / 3);
-      const cardH   = H - headerH - gap * 2;
+      const cardH   = Math.min(H - headerH - gap * 2, 130);
       const startY  = headerH + gap;
       return [0, 1, 2].map(i => ({
         x: gap + i * (cardW + gap),
