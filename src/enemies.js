@@ -309,7 +309,9 @@ class Enemy {
   draw(ctx) {
     if (!this.alive) return;
 
-    const cfg = this.cfg;
+    const cfg      = this.cfg;
+    const _mob     = 'ontouchstart' in window;
+    const drawSize = _mob ? cfg.size * 1.35 : cfg.size;
 
     // Movement trail — fading dots behind the enemy
     const tLen = this._trail.length;
@@ -328,9 +330,6 @@ class Enemy {
       }
       ctx.globalAlpha = 1;
     }
-
-    const _mob     = 'ontouchstart' in window;
-    const drawSize = _mob ? cfg.size * 1.35 : cfg.size;
 
     ctx.save();
     ctx.translate(this.x, this.y);
