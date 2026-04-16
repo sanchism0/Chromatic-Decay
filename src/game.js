@@ -1993,95 +1993,89 @@ function drawFragmentRescue(W, H) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // ── Card content ──────────────────────────────────────────
-  const ls  = landscape; // shorthand
+  // ── Card content — pinned to proportional zones ──────────
+  const ls    = landscape;
   ctx.textAlign = 'center';
-  const cx  = W / 2;
+  const cx    = W / 2;
   const maxTW = cardW - 48;
-  let y = cardY + (ls ? 16 : 22);
+  const cBot  = cardY + cardH;   // card bottom
 
-  // ── SECTION 1: Identity header (small, dimmed) ────────────
+  // ── ZONE A: top ~28% — identity header ───────────────────
+  const zA = cardY + cardH * 0.06;
+
   ctx.fillStyle = f.color + 'BB';
-  ctx.font      = `${ls ? 10 : 11}px monospace`;
-  ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, y);
-  y += ls ? 4 : 6;
+  ctx.font      = '11px monospace';
+  ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, zA);
 
-  // Fragment name — large but not the hero anymore
-  ctx.shadowBlur  = ls ? 10 : 18;
-  ctx.shadowColor = f.color;
+  ctx.shadowBlur  = 18; ctx.shadowColor = f.color;
   ctx.fillStyle   = f.color;
-  ctx.font        = `bold ${ls ? 26 : 40}px monospace`;
-  ctx.fillText(f.name, cx, y + (ls ? 20 : 30));
+  ctx.font        = `bold ${ls ? 30 : 44}px monospace`;
+  ctx.fillText(f.name, cx, zA + (ls ? 26 : 36));
   ctx.shadowBlur  = 0;
-  y += ls ? 32 : 46;
 
-  // Lore flavour — small, dimmed, clearly secondary
+  // Lore text — dimmed, 2 lines max
   ctx.fillStyle = f.color + '88';
-  ctx.font      = `italic ${ls ? 10 : 11}px monospace`;
-  y = _wrapText(ctx, `${f.was} ${f.detail || ''}`.trim(), cx, y, maxTW, ls ? 13 : 16, 'center') + (ls ? 6 : 10);
+  ctx.font      = 'italic 11px monospace';
+  _wrapText(ctx, `${f.was} ${f.detail || ''}`.trim(), cx, zA + (ls ? 50 : 64), maxTW, 16, 'center');
 
-  // ── Divider ───────────────────────────────────────────────
-  ctx.strokeStyle = f.color + '55';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cardX + 20, y); ctx.lineTo(cardX + cardW - 20, y); ctx.stroke();
-  y += ls ? 10 : 16;
+  // ── Divider 1 at ~30% ────────────────────────────────────
+  const div1Y = cardY + cardH * 0.30;
+  ctx.strokeStyle = f.color + '55'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cardX + 20, div1Y); ctx.lineTo(cardX + cardW - 20, div1Y); ctx.stroke();
 
-  // ── SECTION 2: GAMEPLAY IMPACT — hero zone ────────────────
-  // Class unlocked — brightest line on the card
-  ctx.shadowBlur  = ls ? 10 : 16;
-  ctx.shadowColor = f.color;
-  ctx.fillStyle   = '#FFFFFF';
-  ctx.font        = `bold ${ls ? 15 : 20}px monospace`;
-  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, y);
-  ctx.shadowBlur  = 0;
-  y += ls ? 14 : 20;
+  // ── ZONE B: 33–68% — class unlock + description ──────────
+  const zB = cardY + cardH * 0.36;
 
-  // Class play-style — bright white, readable
+  ctx.shadowBlur = 16; ctx.shadowColor = f.color;
+  ctx.fillStyle  = '#FFFFFF';
+  ctx.font       = `bold ${ls ? 16 : 22}px monospace`;
+  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, zB);
+  ctx.shadowBlur = 0;
+
   ctx.fillStyle = '#E8EAF0';
-  ctx.font      = `${ls ? 11 : 13}px monospace`;
-  y = _wrapText(ctx, f.classDesc || '', cx, y, maxTW, ls ? 15 : 19, 'center') + (ls ? 8 : 14);
+  ctx.font      = `${ls ? 12 : 14}px monospace`;
+  _wrapText(ctx, f.classDesc || '', cx, zB + (ls ? 18 : 24), maxTW, ls ? 17 : 21, 'center');
 
-  // Passive / traits block — accent color, biggest impact statement
+  // ── ZONE C: passive pill — centred at ~62% ────────────────
   if (f.id === 'raze') {
-    // Passive pill background
-    const pillH = ls ? 36 : 48;
-    const pillY = y;
+    const pillH  = ls ? 44 : 58;
+    const pillCY = cardY + cardH * 0.63;
+    const pillY  = pillCY - pillH / 2;
+
     ctx.fillStyle   = f.color + '22';
     ctx.strokeStyle = f.color + 'CC';
     ctx.lineWidth   = 1.5;
-    ctx.shadowBlur  = 12;
-    ctx.shadowColor = f.color;
-    ctx.beginPath(); ctx.roundRect(cardX + 16, pillY, cardW - 32, pillH, 6); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur  = 14; ctx.shadowColor = f.color;
+    ctx.beginPath(); ctx.roundRect(cardX + 16, pillY, cardW - 32, pillH, 8);
+    ctx.fill(); ctx.stroke();
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = f.color;
-    ctx.font      = `bold ${ls ? 11 : 13}px monospace`;
-    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 13 : 17));
+    ctx.font      = `bold ${ls ? 11 : 12}px monospace`;
+    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 14 : 18));
+
     ctx.fillStyle = '#FFFFFF';
-    ctx.font      = `bold ${ls ? 13 : 17}px monospace`;
-    ctx.shadowBlur = 8; ctx.shadowColor = '#FFFFFF';
-    ctx.fillText('–25% FIRE RATE  ·  +25% DAMAGE', cx, pillY + (ls ? 27 : 37));
+    ctx.font      = `bold ${ls ? 15 : 20}px monospace`;
+    ctx.shadowBlur = 10; ctx.shadowColor = '#FFFFFF';
+    ctx.fillText('–25% FIRE RATE  ·  +25% DAMAGE', cx, pillY + (ls ? 32 : 44));
     ctx.shadowBlur = 0;
-    y += pillH + (ls ? 8 : 14);
   }
 
-  // Traits line
+  // ── ZONE D: traits line at ~80% ──────────────────────────
+  const zD = cardY + cardH * 0.80;
   ctx.fillStyle = '#FFFFFF';
   ctx.font      = `${ls ? 11 : 13}px monospace`;
-  ctx.fillText('10 class traits now available in the upgrade pool.', cx, y);
-  y += ls ? 14 : 20;
+  ctx.fillText('10 class traits now available in the upgrade pool.', cx, zD);
 
-  // ── Divider ───────────────────────────────────────────────
+  // ── Divider 2 + lore quote at ~87% ───────────────────────
   if (!ls) {
-    ctx.strokeStyle = f.color + '33';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cardX + 20, y); ctx.lineTo(cardX + cardW - 20, y); ctx.stroke();
-    y += 14;
+    const div2Y = cardY + cardH * 0.86;
+    ctx.strokeStyle = f.color + '33'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cardX + 20, div2Y); ctx.lineTo(cardX + cardW - 20, div2Y); ctx.stroke();
 
-    // Lore quote — dim, at the bottom, clearly optional reading
     ctx.fillStyle = f.color + '66';
     ctx.font      = 'italic 11px monospace';
-    _wrapText(ctx, `"${f.blurb}"`, cx, y, maxTW, 16, 'center');
+    _wrapText(ctx, `"${f.blurb}"`, cx, div2Y + 16, maxTW, 16, 'center');
   }
 
   // Continue prompt pinned to card bottom
