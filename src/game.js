@@ -118,6 +118,10 @@ let pendingEmergence    = null;  // { classId, color, label, abilityName, abilit
 let archiveLoreCard = null; // null | 'world' | 'raze'
 const _archiveLoreBtns = { world: null, raze: null, close: null };
 
+// ── Pause menu state ──────────────────────────────────────────
+let pauseQuitConfirm = false;
+const _pauseBtns = { quit: null, confirmYes: null, confirmNo: null };
+
 // ── Archive ───────────────────────────────────────────────────
 
 function _scoreColor(score, rank) {
@@ -234,6 +238,7 @@ function startRun() {
   pendingFragment        = null;
   pendingEmergence       = null;
   razeRescuedThisRun     = false;
+  pauseQuitConfirm       = false;
   firstEnemySeen         = {};
   loreTimeTriggers       = [
     { time: 600,  id: 'survive_10', fired: false },
@@ -564,7 +569,28 @@ function updatePlaying(dt) {
 }
 
 function updatePaused() {
-  if (input.justPressed.escape) state = STATES.PLAYING;
+  if (input.justPressed.escape) {
+    if (pauseQuitConfirm) { pauseQuitConfirm = false; return; }
+    state = STATES.PLAYING;
+    return;
+  }
+  if (!input.mouseJustClicked) return;
+  const mx = input.mouseX, my = input.mouseY;
+  const hit = (b) => b && mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h;
+
+  if (pauseQuitConfirm) {
+    if (hit(_pauseBtns.confirmYes)) {
+      pauseQuitConfirm = false;
+      stopAmbient();
+      state = STATES.TITLE;
+    } else if (hit(_pauseBtns.confirmNo)) {
+      pauseQuitConfirm = false;
+    }
+    return;
+  }
+  if (hit(_pauseBtns.quit)) {
+    pauseQuitConfirm = true;
+  }
 }
 
 function updateUpgrade() {
@@ -1273,10 +1299,74 @@ function drawTitle(W, H) {
 
 function drawPaused(W, H) {
   ctx.fillStyle = 'rgba(13,14,18,0.6)'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#C4C8D4'; ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('PAUSED', W / 2, H / 2 - 12);
-  ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
-  ctx.fillText('ESC to resume', W / 2, H / 2 + 16);
+
+  const cx = W / 2;
+
+  // ── PAUSED title + resume hint ────────────────────────────────
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 26px monospace';
+  ctx.fillText('PAUSED', cx, H / 2 - 46);
+  ctx.fillStyle = '#A0A4B0'; ctx.font = '15px monospace';
+  ctx.fillText('ESC to resume', cx, H / 2 - 18);
+
+  // ── Quit button ───────────────────────────────────────────────
+  const btnW = 200, btnH = 42;
+  const btnX = cx - btnW / 2, btnY = H / 2 + 8;
+  _pauseBtns.quit = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+  ctx.strokeStyle = '#f81d78'; ctx.lineWidth = 1.5;
+  ctx.fillStyle   = 'rgba(248,29,120,0.10)';
+  ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#f81d78'; ctx.font = 'bold 14px monospace';
+  ctx.fillText('QUIT TO MENU', cx, btnY + btnH / 2 + 5);
+
+  ctx.textAlign = 'left';
+
+  // ── Confirmation overlay ──────────────────────────────────────
+  if (!pauseQuitConfirm) return;
+
+  // dim everything further
+  ctx.fillStyle = 'rgba(13,14,18,0.72)'; ctx.fillRect(0, 0, W, H);
+
+  const dW = Math.min(340, W - 48), dH = 190;
+  const dX = cx - dW / 2, dY = H / 2 - dH / 2;
+
+  // card
+  ctx.fillStyle   = '#131520';
+  ctx.strokeStyle = '#f81d78'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(dX, dY, dW, dH, 10); ctx.fill(); ctx.stroke();
+
+  // text
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 18px monospace';
+  ctx.fillText('QUIT TO MENU?', cx, dY + 42);
+  ctx.fillStyle = '#A0A4B0'; ctx.font = '13px monospace';
+  ctx.fillText('Your run progress will be lost.', cx, dY + 70);
+
+  // YES / NO buttons
+  const halfGap = 10, halfW = (dW - 48 - halfGap * 2) / 2;
+  const yBtnY = dY + 100, yBtnH = 44;
+
+  const noX  = dX + 24;
+  const yesX = noX + halfW + halfGap * 2;
+
+  _pauseBtns.confirmNo  = { x: noX,  y: yBtnY, w: halfW, h: yBtnH };
+  _pauseBtns.confirmYes = { x: yesX, y: yBtnY, w: halfW, h: yBtnH };
+
+  // NO button
+  ctx.strokeStyle = '#C4C8D4'; ctx.lineWidth = 1.5;
+  ctx.fillStyle   = 'rgba(196,200,212,0.08)';
+  ctx.beginPath(); ctx.roundRect(noX, yBtnY, halfW, yBtnH, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#C4C8D4'; ctx.font = 'bold 14px monospace';
+  ctx.fillText('CANCEL', noX + halfW / 2, yBtnY + yBtnH / 2 + 5);
+
+  // YES button
+  ctx.strokeStyle = '#f81d78'; ctx.lineWidth = 1.5;
+  ctx.fillStyle   = 'rgba(248,29,120,0.12)';
+  ctx.beginPath(); ctx.roundRect(yesX, yBtnY, halfW, yBtnH, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#f81d78'; ctx.font = 'bold 14px monospace';
+  ctx.fillText('QUIT', yesX + halfW / 2, yBtnY + yBtnH / 2 + 5);
+
   ctx.textAlign = 'left';
 }
 
