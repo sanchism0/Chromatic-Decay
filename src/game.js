@@ -1541,7 +1541,7 @@ function drawFragmentRescue(W, H) {
 
   // ── Card geometry ─────────────────────────────────────────
   const cardW  = Math.min(400, W - 48);
-  const cardH  = 520;
+  const cardH  = f.id === 'raze' ? 550 : 520;
   const cardX  = (W - cardW) / 2;
   const cardY  = (H - cardH) / 2;
   const radius = 14;
@@ -1648,6 +1648,17 @@ function drawFragmentRescue(W, H) {
   ctx.fillStyle = f.color;
   ctx.font      = '11px monospace';
   ctx.fillText('Traits now available in upgrade pool.', cx, y);
+
+  // Breaker passive reminder
+  if (f.id === 'raze') {
+    y += 20;
+    ctx.fillStyle   = '#fff5c2';
+    ctx.font        = 'bold 12px monospace';
+    ctx.shadowBlur  = 8;
+    ctx.shadowColor = '#fff5c2';
+    ctx.fillText('PASSIVE ACTIVATED: -25% fire rate  /  +25% damage', cx, y);
+    ctx.shadowBlur  = 0;
+  }
 
   // Continue prompt pinned to card bottom
   if (Math.floor(Date.now() / 550) % 2 === 0) {
