@@ -2038,7 +2038,7 @@ function drawFragmentRescue(W, H) {
 
   // ── ZONE C: passive pill — centred at ~62% ────────────────
   if (f.id === 'raze') {
-    const pillH  = ls ? 44 : 58;
+    const pillH  = ls ? 56 : 90;
     const pillCY = cardY + cardH * 0.63;
     const pillY  = pillCY - pillH / 2;
 
@@ -2051,13 +2051,13 @@ function drawFragmentRescue(W, H) {
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = f.color;
-    ctx.font      = `bold ${ls ? 11 : 12}px monospace`;
-    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 14 : 18));
+    ctx.font      = `bold ${ls ? 11 : 13}px monospace`;
+    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 16 : 24));
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font      = `bold ${ls ? 15 : 20}px monospace`;
-    ctx.shadowBlur = 10; ctx.shadowColor = '#FFFFFF';
-    ctx.fillText('–25% FIRE RATE  ·  +25% DAMAGE', cx, pillY + (ls ? 32 : 44));
+    ctx.font      = `bold ${ls ? 16 : 24}px monospace`;
+    ctx.shadowBlur = 12; ctx.shadowColor = '#FFFFFF';
+    ctx.fillText('–25% FIRE RATE  ·  +25% DAMAGE', cx, pillY + (ls ? 38 : 62));
     ctx.shadowBlur = 0;
   }
 
