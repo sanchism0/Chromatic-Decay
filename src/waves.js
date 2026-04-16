@@ -250,7 +250,7 @@ export class WaveSystem {
     const type     = secondsRemaining > 0 ? 'early' : 'timeout';
     const bonusPts = Math.round(secondsRemaining * 10);
     if (bonusPts > 0) this.killScore += bonusPts;
-    this.lastClearBonus = { type, bonusPts, secondsRemaining: Math.floor(secondsRemaining) };
+    this.lastClearBonus = { type, bonusPts, secondsRemaining: Math.floor(secondsRemaining), bonusLevels };
 
     if (this.wave === 15) {
       this._onWin();

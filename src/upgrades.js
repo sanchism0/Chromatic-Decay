@@ -460,7 +460,8 @@ export class UpgradeScreen {
     this.takenCounts = {};     // id → times taken (generics only — for decay)
     this._companions = null;
     this._traps      = null;
-    this.waveContext = null;   // { type: 'early'|'timeout', bonusPts, secondsRemaining }
+    this.waveContext    = null;   // { type: 'early'|'timeout', bonusPts, secondsRemaining, bonusLevels }
+    this.isBonusUpgrade = false;  // true when this selection was earned via bonus bank
   }
 
   setSystems(companions, traps) {
@@ -640,35 +641,54 @@ export class UpgradeScreen {
     ctx.fillRect(0, 0, W, H);
 
     const layout = this._cardLayouts(W, H);
-    const headerGap = landscape ? 20 : narrow ? 36 : 50;
-    const headerY = layout[0].y - headerGap;
+    const hasContext = !landscape && (this.waveContext || this.isBonusUpgrade);
+    const headerGap  = landscape ? 20 : narrow ? (hasContext ? 58 : 36) : (hasContext ? 80 : 50);
+    const headerY    = layout[0].y - headerGap;
 
-    // Header — wave context banner
+    // Header — wave context / bonus upgrade banner
     ctx.textAlign = 'center';
     const wc = this.waveContext;
-    if (wc && !landscape) {
-      if (wc.type === 'early') {
-        ctx.fillStyle = '#8dff6a';
-        ctx.font      = `bold ${compact ? 11 : 14}px monospace`;
-        ctx.fillText(
-          wc.bonusPts > 0
-            ? `WAVE CLEARED  ·  +${wc.bonusPts} BONUS PTS`
-            : 'WAVE CLEARED',
-          W / 2, headerY - (narrow ? 30 : 46)
-        );
-      } else {
-        ctx.fillStyle = '#fd6c1d';
-        ctx.font      = `bold ${compact ? 11 : 14}px monospace`;
-        ctx.fillText(
-          "TIME'S UP  ·  NEXT WAVE INCOMING  ·  NO BONUS",
-          W / 2, headerY - (narrow ? 30 : 46)
-        );
+
+    if (!landscape) {
+      if (this.isBonusUpgrade) {
+        // Gold bonus upgrade header
+        const pulse = Math.sin(Date.now() * 0.004) * 0.15 + 0.85;
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle   = '#B8882A';
+        ctx.font        = `bold ${compact ? 13 : 18}px monospace`;
+        ctx.shadowBlur  = 10; ctx.shadowColor = '#fff5c2';
+        ctx.fillText('★  BONUS UPGRADE  ★', W / 2, headerY - (narrow ? 36 : 56));
+        ctx.shadowBlur  = 0; ctx.globalAlpha = 1;
+        ctx.fillStyle   = '#fff5c2';
+        ctx.font        = `${compact ? 11 : 14}px monospace`;
+        ctx.fillText('EARNED FROM EARLY CLEAR  ·  KEEP CLEARING FAST', W / 2, headerY - (narrow ? 20 : 34));
+      } else if (wc) {
+        if (wc.type === 'early') {
+          ctx.fillStyle = '#8dff6a';
+          ctx.font      = `bold ${compact ? 13 : 18}px monospace`;
+          ctx.shadowBlur = 6; ctx.shadowColor = '#8dff6a';
+          ctx.fillText(
+            wc.bonusPts > 0
+              ? `WAVE CLEARED  ·  +${wc.bonusPts} BONUS PTS`
+              : 'WAVE CLEARED',
+            W / 2, headerY - (narrow ? 36 : 56)
+          );
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.fillStyle = '#fd6c1d';
+          ctx.font      = `bold ${compact ? 13 : 18}px monospace`;
+          ctx.fillText("TIME'S UP  ·  NEXT WAVE INCOMING", W / 2, headerY - (narrow ? 36 : 56));
+          ctx.fillStyle = '#A0A4B0';
+          ctx.font      = `${compact ? 11 : 14}px monospace`;
+          ctx.fillText('NO BONUS — CLEAR FASTER TO EARN EXTRA UPGRADES', W / 2, headerY - (narrow ? 20 : 34));
+        }
       }
     }
+
     ctx.fillStyle = 'rgba(180,190,210,0.5)';
     ctx.font      = `${compact ? 11 : 15}px monospace`;
     if (!landscape) {
-      ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (narrow ? 14 : 24));
+      ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (narrow ? 14 : 16));
     }
     ctx.fillStyle = '#FFFFFF';
     ctx.font      = `bold ${compact ? 18 : 28}px monospace`;

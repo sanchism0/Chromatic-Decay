@@ -695,8 +695,12 @@ function _showNextUpgrade() {
   upgradeUI.present(player, unlockedClasses);
   if (upgradeUI.active) {
     if (player.upgradesTaken === 0) lore.trigger('upgrade_first');
-    // Pass wave-end context to upgrade screen header on first upgrade of this batch
-    upgradeUI.waveContext = waveSystem ? waveSystem.lastClearBonus : null;
+    const lcb = waveSystem ? waveSystem.lastClearBonus : null;
+    const bonusLevels = lcb?.bonusLevels || 0;
+    // isBonusUpgrade: this selection came from the bonus bank, not the standard 2
+    upgradeUI.isBonusUpgrade = bonusLevels > 0 && waveSystem.pendingLevels <= bonusLevels;
+    // Show wave-end context only on the first (non-bonus) upgrade selection
+    upgradeUI.waveContext = upgradeUI.isBonusUpgrade ? null : lcb;
     state = STATES.UPGRADE;
   }
 }
