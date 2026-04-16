@@ -286,7 +286,7 @@ class Enemy {
     if (this.beamPhase === 'fire') {
       this.beamTimer -= dt;
       if (projectileSystem && this._playerInBeam(player)) {
-        player.takeDamage(this.cfg.projectile_damage * dt);
+        player.takeDamage((this.cfg.beam_damage ?? this.cfg.projectile_damage) * dt);
       }
       if (this.beamTimer <= 0) {
         this.beamPhase    = 'idle';
