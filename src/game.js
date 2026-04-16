@@ -110,6 +110,7 @@ let loreTimeTriggers   = [];
 let firstEnemySeen     = {};
 let nearDeathTriggered = false;
 let pendingFragment    = null;
+let razeRescuedThisRun = false;
 
 // ── Archive ───────────────────────────────────────────────────
 
@@ -191,11 +192,13 @@ async function saveScore(entry) {
 
 function getUnlockedClasses() {
   const archive = loadArchive();
-  // Map fragment ids to their class names
-  const classMap = { sable: 'warden', raze: 'breaker', lumen: 'ghost', cord: 'weaver', voss: 'herald' };
-  return Object.entries(classMap)
+  // Breaker is excluded from archive-based unlocking — requires RAZE rescued each run
+  const classMap = { sable: 'warden', lumen: 'ghost', cord: 'weaver', voss: 'herald' };
+  const classes  = Object.entries(classMap)
     .filter(([fragId]) => archive[fragId])
     .map(([, cls]) => cls);
+  if (razeRescuedThisRun) classes.push('breaker');
+  return classes;
 }
 
 // ── Run setup ─────────────────────────────────────────────────
@@ -223,6 +226,7 @@ function startRun() {
   window._gameElapsed    = 0;
   nearDeathTriggered     = false;
   pendingFragment        = null;
+  razeRescuedThisRun     = false;
   firstEnemySeen         = {};
   loreTimeTriggers       = [
     { time: 600,  id: 'survive_10', fired: false },
@@ -509,8 +513,9 @@ function updatePlaying(dt) {
         const archive = loadArchive();
 
         // Breaker passive: finding RAZE gives -25% fire rate, +25% damage this run
-        // Applies every run when RAZE is rescued — not just the first time
+        // Also unlocks Breaker traits for the rest of this run
         if (rescued.fragmentId === 'raze') {
+          razeRescuedThisRun         = true;
           player.fireRateMultiplier *= 0.75;
           player.damageMultiplier   *= 1.25;
         }

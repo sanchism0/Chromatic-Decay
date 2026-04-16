@@ -304,7 +304,7 @@ export class Player {
 
     // Record trail position (cap at 8 points)
     this._trail.push({ x: this.x, y: this.y });
-    if (this._trail.length > 8) this._trail.shift();
+    if (this._trail.length > 14) this._trail.shift();
 
     // ── Facing — right joystick overrides mouse ──────────────
     if (input.touchAimAngle !== null) {
@@ -606,7 +606,7 @@ export class Player {
         const pt    = this._trail[i];
         const frac  = (i + 1) / tLen;
         const r     = s * 0.65 * frac;
-        const alpha = frac * 0.3 * this._drawAlpha;
+        const alpha = frac * 0.5 * this._drawAlpha;
         ctx.globalAlpha  = alpha;
         ctx.shadowBlur   = 0;
         ctx.fillStyle    = this.glowColor || '#FFFFFF';

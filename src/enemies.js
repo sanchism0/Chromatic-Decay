@@ -179,7 +179,7 @@ class Enemy {
 
     // Record trail position (cap at 8 points)
     this._trail.push({ x: this.x, y: this.y });
-    if (this._trail.length > 8) this._trail.shift();
+    if (this._trail.length > 14) this._trail.shift();
   }
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)
@@ -318,7 +318,7 @@ class Enemy {
         const pt    = this._trail[i];
         const frac  = (i + 1) / tLen;          // 0 = oldest, 1 = newest
         const r     = drawSize * 0.28 * frac;
-        const alpha = frac * 0.35;
+        const alpha = frac * 0.55;
         ctx.globalAlpha  = alpha;
         ctx.shadowBlur   = 0;
         ctx.fillStyle    = cfg.color;
