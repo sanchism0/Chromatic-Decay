@@ -50,7 +50,7 @@ export const CONFIG = {
     },
     green: {
       base_hp:              60,
-      move_speed:           130,      // 3 × 60, −20%, −10%
+      move_speed:           120,      // 3 × 60, −20%, −17%
       aggro_range:          200,
       projectile_damage:    12,
       projectile_fire_rate: 0.8,
@@ -67,7 +67,7 @@ export const CONFIG = {
       move_speed:           60,       // 1 × 60 (halved — shooters stay back)
       aggro_range:          180,
       projectile_damage:    18,       // +20%
-      projectile_fire_rate: 1,
+      projectile_fire_rate: 0.9,      // −10%
       residual_drop:        18,
       spawn_weight:         0.4,
       color:                '#fd6c1d',
@@ -80,7 +80,7 @@ export const CONFIG = {
       base_hp:              900,
       move_speed:           55,       // slow drift between dashes
       aggro_range:          300,
-      projectile_damage:    250,      // 1000% boost (×10)
+      projectile_damage:    249,      // 1000% boost (×10), −1
       projectile_fire_rate: 2.0,      // high fire rate
       residual_drop:        60,
       spawn_weight:         0.05,
