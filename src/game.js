@@ -18,6 +18,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
+import { startAmbient, stopAmbient, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -255,6 +256,7 @@ function startRun() {
   // Start wave 1 (needs player + map to be ready)
   waveSystem.startWave(1, enemies, map, player);
 
+  startAmbient();
   state = STATES.PLAYING;
 }
 
@@ -283,6 +285,7 @@ function handleGameOver() {
   initialsSubmitted = false;
   _kbdOverlay       = false;
   _kbdIconBtn       = null;
+  stopAmbient();
   state = STATES.GAMEOVER;
 }
 
@@ -316,6 +319,7 @@ function _hitBtn(btn) {
 }
 
 function updateTitle() {
+  resumeAudio();
   if (input.justPressed.space) { startRun(); return; }
   if (!input.mouseJustClicked)  return;
 
@@ -341,6 +345,8 @@ function updatePlaying(dt) {
 
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
+  if (player.justFired) sfxShoot();
+  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; }
 
   // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
@@ -374,6 +380,7 @@ function updatePlaying(dt) {
   // Process enemy deaths
   for (const e of dead) {
     hud.flashKill();
+    sfxEnemyKill(e.type);
 
     // Kill pulse (legacy Breaker trait)
     if (player.killPulse) {
@@ -496,6 +503,7 @@ function updatePlaying(dt) {
       const frag = FRAGMENT_DATA[rescued.fragmentId];
       if (frag) {
         pendingFragment = frag;
+        sfxFragmentPickup();
         lore.trigger(frag.loreId);
         const archive = loadArchive();
 
@@ -553,9 +561,11 @@ function updateUpgrade() {
 
     if (waveSystem.pendingLevels > 0) {
       // More levels from this wave clear — show next upgrade card
+      sfxWaveClear();
       _showNextUpgrade();
     } else if (waveSystem.gameWon) {
       // All upgrades granted, wave 15 was cleared — show win screen
+      stopAmbient();
       state = STATES.WIN;
     } else {
       // Start next wave

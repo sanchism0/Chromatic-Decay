@@ -158,6 +158,8 @@ export class Player {
     this.alive       = true;
     this.invincible  = 0;
     this.flashTimer  = 0;
+    this.justFired   = false;   // audio hook: true for one frame when a shot fires
+    this.justHit     = false;   // audio hook: true for one frame when damage taken
 
     // ── Run stats ────────────────────────────────────────────
     this.kills         = 0;
@@ -306,12 +308,14 @@ export class Player {
     }
 
     // ── Shooting — always fires toward cursor ────────────────
-    this.firing = true;
+    this.firing    = true;
+    this.justFired = false;
     this.fireTimer -= dt;
 
     if (this.fireTimer <= 0) {
       this._shoot(projectileSystem);
       this.fireTimer = 1 / this.effectiveFireRate;
+      this.justFired = true;
     }
 
     // ── Ability ──────────────────────────────────────────────
@@ -538,6 +542,7 @@ export class Player {
       this.algoBonus      = 0;
     }
 
+    this.justHit = true;
     return true;
   }
 
