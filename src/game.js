@@ -113,6 +113,13 @@ let pendingFragment    = null;
 
 // ── Archive ───────────────────────────────────────────────────
 
+function _scoreColor(score, rank) {
+  if (rank === 0)        return '#f81d78'; // 1st place — magenta
+  if (score >= 6000)     return '#fd6c1d'; // 6–9k — orange
+  if (score >= 3000)     return '#e9ff6a'; // 3–6k — yellow
+  return '#4A4E58';                        // 0–3k — grey
+}
+
 function loadArchive() {
   try { return JSON.parse(localStorage.getItem('chromatic_decay_archive') || '{}'); }
   catch { return {}; }
@@ -1143,11 +1150,13 @@ function drawTitle(W, H) {
     // Data rows
     scores.slice(0, 5).forEach((s, i) => {
       const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
-      const rowY = panelY + 44 + i * 16;
-      ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
+      const rowY  = panelY + 44 + i * 16;
+      const color = _scoreColor(s.score, i);
+      ctx.fillStyle = color;
       ctx.font      = i === 0 ? 'bold 11px monospace' : '11px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(s.initials,                         _lbCols.name,  rowY);
+      const nameLabel = i === 0 ? '♛ ' + s.initials : s.initials;
+      ctx.fillText(nameLabel,                           _lbCols.name,  rowY);
       ctx.fillText(classLabel.toUpperCase(),            _lbCols.cls,   rowY);
       ctx.textAlign = 'right';
       ctx.fillText(s.score.toLocaleString(),            _lbCols.score, rowY);
@@ -1331,11 +1340,13 @@ function drawArchive(W, H) {
     // Data rows
     scores.slice(0, 8).forEach((s, i) => {
       const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
-      const rowY = tableY + 34 + i * 15;
-      ctx.fillStyle = i === 0 ? '#B8882A' : '#4A4E58';
+      const rowY  = tableY + 34 + i * 15;
+      const color = _scoreColor(s.score, i);
+      ctx.fillStyle = color;
       ctx.font      = i === 0 ? 'bold 13px monospace' : '13px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(s.initials,                                   _arCols.name,  rowY);
+      const nameLabel = i === 0 ? '♛ ' + s.initials : s.initials;
+      ctx.fillText(nameLabel,                                     _arCols.name,  rowY);
       ctx.fillText(classLabel.toUpperCase(),                      _arCols.cls,   rowY);
       ctx.textAlign = 'right';
       ctx.fillText(s.score.toLocaleString(),                      _arCols.score, rowY);
