@@ -6,7 +6,7 @@ import { clamp } from './utils.js';
 class Projectile {
   constructor() { this.active = false; }
 
-  init(x, y, angle, damage, speed, range, isPlayer, color = '#FFFFFF', piercing = 0, bounce = false, homing = false) {
+  init(x, y, angle, damage, speed, range, isPlayer, color = '#FFFFFF', piercing = 0, bounce = false, homing = false, overload = false) {
     this.x        = x;
     this.y        = y;
     this.vx       = Math.cos(angle) * speed;
@@ -20,6 +20,7 @@ class Projectile {
     this.piercing = piercing;   // hits remaining after first
     this.bounce   = bounce;     // reflect off map edges
     this.homing   = homing;     // tracks toward player
+    this.overload = overload;   // Breaker: golden 3× damage shot
     this.active   = true;
   }
 }
@@ -42,9 +43,9 @@ export class ProjectileSystem {
     return this._pool.find(p => !p.active) || null;
   }
 
-  spawnPlayer(x, y, angle, damage, speed, range, piercing = 0, bounce = false) {
+  spawnPlayer(x, y, angle, damage, speed, range, piercing = 0, bounce = false, overload = false) {
     const p = this._getFree();
-    if (p) p.init(x, y, angle, damage, speed, range, true, '#FFFFFF', piercing, bounce);
+    if (p) p.init(x, y, angle, damage, speed, range, true, '#FFFFFF', piercing, bounce, false, overload);
   }
 
   spawnEnemy(x, y, angle, damage, speed, range, color) {
@@ -156,19 +157,41 @@ export class ProjectileSystem {
 
       if (p.isPlayer) {
         const nx = -p.vx / p.speed, ny = -p.vy / p.speed;
-        const trailAlphas = [0.12, 0.22, 0.35];
-        for (let i = 0; i < 3; i++) {
-          const td = (i + 1) * 6;
-          ctx.globalAlpha = trailAlphas[i];
-          ctx.fillStyle = '#E8F0FF';
-          ctx.fillRect(p.x + nx * td - 1.5, p.y + ny * td - 1.5, 3, 3);
+        if (p.overload) {
+          // Golden overload shot — large circle with bright glow trail
+          const trailAlphas = [0.10, 0.20, 0.32];
+          for (let i = 0; i < 3; i++) {
+            const td = (i + 1) * 8;
+            ctx.globalAlpha = trailAlphas[i];
+            ctx.fillStyle = '#FFB800';
+            ctx.beginPath();
+            ctx.arc(p.x + nx * td, p.y + ny * td, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          ctx.shadowBlur  = 22;
+          ctx.shadowColor = '#FFD700';
+          ctx.fillStyle   = '#FFE566';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        } else {
+          // Standard white shot
+          const trailAlphas = [0.12, 0.22, 0.35];
+          for (let i = 0; i < 3; i++) {
+            const td = (i + 1) * 6;
+            ctx.globalAlpha = trailAlphas[i];
+            ctx.fillStyle = '#E8F0FF';
+            ctx.fillRect(p.x + nx * td - 1.5, p.y + ny * td - 1.5, 3, 3);
+          }
+          ctx.globalAlpha = 1;
+          ctx.shadowBlur  = 6;
+          ctx.shadowColor = '#FFFFFF';
+          ctx.fillStyle   = '#FFFFFF';
+          ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+          ctx.shadowBlur  = 0;
         }
-        ctx.globalAlpha = 1;
-        ctx.shadowBlur  = 6;
-        ctx.shadowColor = '#FFFFFF';
-        ctx.fillStyle   = '#FFFFFF';
-        ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
-        ctx.shadowBlur  = 0;
       } else {
         ctx.shadowBlur  = 8;
         ctx.shadowColor = p.color;

@@ -642,7 +642,7 @@ function updateClassEmergence() {
 
 const _ABILITY_DESCS = {
   warden:  'Restore 20 shield and emit a burst that damages nearby enemies.',
-  breaker: 'Your next 3 shots deal 3× damage. Unstoppable burst window.',
+  breaker: 'Charge your next 3 shots to 3× damage. They fire golden and oversized.',
   ghost:   'Sprint at 2× speed with full invincibility for 1.5 seconds.',
   weaver:  'Place a trap at your position that slows and damages enemies.',
   herald:  'Summon an orbital companion that fires at nearby enemies.',

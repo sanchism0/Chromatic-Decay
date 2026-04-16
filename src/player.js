@@ -354,8 +354,12 @@ export class Player {
       }
     }
 
+    // Overload Burst: next 3 shots deal 3× damage and render golden
+    const isOverload = (this.overloadBurst || 0) > 0;
+    if (isOverload) this.overloadBurst--;
+
     const half   = Math.floor(this.projCount / 2);
-    const damage = this.effectiveDamage * flashMultiplier;
+    const damage = this.effectiveDamage * flashMultiplier * (isOverload ? 3 : 1);
 
     for (let i = 0; i < this.projCount; i++) {
       const offset = this.projCount === 1 ? 0 : (i - half) * this.projSpread;
@@ -367,6 +371,7 @@ export class Player {
         this.projRange,
         this.piercingShots,
         this.projectileBounce,
+        isOverload,
       );
     }
   }
@@ -388,9 +393,8 @@ export class Player {
       }
 
       case 'breaker': {
-        // Overload Burst — 3× damage for next 3 shots (flag)
+        // Overload Burst — 3× damage + golden oversized shots for next 3
         this.overloadBurst = 3;
-        if (this._particles) this._particles.classEmergence(this.x, this.y, CLASS_DATA.breaker.color);
 
         // Circuit Breaker — stun all non-boss enemies once per run
         if (this.circuitBreaker && !this.circuitBreakerUsed) {
