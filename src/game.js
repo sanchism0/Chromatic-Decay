@@ -74,10 +74,11 @@ const STATES = {
   PAUSED:          2,
   UPGRADE:         3,
   GAMEOVER:        4,
-  FRAGMENT_RESCUE: 5,
-  ARCHIVE:         6,
-  ADMIN:           7,
-  WIN:             8,
+  FRAGMENT_RESCUE:  5,
+  ARCHIVE:          6,
+  ADMIN:            7,
+  WIN:              8,
+  CLASS_EMERGENCE:  9,
 };
 let state = STATES.TITLE;
 
@@ -110,7 +111,8 @@ let loreTimeTriggers   = [];
 let firstEnemySeen     = {};
 let nearDeathTriggered = false;
 let pendingFragment    = null;
-let razeRescuedThisRun = false;
+let razeRescuedThisRun  = false;
+let pendingEmergence    = null;  // { classId, color, label, abilityName, abilityDesc, cooldown }
 
 // ── Archive lore card state ───────────────────────────────────
 let archiveLoreCard = null; // null | 'world' | 'raze'
@@ -230,6 +232,7 @@ function startRun() {
   window._gameElapsed    = 0;
   nearDeathTriggered     = false;
   pendingFragment        = null;
+  pendingEmergence       = null;
   razeRescuedThisRun     = false;
   firstEnemySeen         = {};
   loreTimeTriggers       = [
@@ -312,6 +315,7 @@ function update(dt) {
     case STATES.GAMEOVER:        updateGameOver();         break;
     case STATES.WIN:             updateWin();              break;
     case STATES.FRAGMENT_RESCUE: updateFragmentRescue();   break;
+    case STATES.CLASS_EMERGENCE: updateClassEmergence();   break;
     case STATES.ARCHIVE:         updateArchive();          break;
     case STATES.ADMIN:           updateAdmin();            break;
   }
@@ -567,18 +571,21 @@ function updateUpgrade() {
   if (upgradeUI.handleInput(input, player, canvas)) {
     _checkClassEmergence();
 
+    // If emergence just happened, show the emergence card first
+    if (pendingEmergence) {
+      state = STATES.CLASS_EMERGENCE;
+      return;
+    }
+
     waveSystem.pendingLevels = Math.max(0, waveSystem.pendingLevels - 1);
 
     if (waveSystem.pendingLevels > 0) {
-      // More levels from this wave clear — show next upgrade card
       sfxWaveClear();
       _showNextUpgrade();
     } else if (waveSystem.gameWon) {
-      // All upgrades granted, wave 15 was cleared — show win screen
       stopAmbient();
       state = STATES.WIN;
     } else {
-      // Start next wave
       const nextWave = waveSystem.wave + 1;
       waveSystem.startWave(nextWave, enemies, map, player);
       state = STATES.PLAYING;
@@ -586,12 +593,51 @@ function updateUpgrade() {
   }
 }
 
+function updateClassEmergence() {
+  if (input.justPressed.space || input.justPressed.escape || input.mouseJustClicked) {
+    pendingEmergence = null;
+
+    waveSystem.pendingLevels = Math.max(0, waveSystem.pendingLevels - 1);
+
+    if (waveSystem.pendingLevels > 0) {
+      sfxWaveClear();
+      _showNextUpgrade();
+      state = STATES.UPGRADE;
+    } else if (waveSystem.gameWon) {
+      stopAmbient();
+      state = STATES.WIN;
+    } else {
+      const nextWave = waveSystem.wave + 1;
+      waveSystem.startWave(nextWave, enemies, map, player);
+      state = STATES.PLAYING;
+    }
+  }
+}
+
+const _ABILITY_DESCS = {
+  warden:  'Restore 20 shield and emit a burst that damages nearby enemies.',
+  breaker: 'Your next 3 shots deal 3× damage. Unstoppable burst window.',
+  ghost:   'Sprint at 2× speed with full invincibility for 1.5 seconds.',
+  weaver:  'Place a trap at your position that slows and damages enemies.',
+  herald:  'Summon an orbital companion that fires at nearby enemies.',
+};
+
 function _checkClassEmergence() {
   const emergenceResult = player.checkClassEmergence();
   if (emergenceResult) {
     if (emergenceResult.type === 'class') {
       lore.trigger(`class_${emergenceResult.classId}`);
       if (particles && player) particles.classEmergence(player.x, player.y, player.glowColor);
+      // Queue the emergence card — shown after the upgrade screen resolves
+      const cid = emergenceResult.classId;
+      pendingEmergence = {
+        classId:     cid,
+        color:       player.glowColor,
+        label:       cid.toUpperCase(),
+        abilityName: ({ warden:'Barrier Pulse', breaker:'Overload Burst', ghost:'Phase Shift', weaver:'Deploy Trap', herald:'Summon Orb' })[cid] || cid,
+        abilityDesc: _ABILITY_DESCS[cid] || '',
+        cooldown:    ({ warden:12, breaker:16, ghost:6, weaver:10, herald:14 })[cid] || 10,
+      };
     } else if (emergenceResult.type === 'subclass') {
       lore.trigger(`sub_${emergenceResult.subclassId}`);
     }
@@ -797,6 +843,7 @@ function draw() {
     case STATES.GAMEOVER:        drawGameOver(W, H); if (_kbdOverlay) drawKbdOverlay(W, H); break;
     case STATES.WIN:             drawWin(W, H);      if (_kbdOverlay) drawKbdOverlay(W, H); break;
     case STATES.FRAGMENT_RESCUE: drawGame(W, H); drawFragmentRescue(W, H); break;
+    case STATES.CLASS_EMERGENCE: drawGame(W, H); drawClassEmergence(W, H); break;
     case STATES.ARCHIVE:         drawArchive(W, H);        break;
     case STATES.ADMIN:           adminPanel.draw(ctx, canvas); break;
   }
@@ -2094,6 +2141,129 @@ function drawFragmentRescue(W, H) {
 
 
 // Rounded rect path helper (top-only rounding option for color band)
+// ── Class Emergence Card ──────────────────────────────────────
+
+function drawClassEmergence(W, H) {
+  if (!pendingEmergence) return;
+  const e      = pendingEmergence;
+  const ls     = ('ontouchstart' in window) && H < W;
+
+  // Dim background
+  ctx.fillStyle = 'rgba(8,8,12,0.88)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Card geometry
+  const cardW = Math.min(420, W - 32);
+  const cardH = Math.min(ls ? 320 : 560, H - 24);
+  const cardX = (W - cardW) / 2;
+  const cardY = (H - cardH) / 2;
+  const cx    = W / 2;
+  const maxTW = cardW - 48;
+
+  // Outer glow
+  ctx.shadowBlur  = 50;
+  ctx.shadowColor = e.color;
+  _roundRect(cardX, cardY, cardW, cardH, 14);
+  ctx.fillStyle = e.color + '18';
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Card body
+  const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+  grad.addColorStop(0,   '#1A1C26');
+  grad.addColorStop(0.6, '#111318');
+  grad.addColorStop(1,   '#0D0E12');
+  _roundRect(cardX, cardY, cardW, cardH, 14);
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Border
+  ctx.lineWidth   = 2;
+  ctx.strokeStyle = e.color + 'CC';
+  ctx.shadowBlur  = 16; ctx.shadowColor = e.color;
+  _roundRect(cardX, cardY, cardW, cardH, 14);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Top color band
+  ctx.fillStyle = e.color;
+  ctx.shadowBlur = 14; ctx.shadowColor = e.color;
+  _roundRect(cardX, cardY, cardW, 6, 14, true);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // ── ZONE A: top — emergence tag + class name ──────────────
+  const zA = cardY + cardH * 0.08;
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = e.color + 'BB';
+  ctx.font      = '11px monospace';
+  ctx.fillText('— CLASS EMERGED —', cx, zA);
+
+  ctx.shadowBlur = 24; ctx.shadowColor = e.color;
+  ctx.fillStyle  = e.color;
+  ctx.font       = `bold ${ls ? 32 : 48}px monospace`;
+  ctx.fillText(e.label, cx, zA + (ls ? 26 : 38));
+  ctx.shadowBlur = 0;
+
+  // Lore flavour — small
+  ctx.fillStyle = e.color + '77';
+  ctx.font      = 'italic 11px monospace';
+  ctx.fillText('Signal lock confirmed. You are no longer baseline.', cx, zA + (ls ? 48 : 62));
+
+  // ── Divider 1 at ~32% ─────────────────────────────────────
+  const div1Y = cardY + cardH * 0.32;
+  ctx.strokeStyle = e.color + '44'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cardX + 20, div1Y); ctx.lineTo(cardX + cardW - 20, div1Y); ctx.stroke();
+
+  // ── ZONE B: ability pill centred at ~55% ──────────────────
+  const pillH  = ls ? 60 : 90;
+  const pillCY = cardY + cardH * 0.54;
+  const pillY  = pillCY - pillH / 2;
+
+  ctx.fillStyle   = e.color + '1A';
+  ctx.strokeStyle = e.color + 'CC';
+  ctx.lineWidth   = 1.5;
+  ctx.shadowBlur  = 14; ctx.shadowColor = e.color;
+  ctx.beginPath(); ctx.roundRect(cardX + 16, pillY, cardW - 32, pillH, 8);
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = e.color;
+  ctx.font      = `bold ${ls ? 11 : 12}px monospace`;
+  ctx.fillText('ABILITY UNLOCKED', cx, pillY + (ls ? 15 : 20));
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font      = `bold ${ls ? 16 : 22}px monospace`;
+  ctx.shadowBlur = 12; ctx.shadowColor = '#FFFFFF';
+  ctx.fillText(e.abilityName.toUpperCase(), cx, pillY + (ls ? 34 : 48));
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = e.color + 'CC';
+  ctx.font      = `${ls ? 10 : 12}px monospace`;
+  ctx.fillText(`${e.cooldown}s cooldown`, cx, pillY + (ls ? 50 : 72));
+
+  // ── ZONE C: ability description at ~78% ───────────────────
+  const zC = cardY + cardH * 0.76;
+  ctx.fillStyle = '#E8EAF0';
+  ctx.font      = `${ls ? 11 : 13}px monospace`;
+  _wrapText(ctx, e.abilityDesc, cx, zC, maxTW, ls ? 15 : 19, 'center');
+
+  // ── Divider 2 + continue at bottom ────────────────────────
+  if (!ls) {
+    const div2Y = cardY + cardH * 0.90;
+    ctx.strokeStyle = e.color + '33'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cardX + 20, div2Y); ctx.lineTo(cardX + cardW - 20, div2Y); ctx.stroke();
+  }
+
+  if (Math.floor(Date.now() / 550) % 2 === 0) {
+    ctx.fillStyle = '#C4C8D4';
+    ctx.font      = '11px monospace';
+    ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
+  }
+
+  ctx.textAlign = 'left';
+}
+
 function _roundRect(x, y, w, h, r, topOnly = false) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
