@@ -242,6 +242,8 @@ function startRun() {
   pendingEmergence       = null;
   razeRescuedThisRun     = false;
   pauseQuitConfirm       = false;
+  _gameOverInputDelay    = 0;
+  _winInputDelay         = 0;
   firstEnemySeen         = {};
   loreTimeTriggers       = [
     { time: 600,  id: 'survive_10', fired: false },
@@ -289,6 +291,9 @@ let initialsSubmitted = false;
 let winInitials          = '';
 let winInitialsSubmitted = false;
 
+let _gameOverInputDelay = 0; // ignore all input for first 0.5s of game over screen
+let _winInputDelay      = 0; // same guard for win screen
+
 function handleGameOver() {
   gameOverData = {
     score:    waveSystem.killScore,
@@ -300,10 +305,21 @@ function handleGameOver() {
     subclass: player.subclassId || null,
     wave:     Math.max(0, waveSystem.wave - 1), // last *completed* wave
   };
-  initialsInput     = '';
-  initialsSubmitted = false;
-  _kbdOverlay       = false;
-  _kbdIconBtn       = null;
+  initialsInput        = '';
+  initialsSubmitted    = false;
+  _kbdOverlay          = false;
+  _kbdIconBtn          = null;
+  _kbdBtns             = [];   // clear stale button rects from previous screens
+  _gameOverInputDelay  = 0.5;  // ignore input for first 0.5s
+  // Auto-open keyboard overlay on mobile so it's immediately visible
+  if ('ontouchstart' in window) {
+    _kbdOverlay      = true;
+    _kbdOverlayInput = '';
+    _kbdOverlayCb    = {
+      setValue: v => { initialsInput = v; },
+      submit:   _submitScore,
+    };
+  }
   stopAmbient();
   state = STATES.GAMEOVER;
 }
@@ -630,7 +646,7 @@ function updateUpgrade() {
       _showNextUpgrade();
     } else if (waveSystem.gameWon) {
       stopAmbient();
-      state = STATES.WIN;
+      _enterWin();
     } else {
       const nextWave = waveSystem.wave + 1;
       waveSystem.startWave(nextWave, enemies, map, player);
@@ -651,7 +667,7 @@ function updateClassEmergence() {
       state = STATES.UPGRADE;
     } else if (waveSystem.gameWon) {
       stopAmbient();
-      state = STATES.WIN;
+      _enterWin();
     } else {
       const nextWave = waveSystem.wave + 1;
       waveSystem.startWave(nextWave, enemies, map, player);
@@ -749,6 +765,11 @@ function _openKbdOverlay(currentVal, setFn, submitFn) {
 }
 
 function updateGameOver() {
+  // Tick the input guard — ignore all input until it clears
+  if (_gameOverInputDelay > 0) {
+    _gameOverInputDelay -= 0.016; // approximate dt
+    return;
+  }
   if (!initialsSubmitted) {
     if (input.justPressed.space && initialsInput.length > 0) _submitScore();
     if (_kbdOverlay) {
@@ -768,7 +789,24 @@ function updateGameOver() {
   }
 }
 
+function _enterWin() {
+  winInitials          = '';
+  winInitialsSubmitted = false;
+  _kbdBtns             = [];
+  _winInputDelay       = 0.5;
+  if ('ontouchstart' in window) {
+    _kbdOverlay      = true;
+    _kbdOverlayInput = '';
+    _kbdOverlayCb    = {
+      setValue: v => { winInitials = v; },
+      submit:   _submitWinScore,
+    };
+  }
+  state = STATES.WIN;
+}
+
 function updateWin() {
+  if (_winInputDelay > 0) { _winInputDelay -= 0.016; return; }
   if (!winInitialsSubmitted) {
     if (input.justPressed.space && winInitials.length > 0) _submitWinScore();
     if (_kbdOverlay) {
