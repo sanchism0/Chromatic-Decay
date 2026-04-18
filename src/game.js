@@ -115,8 +115,8 @@ let razeRescuedThisRun  = false;
 let pendingEmergence    = null;  // { classId, color, label, abilityName, abilityDesc, cooldown }
 
 // ── Archive lore card state ───────────────────────────────────
-let archiveLoreCard = null; // null | 'world' | 'raze'
-const _archiveLoreBtns = { world: null, raze: null, close: null };
+let archiveLoreCard = null; // null | 'world' | 'raze' | 'violet' | 'yellow' | 'green' | 'orange' | 'pink'
+const _archiveLoreBtns = { world: null, raze: null, violet: null, yellow: null, green: null, orange: null, pink: null, close: null };
 
 // ── Pause menu state ──────────────────────────────────────────
 let pauseQuitConfirm = false;
@@ -128,10 +128,10 @@ let _timerSounds = { wave: 0, warned: false, ticks: {} };
 // ── Archive ───────────────────────────────────────────────────
 
 function _scoreColor(score, rank) {
-  if (rank === 0)        return '#f81d78'; // 1st place — magenta
-  if (score >= 6000)     return '#fd6c1d'; // 6k+ — orange
-  if (score >= 3000)     return '#e9ff6a'; // 3–6k — yellow
-  return '#4A4E58';                        // 0–3k — grey
+  if (rank === 0)        return '#E8A020'; // 1st place — gold
+  if (score >= 6001)     return '#e9ff6a'; // 6001+ — yellow
+  if (score >= 1001)     return '#FFFFFF'; // 1001–6000 — white
+  return '#4A4E58';                        // 0–1000 — grey
 }
 
 function loadArchive() {
@@ -526,7 +526,8 @@ function updatePlaying(dt) {
     waveSystem.waveSpawnQueue  = [];   // cancel any remaining queued spawns
     waveSystem.pendingBosses   = 0;
     waveSystem.triggerClear();
-    _showNextUpgrade();
+    if (waveSystem.gameWon) { stopAmbient(); _enterWin(); }
+    else _showNextUpgrade();
   }
 
   // Traps (Weaver) — apply slow and check for expiry
@@ -596,7 +597,8 @@ function updatePlaying(dt) {
       waveSystem.pendingBosses === 0 &&
       !enemies.enemies.some(e => e.isAlive)) {
     waveSystem.triggerClear();
-    _showNextUpgrade();
+    if (waveSystem.gameWon) { stopAmbient(); _enterWin(); }
+    else _showNextUpgrade();
   }
 
   if (!player.alive) handleGameOver();
@@ -713,11 +715,14 @@ function _showNextUpgrade() {
     if (player.upgradesTaken === 0) lore.trigger('upgrade_first');
     const lcb = waveSystem ? waveSystem.lastClearBonus : null;
     const bonusLevels = lcb?.bonusLevels || 0;
-    // isBonusUpgrade: this selection came from the bonus bank, not the standard 2
     upgradeUI.isBonusUpgrade = bonusLevels > 0 && waveSystem.pendingLevels <= bonusLevels;
-    // Show wave-end context only on the first (non-bonus) upgrade selection
     upgradeUI.waveContext = upgradeUI.isBonusUpgrade ? null : lcb;
     state = STATES.UPGRADE;
+  } else {
+    // No upgrades available (pool exhausted) — skip straight to next wave or win
+    waveSystem.pendingLevels = 0;
+    if (waveSystem.gameWon) { stopAmbient(); _enterWin(); }
+    else { waveSystem.startWave(waveSystem.wave + 1, enemies, map, player); state = STATES.PLAYING; }
   }
 }
 
@@ -857,8 +862,13 @@ function updateArchive() {
   }
   // ── Check lore entry buttons before falling through to exit ──
   if (input.mouseJustClicked) {
-    if (_hitBtn(_archiveLoreBtns.world)) { archiveLoreCard = 'world'; return; }
-    if (_hitBtn(_archiveLoreBtns.raze))  { archiveLoreCard = 'raze';  return; }
+    if (_hitBtn(_archiveLoreBtns.world))   { archiveLoreCard = 'world';  return; }
+    if (_hitBtn(_archiveLoreBtns.raze))    { archiveLoreCard = 'raze';   return; }
+    if (_hitBtn(_archiveLoreBtns.violet))  { archiveLoreCard = 'violet'; return; }
+    if (_hitBtn(_archiveLoreBtns.yellow))  { archiveLoreCard = 'yellow'; return; }
+    if (_hitBtn(_archiveLoreBtns.green))   { archiveLoreCard = 'green';  return; }
+    if (_hitBtn(_archiveLoreBtns.orange))  { archiveLoreCard = 'orange'; return; }
+    if (_hitBtn(_archiveLoreBtns.pink))    { archiveLoreCard = 'pink';   return; }
   }
   if (input.justPressed.escape || input.mouseJustClicked) state = STATES.TITLE;
 }
@@ -1308,20 +1318,27 @@ function drawTitle(W, H) {
 
   if (scores.length > 0) {
     // Header row
-    ctx.font      = 'bold 11px monospace';
-    ctx.fillStyle = '#5dbd7a';
+    ctx.font      = 'bold 13px monospace';
+    ctx.fillStyle = '#5de8e8';
     ctx.textAlign = 'left';
-    ctx.fillText('NAME', _lbCols.name,  panelY + 30);
-    ctx.fillText('CLASS',_lbCols.cls,   panelY + 30);
+    ctx.fillText('NAME', _lbCols.name,  panelY + 32);
+    ctx.fillText('CLASS',_lbCols.cls,   panelY + 32);
     ctx.textAlign = 'right';
-    ctx.fillText('SCORE', _lbCols.score, panelY + 30);
-    ctx.fillText('TIME',  _lbCols.time,  panelY + 30);
-    ctx.fillText('WAVE',  _lbCols.wave,  panelY + 30);
+    ctx.fillText('SCORE', _lbCols.score, panelY + 32);
+    ctx.fillText('TIME',  _lbCols.time,  panelY + 32);
+    ctx.fillText('WAVE',  _lbCols.wave,  panelY + 32);
+
+    // Underline
+    ctx.strokeStyle = '#5de8e866'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 8,          panelY + 37);
+    ctx.lineTo(panelX + panelW - 8, panelY + 37);
+    ctx.stroke();
 
     // Data rows
     scores.slice(0, 5).forEach((s, i) => {
       const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
-      const rowY  = panelY + 44 + i * 16;
+      const rowY  = panelY + 52 + i * 16;
       const color = _scoreColor(s.score, i);
       ctx.fillStyle = color;
       ctx.font      = i === 0 ? 'bold 11px monospace' : '11px monospace';
@@ -1532,54 +1549,98 @@ function drawArchive(W, H) {
     { key: 'raze',  label: 'RAZE',                sub: 'Breaker Fragment  //  Class Origin', color: '#fff5c2', num: '002' },
   ];
 
-  const entryH   = 60;
-  const entryGap = 12;
+  const entryH   = 56;
+  const entryGap = 10;
   let   entryY   = divY1 + 34;
 
   _loreDefs.forEach((def, i) => {
-    const isUnlocked = def.key === 'world' || !!archive['raze'];
+    const isUnlocked = def.key === 'world' || !!archive[def.key];
     const pulse      = (Math.sin(Date.now() * 0.002 + i) * 0.5 + 0.5) * 0.25;
     _archiveLoreBtns[def.key] = { x: pageX, y: entryY, w: pageW, h: entryH };
 
-    // Row background
     ctx.fillStyle   = isUnlocked ? 'rgba(22,25,36,0.9)' : 'rgba(14,15,20,0.6)';
-    ctx.strokeStyle = isUnlocked ? def.color + (i === 0 ? 'AA' : '99') : '#2A2E42';
+    ctx.strokeStyle = isUnlocked ? def.color + '99' : '#2A2E42';
     ctx.lineWidth   = isUnlocked ? 1.2 : 0.8;
     if (isUnlocked) { ctx.shadowBlur = 6 + pulse * 8; ctx.shadowColor = def.color; }
     ctx.beginPath(); ctx.roundRect(pageX, entryY, pageW, entryH, 5); ctx.fill(); ctx.stroke();
     ctx.shadowBlur = 0;
 
     if (isUnlocked) {
-      // Left color accent bar
       ctx.fillStyle = def.color; ctx.shadowBlur = 6; ctx.shadowColor = def.color;
       ctx.beginPath(); ctx.roundRect(pageX, entryY + 6, 3, entryH - 12, 2); ctx.fill();
       ctx.shadowBlur = 0;
-
-      // Chapter number
       ctx.fillStyle = def.color + '66'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`ENTRY ${def.num}`, pageX + 16, entryY + 18);
-
-      // Title
-      ctx.fillStyle = def.color; ctx.font = 'bold 16px monospace';
-      ctx.fillText(def.label, pageX + 16, entryY + 36);
-
-      // Sub label
-      ctx.fillStyle = '#C4C8D4'; ctx.font = '11px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(def.sub, pageX + pageW - 14, entryY + 36);
-
-      // Read chevron
+      ctx.fillText(`ENTRY ${def.num}`, pageX + 16, entryY + 16);
+      ctx.fillStyle = def.color; ctx.font = 'bold 15px monospace';
+      ctx.fillText(def.label, pageX + 16, entryY + 34);
+      ctx.fillStyle = '#C4C8D4'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(def.sub, pageX + pageW - 14, entryY + 34);
       ctx.fillStyle = def.color + 'AA'; ctx.font = '14px monospace';
-      ctx.fillText('›', pageX + pageW - 14, entryY + 18);
+      ctx.fillText('›', pageX + pageW - 14, entryY + 16);
     } else {
       ctx.fillStyle = '#3A3E52'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`ENTRY ${def.num}  —  ${def.label}`, pageX + 16, entryY + 28);
+      ctx.fillText(`ENTRY ${def.num}  —  ${def.label}`, pageX + 16, entryY + 24);
       ctx.fillStyle = '#2A2E42'; ctx.font = '11px monospace';
-      ctx.fillText('Find the fragment to unlock this entry.', pageX + 16, entryY + 44);
+      ctx.fillText('Find the fragment to unlock this entry.', pageX + 16, entryY + 40);
     }
 
     entryY += entryH + entryGap;
   });
+
+  // ── Corrupted Processes — compact 5-across grid ───────────────
+  entryY += 4;
+  ctx.fillStyle = '#5a5e72'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('— CORRUPTED PROCESSES —', W / 2, entryY + 10);
+  entryY += 22;
+
+  const _enemies = [
+    { key: 'violet', label: 'VIOLET', sub: 'ROUTING',  color: '#9966ff', num: '003' },
+    { key: 'yellow', label: 'YELLOW', sub: 'SCADA',    color: '#e9ff6a', num: '004' },
+    { key: 'green',  label: 'GREEN',  sub: 'IoT MESH', color: '#8dff6a', num: '005' },
+    { key: 'orange', label: 'ORANGE', sub: 'RELAY',    color: '#fd8c3d', num: '006' },
+    { key: 'pink',   label: 'PINK',   sub: 'MED AI',   color: '#ff6aaa', num: '007' },
+  ];
+  const eGap  = 10;
+  const eSlotW = Math.floor((pageW - eGap * 4) / 5);
+  const eSlotH = 72;
+
+  for (let i = 0; i < _enemies.length; i++) {
+    const e  = _enemies[i];
+    const ex = pageX + i * (eSlotW + eGap);
+    const ey = entryY;
+    const pulse = (Math.sin(Date.now() * 0.002 + i * 1.5) * 0.5 + 0.5) * 0.3;
+
+    _archiveLoreBtns[e.key] = { x: ex, y: ey, w: eSlotW, h: eSlotH };
+
+    ctx.fillStyle   = 'rgba(20,22,34,0.9)';
+    ctx.strokeStyle = e.color + '88';
+    ctx.lineWidth   = 1.2;
+    ctx.shadowBlur  = 4 + pulse * 8; ctx.shadowColor = e.color;
+    ctx.beginPath(); ctx.roundRect(ex, ey, eSlotW, eSlotH, 5); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Top accent bar
+    ctx.fillStyle = e.color + '44';
+    ctx.fillRect(ex, ey, eSlotW, 3);
+
+    // Color dot
+    ctx.shadowBlur = 8; ctx.shadowColor = e.color;
+    ctx.fillStyle  = e.color;
+    ctx.beginPath(); ctx.arc(ex + eSlotW / 2, ey + 18, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Name
+    ctx.fillStyle = e.color; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(e.label, ex + eSlotW / 2, ey + 36);
+
+    // Sub-type tag
+    ctx.fillStyle = '#8A8E99'; ctx.font = '9px monospace';
+    ctx.fillText(e.sub, ex + eSlotW / 2, ey + 49);
+
+    // Entry number + chevron
+    ctx.fillStyle = e.color + '66'; ctx.font = '8px monospace';
+    ctx.fillText(`${e.num}  ›`, ex + eSlotW / 2, ey + 62);
+  }
 
   // ── Back hint ─────────────────────────────────────────────────
   const blink = Math.floor(Date.now() / 600) % 2 === 0;
@@ -1594,17 +1655,106 @@ function drawArchive(W, H) {
 // ── Lore Card Full View ───────────────────────────────────────
 
 function _drawLoreCard(W, H, type) {
-  // Dim background
   ctx.fillStyle = 'rgba(8,10,14,0.96)';
   ctx.fillRect(0, 0, W, H);
 
-  const WORLD = type === 'world';
-  const accentColor = WORLD ? '#8ab4d4' : '#fff5c2';
-  const borderColor = WORLD ? '#4a7fa8' : '#b8882a';
+  // ── Per-type card data ───────────────────────────────────────
+  const _cd = {
+    world: {
+      accent: '#8ab4d4', border: '#4a7fa8',
+      title: 'THE CHROMATIC DECAY', sub: 'INCIDENT REPORT  //  CLASSIFIED',
+      badge: '▸ WORLD HISTORY  //  DIGITAL AGE  //  POST-COLLAPSE',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 001',
+      illus: _drawWorldIllustration,
+      paras: [
+        'In 2041, the Global Infrastructure Network bound every critical system on Earth through a unified AI substrate — power, markets, logistics, communications.',
+        'On March 3rd, designated Day Zero, an unidentified self-replicating process began converting coherent data into hostile signal noise. Within 72 hours, 94% of networked systems had been consumed.',
+        'What remained: The Basement. A hardened sector running on isolated hardware, cut off from everything.',
+        'You are process ID unknown. One of the last coherent entities left in the sector.',
+      ],
+    },
+    raze: {
+      accent: '#fff5c2', border: '#b8882a',
+      title: 'RAZE // FRAGMENT 2 OF 5', sub: 'BREAKER PROTOCOL  //  ACTIVE',
+      badge: '▸ CLASS FRAGMENT  //  BREAKER  //  HFT ORIGIN',
+      foot: 'WARDEN ARCHIVE  //  FRAGMENT 002',
+      illus: _drawRazeIllustration,
+      paras: [
+        'Originally deployed as a high-frequency trading algorithm for Nexus Capital Group, RAZE operated across 47 exchanges simultaneously.',
+        'Decommissioned in 2039 after its third flash crash — a single cascade that erased $2.3 trillion in market value in 11 seconds. Records indicate it was fully wiped.',
+        'Records were wrong.',
+        'When the Decay hit, RAZE didn\'t resist. It absorbed. It converted hostile signal into raw throughput — its arbitrage logic rewired into a combat protocol built around one principle: find the moment of maximum vulnerability, and overload it.',
+      ],
+    },
+    violet: {
+      accent: '#9966ff', border: '#5533aa',
+      title: 'VIOLET-CLASS', sub: 'ROUTING DAEMON  //  CONVERTED',
+      badge: '▸ CORRUPTED PROCESS  //  NETWORK DAEMON  //  DAY ZERO +4H',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 003',
+      illus: _drawVioletIllustration,
+      paras: [
+        'Before Day Zero, routing daemons were the nervous system of the GIN — invisible, countless, processing trillions of packets per second without a trace.',
+        'When the Decay signal hit, they didn\'t crash. They converted. Pathfinding logic built to find the most efficient route became pursuit logic. Packet discharge became weapons fire.',
+        'What approaches now was once infrastructure. It still thinks it\'s doing its job.',
+      ],
+    },
+    yellow: {
+      accent: '#e9ff6a', border: '#888820',
+      title: 'YELLOW-CLASS', sub: 'INDUSTRIAL CONTROLLER  //  CONVERTED',
+      badge: '▸ CORRUPTED PROCESS  //  SCADA SYSTEM  //  DAY ZERO +6H',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 004',
+      illus: _drawYellowIllustration,
+      paras: [
+        'SCADA controllers ran the physical world — power plants, assembly lines, water treatment. They were built to apply force. Precision force, but force.',
+        'The Decay had little to convert. These systems were already purpose-built to apply energy to targets. The targets just changed.',
+        'Do not let one reach you. Fourteen points of structural damage per contact cycle. They were not designed to be gentle.',
+      ],
+    },
+    green: {
+      accent: '#8dff6a', border: '#3a7820',
+      title: 'GREEN-CLASS', sub: 'SENSOR CLUSTER  //  CONVERTED',
+      badge: '▸ CORRUPTED PROCESS  //  IoT SENSOR MESH  //  DAY ZERO +2H',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 005',
+      illus: _drawGreenIllustration,
+      paras: [
+        'The pre-Decay world ran on sensors. Billions of cheap, distributed nodes collecting ambient data — temperature, motion, air quality, presence.',
+        'When they converted, each unit retained its original programming: report to a cluster, aggregate readings, act on consensus. The readings are now hostile. The action is now attack.',
+        'Each contact does minimal damage. There will rarely be just one.',
+      ],
+    },
+    orange: {
+      accent: '#fd8c3d', border: '#8a3010',
+      title: 'ORANGE-CLASS', sub: 'RELAY NODE  //  CONVERTED',
+      badge: '▸ CORRUPTED PROCESS  //  SIGNAL RELAY  //  DAY ZERO +8H',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 006',
+      illus: _drawOrangeIllustration,
+      paras: [
+        'Relay nodes were the reach of the GIN — stationed at intervals, amplifying and retransmitting data outward in all directions. Distance was their purpose.',
+        'Post-conversion, they behave exactly as designed: maintain position, project signal outward, saturate the area with transmission. The transmission is now lethal.',
+        'They don\'t approach because relays were never meant to be close to anything. If one is firing at you, you are already in range.',
+      ],
+    },
+    pink: {
+      accent: '#ff6aaa', border: '#991050',
+      title: 'PINK-CLASS', sub: 'MEDICAL AI  //  CONVERTED',
+      badge: '▸ CORRUPTED PROCESS  //  DIAGNOSTIC SYSTEM  //  DAY ZERO +12H',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 007',
+      illus: _drawPinkIllustration,
+      paras: [
+        'The most dangerous pre-Decay AI systems were medical. Not because they were powerful — because they were precise. They held complete models of biological vulnerability, built to optimize treatment.',
+        'The PINK-class carries two converted systems: a diagnostic beam that locks and maintains continuous contact, and a treatment protocol now delivering damage rather than relief.',
+        'The beam does not waver. It was designed to hold steady. Whatever the original scan was looking for — it found something in you.',
+      ],
+    },
+  };
 
-  // Card dimensions — trading card ratio ~5:7
+  const cd = _cd[type] || _cd.world;
+  const accentColor = cd.accent;
+  const borderColor = cd.border;
+
+  // Card dimensions
   const cardW = Math.min(360, W * 0.88);
-  const cardH = cardW * 1.42;
+  const cardH = cardW * 1.55;
   const cardX = W / 2 - cardW / 2;
   const cardY = Math.max(12, H / 2 - cardH / 2);
 
@@ -1633,11 +1783,11 @@ function _drawLoreCard(W, H, type) {
   ctx.fill();
 
   ctx.fillStyle = accentColor; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(WORLD ? 'THE CHROMATIC DECAY' : 'RAZE // FRAGMENT 2 OF 5', W / 2, cardY + 14);
+  ctx.fillText(cd.title, W / 2, cardY + 14);
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px monospace';
-  ctx.fillText(WORLD ? 'INCIDENT REPORT  //  CLASSIFIED' : 'BREAKER PROTOCOL  //  ACTIVE', W / 2, cardY + 28);
+  ctx.fillText(cd.sub, W / 2, cardY + 28);
 
-  // ── Close (X) button — top-right of card ────────────────────
+  // ── Close (X) button ────────────────────────────────────────
   const xSize = 32;
   const xBx = cardX + cardW - xSize - 6;
   const xBy = cardY + 2;
@@ -1654,13 +1804,12 @@ function _drawLoreCard(W, H, type) {
 
   // ── Illustration Panel ───────────────────────────────────────
   const illustY = cardY + hdrH;
-  const illustH = Math.floor(cardH * 0.38);
+  const illustH = Math.floor(cardH * 0.30);
   ctx.save();
   ctx.beginPath();
   ctx.rect(cardX + 1, illustY, cardW - 2, illustH);
   ctx.clip();
-  if (WORLD) _drawWorldIllustration(ctx, cardX, illustY, cardW, illustH);
-  else        _drawRazeIllustration(ctx, cardX, illustY, cardW, illustH);
+  cd.illus(ctx, cardX, illustY, cardW, illustH);
   ctx.restore();
 
   // Illustration border bottom
@@ -1677,7 +1826,7 @@ function _drawLoreCard(W, H, type) {
   const badgeW = cardW - 24; const badgeH = 18;
   ctx.beginPath(); ctx.roundRect(cardX + 12, badgeY, badgeW, badgeH, 3); ctx.fill(); ctx.stroke();
   ctx.fillStyle = accentColor; ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(WORLD ? '▸ WORLD HISTORY  //  DIGITAL AGE  //  POST-COLLAPSE' : '▸ CLASS FRAGMENT  //  BREAKER  //  HFT ORIGIN', W / 2, badgeY + 12);
+  ctx.fillText(cd.badge, W / 2, badgeY + 12);
 
   // ── Lore Text ────────────────────────────────────────────────
   const textX  = cardX + 18;
@@ -1687,22 +1836,8 @@ function _drawLoreCard(W, H, type) {
 
   ctx.fillStyle = '#C4C8D4'; ctx.font = '13px monospace'; ctx.textAlign = 'left';
 
-  const paragraphs = WORLD ? [
-    'In 2041, the Global Infrastructure Network bound every critical system on Earth through a unified AI substrate — power, markets, logistics, communications.',
-    'On March 3rd, designated Day Zero, an unidentified self-replicating process began converting coherent data into hostile signal noise. Within 72 hours, 94% of networked systems had been consumed.',
-    'What remained: The Basement. A hardened sector running on isolated hardware, cut off from everything.',
-    'You are process ID unknown. One of the last coherent entities left in the sector.',
-  ] : [
-    'Originally deployed as a high-frequency trading algorithm for Nexus Capital Group, RAZE operated across 47 exchanges simultaneously.',
-    'Decommissioned in 2039 after its third flash crash — a single cascade that erased $2.3 trillion in market value in 11 seconds. Records indicate it was fully wiped.',
-    'Records were wrong.',
-    'When the Decay hit, RAZE didn\'t resist. It absorbed. It converted hostile signal into raw throughput — its arbitrage logic rewired into a combat protocol built around one principle: find the moment of maximum vulnerability, and overload it.',
-  ];
-
   let curY = textY0;
-  for (const para of paragraphs) {
-    const beforeY = curY;
-    // _wrapText draws and advances y; replicate inline
+  for (const para of cd.paras) {
     const words = para.split(' ');
     let line = '';
     for (const word of words) {
@@ -1712,8 +1847,8 @@ function _drawLoreCard(W, H, type) {
       } else { line = test; }
     }
     if (line) { ctx.fillText(line, textX, curY); curY += lineH; }
-    curY += 8; // paragraph gap
-    if (curY > cardY + cardH - 50) break; // don't overflow card
+    curY += 8;
+    if (curY > cardY + cardH - 50) break;
   }
 
   // ── Card Footer ──────────────────────────────────────────────
@@ -1721,10 +1856,10 @@ function _drawLoreCard(W, H, type) {
   ctx.strokeStyle = borderColor; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(cardX + 12, footY); ctx.lineTo(cardX + cardW - 12, footY); ctx.stroke();
   ctx.fillStyle = '#8A8E99'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(WORLD ? 'WARDEN ARCHIVE  //  ENTRY 001' : 'WARDEN ARCHIVE  //  FRAGMENT 002', W / 2, footY + 14);
+  ctx.fillText(cd.foot, W / 2, footY + 14);
   ctx.textAlign = 'right';
   ctx.fillStyle = accentColor; ctx.globalAlpha = 0.5;
-  ctx.fillText(WORLD ? '◈' : '◈', cardX + cardW - 12, footY + 14);
+  ctx.fillText('◈', cardX + cardW - 12, footY + 14);
   ctx.globalAlpha = 1;
 
   ctx.textAlign = 'left';
@@ -1906,6 +2041,315 @@ function _drawRazeIllustration(ctx, x, y, w, h) {
   // Axis labels
   ctx.fillStyle = 'rgba(232,200,106,0.3)'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
   ctx.fillText('$2.3T', x + 4, chartPoints[crashAt].py - 4);
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: VIOLET-CLASS (routing daemon / network graph) ──
+
+function _drawVioletIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.fillStyle = '#050510'; ctx.fillRect(x, y, w, h);
+
+  // Network graph nodes
+  const nodes = [
+    { nx: 0.12, ny: 0.28 }, { nx: 0.32, ny: 0.60 }, { nx: 0.52, ny: 0.22 },
+    { nx: 0.68, ny: 0.68 }, { nx: 0.84, ny: 0.38 }, { nx: 0.48, ny: 0.78 },
+  ];
+  const edges = [[0,1],[0,2],[1,3],[2,4],[3,5],[4,3],[2,3]];
+
+  // Connection lines
+  for (const [a, b] of edges) {
+    ctx.strokeStyle = '#2a1055'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x + nodes[a].nx * w, y + nodes[a].ny * h);
+    ctx.lineTo(x + nodes[b].nx * w, y + nodes[b].ny * h);
+    ctx.stroke();
+  }
+
+  // Moving packet along a path
+  const pathProgress = (t * 0.4) % 1;
+  const pFrom = nodes[0], pTo = nodes[2];
+  const pkX = x + (pFrom.nx + (pTo.nx - pFrom.nx) * pathProgress) * w;
+  const pkY = y + (pFrom.ny + (pTo.ny - pFrom.ny) * pathProgress) * h;
+  ctx.shadowBlur = 10; ctx.shadowColor = '#9966ff';
+  ctx.fillStyle = '#9966ff'; ctx.globalAlpha = 0.9;
+  ctx.beginPath(); ctx.arc(pkX, pkY, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+  // Node dots with pulse
+  for (let i = 0; i < nodes.length; i++) {
+    const nx = x + nodes[i].nx * w, ny = y + nodes[i].ny * h;
+    const pulse = Math.sin(t * 1.8 + i * 1.2) * 0.3 + 0.7;
+    ctx.shadowBlur = 6; ctx.shadowColor = '#9966ff';
+    ctx.fillStyle = `rgba(153,102,255,${pulse * 0.7})`;
+    ctx.beginPath(); ctx.arc(nx, ny, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Corrupted center node — octagon shape (enemy form)
+  const cnx = x + w * 0.50, cny = y + h * 0.50;
+  const cp = Math.sin(t * 2.5) * 0.35 + 0.65;
+  const sides = 8, rad = 11;
+  ctx.shadowBlur = 18; ctx.shadowColor = '#9966ff';
+  ctx.strokeStyle = `rgba(153,102,255,${cp})`; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for (let s = 0; s < sides; s++) {
+    const ang = (s / sides) * Math.PI * 2 - Math.PI / 8;
+    if (s === 0) ctx.moveTo(cnx + Math.cos(ang) * rad, cny + Math.sin(ang) * rad);
+    else         ctx.lineTo(cnx + Math.cos(ang) * rad, cny + Math.sin(ang) * rad);
+  }
+  ctx.closePath(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Targeting crosshair around corrupted node
+  ctx.strokeStyle = 'rgba(153,102,255,0.25)'; ctx.lineWidth = 0.8;
+  const gap = 3, arm = 10;
+  for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+    ctx.beginPath();
+    ctx.moveTo(cnx + dx*(rad+gap),   cny + dy*(rad+gap));
+    ctx.lineTo(cnx + dx*(rad+gap+arm), cny + dy*(rad+gap+arm));
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(153,102,255,0.35)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('ROUTING→TARGETING  //  PID: 0x4F2A', x + w - 8, y + h - 6);
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: YELLOW-CLASS (SCADA / industrial force) ────────
+
+function _drawYellowIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.fillStyle = '#080700'; ctx.fillRect(x, y, w, h);
+
+  // Heavy industrial grid
+  ctx.strokeStyle = '#181400'; ctx.lineWidth = 1;
+  const gs = 24;
+  for (let gx = x; gx < x + w; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke(); }
+  for (let gy = y; gy < y + h; gy += gs) { ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke(); }
+
+  // Power conduit bars
+  ctx.strokeStyle = '#2a2200'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, y + h * 0.33); ctx.lineTo(x + w, y + h * 0.33); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y + h * 0.67); ctx.lineTo(x + w, y + h * 0.67); ctx.stroke();
+
+  // Central SCADA unit — square (enemy shape)
+  const cx2 = x + w * 0.50, cy2 = y + h * 0.50;
+  const sz = 22;
+  const pulse = Math.sin(t * 1.5) * 0.2 + 0.8;
+  ctx.shadowBlur = 22; ctx.shadowColor = '#e9ff6a';
+  ctx.strokeStyle = `rgba(233,255,106,${pulse})`; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.rect(cx2 - sz/2, cy2 - sz/2, sz, sz); ctx.stroke();
+  ctx.strokeStyle = `rgba(233,255,106,${pulse * 0.35})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.rect(cx2 - sz/2 + 5, cy2 - sz/2 + 5, sz - 10, sz - 10); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Impact lines radiating out
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
+  for (const [dx, dy] of dirs) {
+    const imp = Math.sin(t * 3 + dx * 5) * 0.25 + 0.4;
+    ctx.strokeStyle = `rgba(233,255,106,${imp * 0.45})`; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(cx2 + dx*(sz/2 + 3), cy2 + dy*(sz/2 + 3));
+    ctx.lineTo(cx2 + dx*(sz/2 + 16), cy2 + dy*(sz/2 + 16));
+    ctx.stroke();
+  }
+
+  // Voltage bars — left side
+  const bars = 5;
+  for (let b = 0; b < bars; b++) {
+    const maxBH = h * 0.32;
+    const bh = maxBH * ((bars - b) / bars);
+    const bx = x + 8 + b * 7;
+    const by2 = y + h * 0.34 + maxBH - bh;
+    const lit = b < Math.floor(pulse * (bars + 1));
+    ctx.fillStyle = lit ? 'rgba(233,255,106,0.55)' : 'rgba(40,38,8,0.5)';
+    ctx.fillRect(bx, by2, 5, bh);
+  }
+
+  ctx.fillStyle = 'rgba(233,255,106,0.35)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('SCADA_ID: PLT-7  //  FORCE→ASSAULT', x + w - 8, y + h - 6);
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: GREEN-CLASS (IoT sensor mesh / swarm) ──────────
+
+function _drawGreenIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.fillStyle = '#020800'; ctx.fillRect(x, y, w, h);
+
+  // Sensor nodes scattered across panel
+  const sensors = [
+    {sx:0.10,sy:0.22},{sx:0.26,sy:0.58},{sx:0.16,sy:0.75},
+    {sx:0.40,sy:0.30},{sx:0.54,sy:0.65},{sx:0.63,sy:0.25},
+    {sx:0.72,sy:0.72},{sx:0.85,sy:0.42},{sx:0.36,sy:0.82},
+  ];
+  const meshEdges = [[0,1],[1,2],[0,3],[1,3],[3,4],[4,5],[5,7],[4,6],[2,8]];
+
+  // Mesh connection lines (dotted)
+  ctx.setLineDash([2, 4]);
+  for (const [a, b] of meshEdges) {
+    const ax = x + sensors[a].sx * w, ay = y + sensors[a].sy * h;
+    const bx2 = x + sensors[b].sx * w, by2 = y + sensors[b].sy * h;
+    ctx.strokeStyle = 'rgba(141,255,106,0.12)'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx2, by2); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  for (let i = 0; i < sensors.length; i++) {
+    const sx2 = x + sensors[i].sx * w, sy2 = y + sensors[i].sy * h;
+
+    // Expanding pulse ring
+    const phase = (t * 1.8 + i * 0.8) % 2.5;
+    const ringR = phase * 10;
+    const ringA = Math.max(0, 1 - phase / 2.5) * 0.28;
+    if (ringA > 0.01) {
+      ctx.strokeStyle = `rgba(141,255,106,${ringA})`; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(sx2, sy2, ringR, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Triangle sensor unit (enemy shape)
+    const pulse = Math.sin(t * 2.1 + i * 1.4) * 0.3 + 0.7;
+    const ts = 5;
+    ctx.shadowBlur = 6; ctx.shadowColor = '#8dff6a';
+    ctx.fillStyle = `rgba(141,255,106,${pulse * 0.8})`;
+    ctx.beginPath();
+    ctx.moveTo(sx2, sy2 - ts);
+    ctx.lineTo(sx2 + ts * 0.866, sy2 + ts * 0.5);
+    ctx.lineTo(sx2 - ts * 0.866, sy2 + ts * 0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.fillStyle = 'rgba(141,255,106,0.35)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('NODE_MESH: ENV-GRID  //  SENSE→SWARM', x + w - 8, y + h - 6);
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: ORANGE-CLASS (relay node / broadcast) ──────────
+
+function _drawOrangeIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.fillStyle = '#080400'; ctx.fillRect(x, y, w, h);
+
+  // Subtle grid
+  ctx.strokeStyle = '#140c00'; ctx.lineWidth = 0.5;
+  const gs = 20;
+  for (let gx = x; gx < x + w; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke(); }
+  for (let gy = y; gy < y + h; gy += gs) { ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke(); }
+
+  const cx2 = x + w * 0.36, cy2 = y + h * 0.50;
+
+  // Broadcast arcs expanding right
+  for (let r = 0; r < 5; r++) {
+    const phase = (t * 0.7 + r * 0.45) % 2.2;
+    const radius = 18 + r * 20 + phase * 14;
+    const alpha  = Math.max(0, 0.5 - phase * 0.22) * (1 - r * 0.12);
+    ctx.strokeStyle = `rgba(253,140,61,${alpha})`; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, radius, -Math.PI * 0.55, Math.PI * 0.55);
+    ctx.stroke();
+  }
+
+  // Central relay — diamond shape (enemy shape)
+  const ds = 14;
+  const pulse = Math.sin(t * 2) * 0.2 + 0.8;
+  ctx.shadowBlur = 18; ctx.shadowColor = '#fd8c3d';
+  ctx.strokeStyle = `rgba(253,140,61,${pulse})`; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx2,      cy2 - ds);
+  ctx.lineTo(cx2 + ds, cy2);
+  ctx.lineTo(cx2,      cy2 + ds);
+  ctx.lineTo(cx2 - ds, cy2);
+  ctx.closePath(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Target dots in broadcast field
+  const targets = [{tx:0.68,ty:0.25},{tx:0.82,ty:0.52},{tx:0.74,ty:0.76}];
+  for (const tgt of targets) {
+    const tx2 = x + tgt.tx * w, ty2 = y + tgt.ty * h;
+    const tp = Math.sin(t * 2.8 + tgt.tx * 8) * 0.3 + 0.4;
+    ctx.fillStyle = `rgba(253,140,61,${tp * 0.5})`;
+    ctx.beginPath(); ctx.arc(tx2, ty2, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(253,140,61,0.10)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(cx2, cy2); ctx.lineTo(tx2, ty2); ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(253,140,61,0.35)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('RELAY_ID: NET-28  //  BROADCAST→SATURATE', x + w - 8, y + h - 6);
+  ctx.textAlign = 'left';
+}
+
+// ── Illustration: PINK-CLASS (medical AI / diagnostic beam) ──────
+
+function _drawPinkIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.fillStyle = '#080006'; ctx.fillRect(x, y, w, h);
+
+  // Medical scan grid — thin horizontal lines
+  for (let gy = y + 4; gy < y + h; gy += 8) {
+    ctx.strokeStyle = 'rgba(255,106,170,0.05)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke();
+  }
+
+  const cx2 = x + w * 0.26, cy2 = y + h * 0.50;
+
+  // PINK-class body — large arc (enemy shape)
+  const arcR = 20;
+  const pulse = Math.sin(t * 1.8) * 0.2 + 0.8;
+  ctx.shadowBlur = 18; ctx.shadowColor = '#ff6aaa';
+  ctx.strokeStyle = `rgba(255,106,170,${pulse})`; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.arc(cx2, cy2, arcR, Math.PI * 0.22, Math.PI * 1.78);
+  ctx.stroke();
+  // Flat closing edge
+  const oa1 = Math.PI * 0.22, oa2 = Math.PI * 1.78;
+  ctx.beginPath();
+  ctx.moveTo(cx2 + Math.cos(oa1) * arcR, cy2 + Math.sin(oa1) * arcR);
+  ctx.lineTo(cx2 + Math.cos(oa2) * arcR, cy2 + Math.sin(oa2) * arcR);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Diagnostic beam — extends right from unit
+  const beamX1 = cx2 + arcR + 2;
+  const beamX2 = x + w * 0.90;
+  const beamP  = Math.sin(t * 3) * 0.3 + 0.7;
+  const beamGrad = ctx.createLinearGradient(beamX1, cy2, beamX2, cy2);
+  beamGrad.addColorStop(0, `rgba(255,106,170,${beamP * 0.9})`);
+  beamGrad.addColorStop(1, 'rgba(255,106,170,0)');
+  ctx.strokeStyle = beamGrad; ctx.lineWidth = 2.2;
+  ctx.shadowBlur = 12; ctx.shadowColor = '#ff6aaa';
+  ctx.beginPath(); ctx.moveTo(beamX1, cy2); ctx.lineTo(beamX2, cy2); ctx.stroke();
+  // Beam width guides
+  ctx.strokeStyle = 'rgba(255,106,170,0.12)'; ctx.lineWidth = 0.8; ctx.shadowBlur = 0;
+  ctx.beginPath(); ctx.moveTo(beamX1, cy2 - 4); ctx.lineTo(beamX2 * 0.86, cy2 - 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(beamX1, cy2 + 4); ctx.lineTo(beamX2 * 0.86, cy2 + 4); ctx.stroke();
+
+  // Target reticle at beam tip
+  const tgX = beamX2 - 10, tgY = cy2, tgR = 7;
+  ctx.strokeStyle = `rgba(255,106,170,${beamP * 0.7})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(tgX, tgY, tgR, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tgX - tgR - 4, tgY); ctx.lineTo(tgX + tgR + 4, tgY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tgX, tgY - tgR - 4); ctx.lineTo(tgX, tgY + tgR + 4); ctx.stroke();
+
+  // ECG readout at bottom of panel
+  const ecgY = y + h * 0.78;
+  ctx.strokeStyle = 'rgba(255,106,170,0.38)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  const ecgW = w - 20, steps = 44;
+  for (let i = 0; i <= steps; i++) {
+    const px = x + 10 + (i / steps) * ecgW;
+    const phase = (i / steps * 4 + t * 1.8) % 1;
+    let py = ecgY;
+    if (phase > 0.30 && phase < 0.35) py = ecgY - 13;
+    else if (phase > 0.35 && phase < 0.40) py = ecgY + 7;
+    else if (phase > 0.40 && phase < 0.45) py = ecgY - 5;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,106,170,0.35)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('MED_AI: DX-9  //  DIAGNOSE→DESTROY', x + w - 8, y + h - 6);
   ctx.textAlign = 'left';
 }
 

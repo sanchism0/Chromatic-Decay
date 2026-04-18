@@ -64,9 +64,9 @@ export const GENERIC_UPGRADES = [
   },
   {
     id: 'frequency_shield', name: 'Frequency Shield',
-    desc: '+20 max HP.',
+    desc: '+10 max HP.',
     baseWeight: 7, cap: 5,
-    apply: p => { p.maxHp += 20; p.hp = Math.min(p.hp + 20, p.maxHp); },
+    apply: p => { p.maxHp += 10; p.hp = Math.min(p.hp + 10, p.maxHp); },
   },
   {
     id: 'multicast', name: 'Multicast',
@@ -93,10 +93,10 @@ export const GENERIC_UPGRADES = [
     apply: p => { p.piercingShots = (p.piercingShots || 0) + 1; },
   },
   {
-    id: 'emergency_cache', name: 'Emergency Cache',
-    desc: '+15 HP now.',
-    baseWeight: 4, cap: 2,
-    apply: p => { p.heal(15); },
+    id: 'emergency_cache', name: 'Triage Protocol',
+    desc: p => `Heal 1 HP per ${p.killHealEvery > 0 ? p.killHealEvery - 1 : 6} kills.`,
+    baseWeight: 4, cap: 3,
+    apply: p => { p.killHealEvery = p.killHealEvery > 0 ? p.killHealEvery - 1 : 6; p.killHealCounter = 0; },
   },
   {
     id: 'cooldown_reduction', name: 'Cooldown Reduction',
@@ -474,6 +474,10 @@ export class UpgradeScreen {
     const archiveState = this._archiveState(unlockedClasses);
     const classSkills  = this._buildClassPool(unlockedClasses);
     this.cards = this._generateOffer(classSkills, archiveState);
+    // Resolve any dynamic descriptions now that we have the player
+    for (const card of this.cards) {
+      if (typeof card.desc === 'function') card.desc = card.desc(player);
+    }
     // No cards available — skip the screen entirely
     this.active  = this.cards.length > 0;
     this.hovered = -1;

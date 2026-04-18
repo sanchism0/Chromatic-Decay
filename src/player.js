@@ -161,6 +161,10 @@ export class Player {
     this.justFired   = false;   // audio hook: true for one frame when a shot fires
     this.justHit     = false;   // audio hook: true for one frame when damage taken
 
+    // ── Kill-triggered heal ──────────────────────────────────
+    this.killHealEvery   = 0;  // 0 = disabled; set by upgrade (5→4→3)
+    this.killHealCounter = 0;
+
     // ── Run stats ────────────────────────────────────────────
     this.kills         = 0;
     this.echoesRescued = 0;
@@ -458,6 +462,15 @@ export class Player {
     // Kill heal chance (Warden)
     if (this.killHealChance > 0 && Math.random() < this.killHealChance) {
       this.heal(3);
+    }
+
+    // Kill-threshold heal (Triage Protocol upgrade)
+    if (this.killHealEvery > 0) {
+      this.killHealCounter++;
+      if (this.killHealCounter >= this.killHealEvery) {
+        this.heal(1);
+        this.killHealCounter = 0;
+      }
     }
 
     // Companion kill extend
