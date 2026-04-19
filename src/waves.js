@@ -101,6 +101,7 @@ export class WaveSystem {
     this.active          = true;
     this.waveClearFlag   = false;
     this.timerExpired    = false;
+    this.noDamageTaken   = true;
     this.activeBoss      = null;
     this._bossTriggered  = false;
     this._bossCharging   = false;
@@ -247,10 +248,12 @@ export class WaveSystem {
     this.pendingLevels     = 2 + bonusLevels; // guaranteed 2 + earned bonuses
 
     // Award bonus points and store context for upgrade screen header
-    const type     = secondsRemaining > 0 ? 'early' : 'timeout';
-    const bonusPts = Math.round(secondsRemaining * 10);
-    if (bonusPts > 0) this.killScore += bonusPts;
-    this.lastClearBonus = { type, bonusPts, secondsRemaining: Math.floor(secondsRemaining), bonusLevels };
+    const type          = secondsRemaining > 0 ? 'early' : 'timeout';
+    const bonusPts      = Math.round(secondsRemaining * 10);
+    const noDamageBonus = this.noDamageTaken ? 50 * this.wave : 0;
+    if (bonusPts > 0)      this.killScore += bonusPts;
+    if (noDamageBonus > 0) this.killScore += noDamageBonus;
+    this.lastClearBonus = { type, bonusPts, noDamageBonus, secondsRemaining: Math.floor(secondsRemaining), bonusLevels };
 
     if (this.wave === 15) {
       this._onWin();

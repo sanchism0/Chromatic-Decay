@@ -383,7 +383,7 @@ function updatePlaying(dt) {
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
   if (player.justFired) sfxShoot();
-  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; }
+  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; }
 
   // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
@@ -953,6 +953,18 @@ function drawGame(W, H) {
   applyWorldTransform();
 
   map.draw(ctx);
+
+  // ── Player floor light — wide radial glow revealing the tiles ──
+  if (player.alive) {
+    const px = player.x, py = player.y, r = 220;
+    const floorGlow = ctx.createRadialGradient(px, py, 0, px, py, r);
+    floorGlow.addColorStop(0,    'rgba(190,215,255,0.13)');
+    floorGlow.addColorStop(0.45, 'rgba(190,215,255,0.07)');
+    floorGlow.addColorStop(1,    'rgba(190,215,255,0)');
+    ctx.fillStyle = floorGlow;
+    ctx.fillRect(px - r, py - r, r * 2, r * 2);
+  }
+
   traps.draw(ctx);
   echoes.draw(ctx);
   residuals.draw(ctx);

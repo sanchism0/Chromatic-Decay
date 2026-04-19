@@ -645,8 +645,9 @@ export class UpgradeScreen {
     ctx.fillRect(0, 0, W, H);
 
     const layout = this._cardLayouts(W, H);
-    const hasContext = !landscape && (this.waveContext || this.isBonusUpgrade);
-    const headerGap  = landscape ? 20 : narrow ? (hasContext ? 58 : 36) : (hasContext ? 80 : 50);
+    const hasContext   = !landscape && (this.waveContext || this.isBonusUpgrade);
+    const hasNoDmg     = !landscape && this.waveContext?.noDamageBonus > 0;
+    const headerGap    = landscape ? 20 : narrow ? (hasContext ? 58 : 36) : (hasContext ? (hasNoDmg ? 98 : 80) : 50);
     const headerY    = layout[0].y - headerGap;
 
     // Header — wave context / bonus upgrade banner
@@ -682,9 +683,18 @@ export class UpgradeScreen {
           ctx.fillStyle = '#fd6c1d';
           ctx.font      = `bold ${compact ? 13 : 18}px monospace`;
           ctx.fillText("TIME'S UP  ·  NEXT WAVE INCOMING", W / 2, headerY - (narrow ? 36 : 56));
-          ctx.fillStyle = '#A0A4B0';
-          ctx.font      = `${compact ? 11 : 14}px monospace`;
-          ctx.fillText('NO BONUS — CLEAR FASTER TO EARN EXTRA UPGRADES', W / 2, headerY - (narrow ? 20 : 34));
+          if (!wc.noDamageBonus) {
+            ctx.fillStyle = '#A0A4B0';
+            ctx.font      = `${compact ? 11 : 14}px monospace`;
+            ctx.fillText('NO BONUS — CLEAR FASTER TO EARN EXTRA UPGRADES', W / 2, headerY - (narrow ? 20 : 34));
+          }
+        }
+        if (wc.noDamageBonus > 0) {
+          ctx.fillStyle  = '#5de8e8';
+          ctx.font       = `bold ${compact ? 11 : 14}px monospace`;
+          ctx.shadowBlur = 6; ctx.shadowColor = '#5de8e8';
+          ctx.fillText(`✦ NO DAMAGE  ·  +${wc.noDamageBonus} PTS`, W / 2, headerY - (narrow ? 20 : 34));
+          ctx.shadowBlur = 0;
         }
       }
     }
