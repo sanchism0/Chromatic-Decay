@@ -1058,7 +1058,10 @@ function drawGame(W, H) {
     // source placed just below the bottom edge so light spills onto the floor only
     const _sLights = map.obstacles
       .filter(o => o.h > 60)
-      .map(o => ({ ox: o.x + o.w / 2, oy: o.y + o.h, hw: o.w / 2 }));
+      .map(o => {
+        const ox = o.x + o.w / 2, oy = o.y + o.h + 2; // +2 off the wall so vis-poly works
+        return { ox, oy, hw: o.w / 2, poly: _visPoly(ox, oy, _segs, o.w * 0.8, map.obstacles, 16) };
+      });
 
     // ── Build light mask ──────────────────────────────────────
     const lctx = _ensureLightMask();
@@ -1091,17 +1094,18 @@ function drawGame(W, H) {
       if (_polyPath(lctx, poly)) lctx.fill();
     }
 
-    // Server LED strips — downward ellipse clipped to rack width
-    for (const { ox, oy, hw } of _sLights) {
-      const sx = hw, sy = hw * 1.2;  // same width as rack, depth ~20% longer
-      const g  = lctx.createRadialGradient(ox, oy, 0, ox, oy, Math.max(sx, sy));
+    // Server LED strips — flat ellipse, clipped to vis-poly so walls cast shadows
+    for (const { ox, oy, hw, poly } of _sLights) {
+      const sx = hw, sy = hw * 0.45;
+      const g  = lctx.createRadialGradient(ox, oy, 0, ox, oy, sx);
       g.addColorStop(0,   'rgba(0,0,0,0.68)');
       g.addColorStop(0.5, 'rgba(0,0,0,0.35)');
       g.addColorStop(1,   'rgba(0,0,0,0)');
       lctx.fillStyle = g;
       lctx.save();
-      lctx.beginPath(); lctx.ellipse(ox, oy, sx, sy, 0, 0, Math.PI); lctx.clip();
-      lctx.fillRect(ox - sx, oy, sx * 2, sy);
+      if (_polyPath(lctx, poly)) lctx.clip();
+      lctx.beginPath(); lctx.ellipse(ox, oy, sx, sy, 0, 0, Math.PI);
+      lctx.fill();
       lctx.restore();
     }
 
@@ -1142,17 +1146,18 @@ function drawGame(W, H) {
       ctx.restore();
     }
 
-    // Server LED strips: cyan tint ellipse clipped to rack width
-    for (const { ox, oy, hw } of _sLights) {
-      const sx = hw, sy = hw * 1.2;
-      const g  = ctx.createRadialGradient(ox, oy, 0, ox, oy, Math.max(sx, sy));
+    // Server LED strips: flat cyan tint, clipped to vis-poly
+    for (const { ox, oy, hw, poly } of _sLights) {
+      const sx = hw, sy = hw * 0.45;
+      const g  = ctx.createRadialGradient(ox, oy, 0, ox, oy, sx);
       g.addColorStop(0,   'rgba(0,229,255,0.35)');
       g.addColorStop(0.5, 'rgba(0,229,255,0.14)');
       g.addColorStop(1,   'rgba(0,229,255,0)');
       ctx.fillStyle = g;
       ctx.save();
-      ctx.beginPath(); ctx.ellipse(ox, oy, sx, sy, 0, 0, Math.PI); ctx.clip();
-      ctx.fillRect(ox - sx, oy, sx * 2, sy);
+      if (_polyPath(ctx, poly)) ctx.clip();
+      ctx.beginPath(); ctx.ellipse(ox, oy, sx, sy, 0, 0, Math.PI);
+      ctx.fill();
       ctx.restore();
     }
   }
