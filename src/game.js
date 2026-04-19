@@ -1059,28 +1059,29 @@ function drawGame(W, H) {
     // ── Build light mask ──────────────────────────────────────
     const lctx = _ensureLightMask();
     lctx.clearRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
-    lctx.fillStyle = 'rgba(0,0,0,0.55)';
+    lctx.fillStyle = 'rgba(0,0,0,0.78)';  // darker base — rely on character lights
     lctx.fillRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
 
     // Apply the same world→screen transform so polygons (world coords) land correctly
     lctx.setTransform(ZOOM, 0, 0, ZOOM, -camera.x * ZOOM, -camera.y * ZOOM);
     lctx.globalCompositeOperation = 'destination-out';
 
-    // Player — deep hole (near-fully lit at center)
+    // Player — lift most darkness within visibility poly, but not to zero
+    // so shadow edges blend into the surrounding dark rather than hard-clipping
     if (_pPoly) {
       const g = lctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, _playerR);
-      g.addColorStop(0,    'rgba(0,0,0,0.95)');
-      g.addColorStop(0.45, 'rgba(0,0,0,0.55)');
-      g.addColorStop(1,    'rgba(0,0,0,0)');
+      g.addColorStop(0,    'rgba(0,0,0,0.72)');  // well-lit center
+      g.addColorStop(0.45, 'rgba(0,0,0,0.40)');  // mid fade
+      g.addColorStop(1,    'rgba(0,0,0,0)');      // merges into darkness
       lctx.fillStyle = g;
       if (_polyPath(lctx, _pPoly)) lctx.fill();
     }
 
-    // Enemies — shallower holes (dimmer ambient reveal)
+    // Enemies — shallower lift so they feel dimmer than the player
     for (const { e, poly } of _ePairs) {
       const g = lctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, _enemyR);
-      g.addColorStop(0,    'rgba(0,0,0,0.40)');
-      g.addColorStop(0.45, 'rgba(0,0,0,0.14)');
+      g.addColorStop(0,    'rgba(0,0,0,0.35)');
+      g.addColorStop(0.45, 'rgba(0,0,0,0.12)');
       g.addColorStop(1,    'rgba(0,0,0,0)');
       lctx.fillStyle = g;
       if (_polyPath(lctx, poly)) lctx.fill();
