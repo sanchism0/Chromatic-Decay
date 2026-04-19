@@ -1049,12 +1049,16 @@ function drawGame(W, H) {
     const _eRgb     = { violet:'82,0,255', yellow:'233,255,106', green:'141,255,106', orange:'253,108,29', pink:'248,29,120' };
     const _playerR  = 143;
     const _enemyR   = 114;
-
     // Pre-compute visibility polygons
     const _pPoly = player.alive ? _visPoly(player.x, player.y, _segs, _playerR, map.obstacles, 48) : null;
     const _ePairs = enemies.enemies
       .filter(e => e.isAlive)
       .map(e => ({ e, poly: _visPoly(e.x, e.y, _segs, _enemyR, map.obstacles, 24) }));
+    // Server rack LED strip lights — only tall racks have the strip (h > 60),
+    // source placed just below the bottom edge so light spills onto the floor only
+    const _sLights = map.obstacles
+      .filter(o => o.h > 60)
+      .map(o => ({ ox: o.x + o.w / 2, oy: o.y + o.h, hw: o.w / 2 }));
 
     // ── Build light mask ──────────────────────────────────────
     const lctx = _ensureLightMask();
@@ -1085,6 +1089,20 @@ function drawGame(W, H) {
       g.addColorStop(1,    'rgba(0,0,0,0)');
       lctx.fillStyle = g;
       if (_polyPath(lctx, poly)) lctx.fill();
+    }
+
+    // Server LED strips — downward ellipse clipped to rack width
+    for (const { ox, oy, hw } of _sLights) {
+      const sx = hw, sy = hw * 1.2;  // same width as rack, depth ~20% longer
+      const g  = lctx.createRadialGradient(ox, oy, 0, ox, oy, Math.max(sx, sy));
+      g.addColorStop(0,   'rgba(0,0,0,0.68)');
+      g.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+      g.addColorStop(1,   'rgba(0,0,0,0)');
+      lctx.fillStyle = g;
+      lctx.save();
+      lctx.beginPath(); lctx.ellipse(ox, oy, sx, sy, 0, 0, Math.PI); lctx.clip();
+      lctx.fillRect(ox - sx, oy, sx * 2, sy);
+      lctx.restore();
     }
 
     lctx.globalCompositeOperation = 'source-over';
@@ -1121,6 +1139,20 @@ function drawGame(W, H) {
       g.addColorStop(1,    `rgba(${rgb},0)`);
       ctx.fillStyle = g;
       ctx.fillRect(e.x - _enemyR, e.y - _enemyR, _enemyR*2, _enemyR*2);
+      ctx.restore();
+    }
+
+    // Server LED strips: cyan tint ellipse clipped to rack width
+    for (const { ox, oy, hw } of _sLights) {
+      const sx = hw, sy = hw * 1.2;
+      const g  = ctx.createRadialGradient(ox, oy, 0, ox, oy, Math.max(sx, sy));
+      g.addColorStop(0,   'rgba(0,229,255,0.35)');
+      g.addColorStop(0.5, 'rgba(0,229,255,0.14)');
+      g.addColorStop(1,   'rgba(0,229,255,0)');
+      ctx.fillStyle = g;
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(ox, oy, sx, sy, 0, 0, Math.PI); ctx.clip();
+      ctx.fillRect(ox - sx, oy, sx * 2, sy);
       ctx.restore();
     }
   }

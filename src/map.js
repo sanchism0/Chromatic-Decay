@@ -285,17 +285,17 @@ export class GameMap {
 
     // ── Server rack obstacles ─────────────────────────────────
     for (const obs of this.obstacles) {
-      // Strong blue glow halo
-      ctx.shadowColor = '#4488FF';
-      ctx.shadowBlur  = 20;
-      ctx.fillStyle   = '#E8EFFF';
+      // Cyan glow halo
+      ctx.shadowColor = '#00E5FF';
+      ctx.shadowBlur  = 22;
+      ctx.fillStyle   = '#D8F8FF';
       ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
       ctx.shadowBlur  = 0;
 
-      // Screen panel — pure white
+      // Screen panel — cyan-white
       const screenH = Math.min(24, obs.h * 0.35);
       const screenInset = 4;
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = '#E0FAFF';
       ctx.fillRect(
         obs.x + screenInset,
         obs.y + screenInset,
@@ -303,24 +303,24 @@ export class GameMap {
         screenH
       );
 
-      // Scan-line
-      ctx.globalAlpha = 0.4;
-      ctx.fillStyle   = '#6680FF';
+      // Scan-line — cyan
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle   = '#00E5FF';
       ctx.fillRect(obs.x + screenInset, obs.y + screenInset + screenH * 0.45, obs.w - screenInset * 2, 1);
       ctx.globalAlpha = 1;
 
-      // Bright white edge
-      ctx.strokeStyle = '#FFFFFF';
+      // Bright cyan edge
+      ctx.strokeStyle = '#00E5FF';
       ctx.lineWidth   = 1;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.85;
       ctx.strokeRect(obs.x + 0.5, obs.y + 0.5, obs.w - 1, obs.h - 1);
       ctx.globalAlpha = 1;
 
-      // Status LED row — vivid cyan-blue
+      // Status LED row — vivid cyan
       if (obs.h > 60) {
-        ctx.shadowColor = '#00AAFF';
-        ctx.shadowBlur  = 6;
-        ctx.fillStyle   = '#00CCFF';
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur  = 8;
+        ctx.fillStyle   = '#00FFFF';
         ctx.fillRect(obs.x + 4, obs.y + obs.h - 6, obs.w - 8, 3);
         ctx.shadowBlur  = 0;
       }
