@@ -1157,6 +1157,21 @@ function drawGame(W, H) {
     }
   }
 
+  // ── Server LED strips — redrawn after darkness so always visible ──
+  for (const obs of map.obstacles) {
+    if (obs.h <= 60) continue;
+    const lx = obs.x + 4, ly = obs.y + obs.h - 6, lw = obs.w - 8, lh = 3;
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = '#00FFFF';
+    ctx.fillRect(lx, ly, lw, lh);
+    // Second pass for a broader bloom
+    ctx.shadowBlur  = 6;
+    ctx.fillStyle   = 'rgba(0,255,255,0.7)';
+    ctx.fillRect(lx, ly, lw, lh);
+    ctx.shadowBlur  = 0;
+  }
+
   traps.draw(ctx);
   echoes.draw(ctx);
   residuals.draw(ctx);
