@@ -319,7 +319,7 @@ class Enemy {
       for (let i = 0; i < tLen - 1; i++) {
         const pt    = this._trail[i];
         const frac  = (i + 1) / tLen;          // 0 = oldest, 1 = newest
-        const r     = drawSize * 0.28 * frac;
+        const r     = drawSize * 0.65 * frac;
         const alpha = frac * 0.55;
         ctx.globalAlpha  = alpha;
         ctx.shadowBlur   = 0;

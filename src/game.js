@@ -665,8 +665,7 @@ function updateClassEmergence() {
 
     if (waveSystem.pendingLevels > 0) {
       sfxWaveClear();
-      _showNextUpgrade();
-      state = STATES.UPGRADE;
+      _showNextUpgrade(); // _showNextUpgrade sets state itself — do NOT override
     } else if (waveSystem.gameWon) {
       stopAmbient();
       _enterWin();
@@ -798,6 +797,8 @@ function _enterWin() {
   winInitials          = '';
   winInitialsSubmitted = false;
   _kbdBtns             = [];
+  _kbdOverlay          = false;
+  _kbdIconBtn          = null;
   _winInputDelay       = 0.5;
   if ('ontouchstart' in window) {
     _kbdOverlay      = true;
@@ -954,15 +955,35 @@ function drawGame(W, H) {
 
   map.draw(ctx);
 
+  // ── Darkness overlay — dim unlit areas for atmosphere ────────
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, CONFIG.map_width, CONFIG.map_height);
+
   // ── Player floor light — wide radial glow revealing the tiles ──
   if (player.alive) {
-    const px = player.x, py = player.y, r = 220;
+    const px = player.x, py = player.y, r = 143;
     const floorGlow = ctx.createRadialGradient(px, py, 0, px, py, r);
-    floorGlow.addColorStop(0,    'rgba(190,215,255,0.13)');
+    floorGlow.addColorStop(0,    'rgba(190,215,255,0.17)');
     floorGlow.addColorStop(0.45, 'rgba(190,215,255,0.07)');
     floorGlow.addColorStop(1,    'rgba(190,215,255,0)');
     ctx.fillStyle = floorGlow;
     ctx.fillRect(px - r, py - r, r * 2, r * 2);
+  }
+
+  // ── Enemy floor lights — same radius as player, tinted by enemy color ──
+  {
+    const er = 114;
+    const _enemyRgb = { violet: '82,0,255', yellow: '233,255,106', green: '141,255,106', orange: '253,108,29', pink: '248,29,120' };
+    for (const e of enemies.enemies) {
+      if (!e.isAlive) continue;
+      const rgb = _enemyRgb[e.type] || '255,255,255';
+      const eg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, er);
+      eg.addColorStop(0,    `rgba(${rgb},0.17)`);
+      eg.addColorStop(0.45, `rgba(${rgb},0.07)`);
+      eg.addColorStop(1,    `rgba(${rgb},0)`);
+      ctx.fillStyle = eg;
+      ctx.fillRect(e.x - er, e.y - er, er * 2, er * 2);
+    }
   }
 
   traps.draw(ctx);
@@ -2952,8 +2973,8 @@ function drawGameOver(W, H) {
   ctx.fillText('SIGNAL COLLAPSE', W/2, cy); ctx.shadowBlur = 0;
 
   const classLabel = gameOverData.subclass
-    ? `${gameOverData.classId} / ${gameOverData.subclass}`
-    : gameOverData.classId;
+    ? `${gameOverData.classId || 'None'} / ${gameOverData.subclass}`
+    : (gameOverData.classId || 'None');
   ctx.fillStyle = '#C4C8D4'; ctx.font = '12px monospace';
   ctx.fillText(`class: ${classLabel.toUpperCase()}`, W/2, cy + 26);
 
