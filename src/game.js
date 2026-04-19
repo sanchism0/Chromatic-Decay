@@ -725,6 +725,90 @@ function _showNextUpgrade() {
   }
 }
 
+// ── Shadow-occluded lighting — offscreen light mask ───────────
+let _lightMaskCanvas = null;
+let _lightMaskCtx    = null;
+
+function _ensureLightMask() {
+  const W = canvas.width, H = canvas.height;
+  if (!_lightMaskCanvas || _lightMaskCanvas.width !== W || _lightMaskCanvas.height !== H) {
+    _lightMaskCanvas        = document.createElement('canvas');
+    _lightMaskCanvas.width  = W;
+    _lightMaskCanvas.height = H;
+    _lightMaskCtx           = _lightMaskCanvas.getContext('2d');
+  }
+  return _lightMaskCtx;
+}
+
+// Build and cache wall segments from map obstacles (called once per map load)
+function _getSegments(mapObj) {
+  if (mapObj._lightSegs) return mapObj._lightSegs;
+  const s = [];
+  for (const o of mapObj.obstacles) {
+    s.push(
+      [o.x, o.y, o.x+o.w, o.y],
+      [o.x+o.w, o.y, o.x+o.w, o.y+o.h],
+      [o.x+o.w, o.y+o.h, o.x, o.y+o.h],
+      [o.x, o.y+o.h, o.x, o.y],
+    );
+  }
+  const MW = CONFIG.map_width, MH = CONFIG.map_height;
+  s.push([0,0,MW,0],[MW,0,MW,MH],[MW,MH,0,MH],[0,MH,0,0]);
+  mapObj._lightSegs = s;
+  return s;
+}
+
+// Cast a ray from (ox,oy) in direction (cos,sin); return distance to nearest wall
+function _castRay(ox, oy, cos, sin, segs, maxDist) {
+  let t = maxDist;
+  for (const seg of segs) {
+    const [x1,y1,x2,y2] = seg;
+    const sdx = x2-x1, sdy = y2-y1;
+    const denom = cos*sdy - sin*sdx;
+    if (Math.abs(denom) < 1e-8) continue;
+    const dx = x1-ox, dy = y1-oy;
+    const s = (dx*sdy - dy*sdx) / denom;
+    const u = (dx*sin  - dy*cos)  / denom;
+    if (s >= 0 && s < t && u >= 0 && u <= 1) t = s;
+  }
+  return t;
+}
+
+// Compute visibility polygon for a light at (ox,oy) with given radius.
+// uniformRays: extra rays spread evenly for areas with no nearby corners.
+function _visPoly(ox, oy, segs, radius, obstacles, uniformRays = 48) {
+  const angles = [];
+  const r2 = (radius + 50) * (radius + 50);
+  for (const o of obstacles) {
+    for (const [cx, cy] of [[o.x,o.y],[o.x+o.w,o.y],[o.x,o.y+o.h],[o.x+o.w,o.y+o.h]]) {
+      const dx = cx-ox, dy = cy-oy;
+      if (dx*dx + dy*dy < r2) {
+        const a = Math.atan2(dy, dx);
+        angles.push(a-0.0001, a+0.0001);
+      }
+    }
+  }
+  for (let i = 0; i < uniformRays; i++) angles.push(i * (Math.PI * 2 / uniformRays));
+  angles.sort((a, b) => a - b);
+  const poly = [];
+  for (const a of angles) {
+    const cos = Math.cos(a), sin = Math.sin(a);
+    const t   = _castRay(ox, oy, cos, sin, segs, radius);
+    poly.push(ox + cos*t, oy + sin*t);
+  }
+  return poly;  // flat [x0,y0, x1,y1, ...] in world coords
+}
+
+// Trace the polygon path on a canvas 2D context (world coords)
+function _polyPath(c2d, poly) {
+  if (poly.length < 4) return false;
+  c2d.beginPath();
+  c2d.moveTo(poly[0], poly[1]);
+  for (let i = 2; i < poly.length; i += 2) c2d.lineTo(poly[i], poly[i+1]);
+  c2d.closePath();
+  return true;
+}
+
 // Stored kbd button rects for tap hit-testing — populated each draw frame
 let _kbdBtns = [];
 
@@ -955,34 +1039,88 @@ function drawGame(W, H) {
 
   map.draw(ctx);
 
-  // ── Darkness overlay — dim unlit areas for atmosphere ────────
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(0, 0, CONFIG.map_width, CONFIG.map_height);
-
-  // ── Player floor light — wide radial glow revealing the tiles ──
-  if (player.alive) {
-    const px = player.x, py = player.y, r = 143;
-    const floorGlow = ctx.createRadialGradient(px, py, 0, px, py, r);
-    floorGlow.addColorStop(0,    'rgba(190,215,255,0.17)');
-    floorGlow.addColorStop(0.45, 'rgba(190,215,255,0.07)');
-    floorGlow.addColorStop(1,    'rgba(190,215,255,0)');
-    ctx.fillStyle = floorGlow;
-    ctx.fillRect(px - r, py - r, r * 2, r * 2);
-  }
-
-  // ── Enemy floor lights — same radius as player, tinted by enemy color ──
+  // ── Shadow-occluded lighting ──────────────────────────────────
+  // Uses a visibility polygon per light source so light is blocked by server walls.
+  // Step 1: Build light mask (offscreen canvas, darkness with clipped holes).
+  // Step 2: Composite the mask over the scene.
+  // Step 3: Draw tinted color glows clipped to the same polygons.
   {
-    const er = 114;
-    const _enemyRgb = { violet: '82,0,255', yellow: '233,255,106', green: '141,255,106', orange: '253,108,29', pink: '248,29,120' };
-    for (const e of enemies.enemies) {
-      if (!e.isAlive) continue;
-      const rgb = _enemyRgb[e.type] || '255,255,255';
-      const eg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, er);
-      eg.addColorStop(0,    `rgba(${rgb},0.17)`);
-      eg.addColorStop(0.45, `rgba(${rgb},0.07)`);
-      eg.addColorStop(1,    `rgba(${rgb},0)`);
-      ctx.fillStyle = eg;
-      ctx.fillRect(e.x - er, e.y - er, er * 2, er * 2);
+    const _segs     = _getSegments(map);
+    const _eRgb     = { violet:'82,0,255', yellow:'233,255,106', green:'141,255,106', orange:'253,108,29', pink:'248,29,120' };
+    const _playerR  = 143;
+    const _enemyR   = 114;
+
+    // Pre-compute visibility polygons
+    const _pPoly = player.alive ? _visPoly(player.x, player.y, _segs, _playerR, map.obstacles, 48) : null;
+    const _ePairs = enemies.enemies
+      .filter(e => e.isAlive)
+      .map(e => ({ e, poly: _visPoly(e.x, e.y, _segs, _enemyR, map.obstacles, 24) }));
+
+    // ── Build light mask ──────────────────────────────────────
+    const lctx = _ensureLightMask();
+    lctx.clearRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
+    lctx.fillStyle = 'rgba(0,0,0,0.55)';
+    lctx.fillRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
+
+    // Apply the same world→screen transform so polygons (world coords) land correctly
+    lctx.setTransform(ZOOM, 0, 0, ZOOM, -camera.x * ZOOM, -camera.y * ZOOM);
+    lctx.globalCompositeOperation = 'destination-out';
+
+    // Player — deep hole (near-fully lit at center)
+    if (_pPoly) {
+      const g = lctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, _playerR);
+      g.addColorStop(0,    'rgba(0,0,0,0.95)');
+      g.addColorStop(0.45, 'rgba(0,0,0,0.55)');
+      g.addColorStop(1,    'rgba(0,0,0,0)');
+      lctx.fillStyle = g;
+      if (_polyPath(lctx, _pPoly)) lctx.fill();
+    }
+
+    // Enemies — shallower holes (dimmer ambient reveal)
+    for (const { e, poly } of _ePairs) {
+      const g = lctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, _enemyR);
+      g.addColorStop(0,    'rgba(0,0,0,0.40)');
+      g.addColorStop(0.45, 'rgba(0,0,0,0.14)');
+      g.addColorStop(1,    'rgba(0,0,0,0)');
+      lctx.fillStyle = g;
+      if (_polyPath(lctx, poly)) lctx.fill();
+    }
+
+    lctx.globalCompositeOperation = 'source-over';
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Composite light mask over main canvas (in screen space)
+    ctx.save();
+    ctx.resetTransform();
+    ctx.drawImage(_lightMaskCanvas, 0, 0);
+    ctx.restore(); // restores world transform
+
+    // ── Tinted color glows — clipped to visibility polygons ───
+    // Player: cool blue-white tint
+    if (_pPoly) {
+      ctx.save();
+      if (_polyPath(ctx, _pPoly)) ctx.clip();
+      const g = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, _playerR);
+      g.addColorStop(0,    'rgba(190,215,255,0.17)');
+      g.addColorStop(0.45, 'rgba(190,215,255,0.07)');
+      g.addColorStop(1,    'rgba(190,215,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(player.x - _playerR, player.y - _playerR, _playerR*2, _playerR*2);
+      ctx.restore();
+    }
+
+    // Enemies: each tinted with their own color
+    for (const { e, poly } of _ePairs) {
+      ctx.save();
+      if (_polyPath(ctx, poly)) ctx.clip();
+      const rgb = _eRgb[e.type] || '255,255,255';
+      const g   = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, _enemyR);
+      g.addColorStop(0,    `rgba(${rgb},0.17)`);
+      g.addColorStop(0.45, `rgba(${rgb},0.07)`);
+      g.addColorStop(1,    `rgba(${rgb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(e.x - _enemyR, e.y - _enemyR, _enemyR*2, _enemyR*2);
+      ctx.restore();
     }
   }
 
