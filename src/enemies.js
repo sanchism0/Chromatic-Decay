@@ -157,7 +157,7 @@ class Enemy {
 
     const pdx = player.x - this.x;
     const pdy = player.y - this.y;
-    this._look = Math.atan2(pdy, pdx);   // eyes track the player
+    this._look = Math.atan2(pdy, pdx);   // the mouth faces the player
 
     switch (this.type) {
       case 'violet': this._updateViolet(dt, player, map); break;
@@ -271,7 +271,7 @@ class Enemy {
       this.fireTimer -= dt;
       if (this.fireTimer <= 0 && projectileSystem) {
         const a = Math.atan2(player.y - this.y, player.x - this.x);
-        projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, 220, 500, this.cfg.color);
+        projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, this.cfg.projectile_speed, 500, this.cfg.color);
         this.fireTimer = 1 / this.cfg.projectile_fire_rate;
       }
     }
@@ -287,7 +287,7 @@ class Enemy {
       this.fireTimer -= dt;
       if (this.fireTimer <= 0 && projectileSystem) {
         const a = angle(this.x, this.y, player.x, player.y);
-        projectileSystem.spawnEnemyHoming(this.x, this.y, a, this.cfg.projectile_damage, 180, 500, this.cfg.color);
+        projectileSystem.spawnEnemyHoming(this.x, this.y, a, this.cfg.projectile_damage, this.cfg.projectile_speed, 500, this.cfg.color);
         this.fireTimer = 1 / this.cfg.projectile_fire_rate;
       }
     }
@@ -329,7 +329,7 @@ class Enemy {
       this.fireTimer -= dt;
       if (this.fireTimer <= 0 && projectileSystem) {
         const a = Math.atan2(player.y - this.y, player.x - this.x);
-        projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, 200, 600, this.cfg.color);
+        projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, this.cfg.projectile_speed, 600, this.cfg.color);
         this.fireTimer = 1 / this.cfg.projectile_fire_rate;
       }
     }
@@ -415,7 +415,7 @@ class Enemy {
     this._drawCore(ctx, bx, by, r, pulse);
     ctx.restore();
 
-    this._drawEyes(ctx, bx, by, r, look, t, pulse);
+    this._drawMouth(ctx, bx, by, r, look, t);
 
     // Pink boss beam
     if (this.type === 'pink' && this.beamPhase !== 'idle') {
@@ -535,36 +535,17 @@ class Enemy {
     ctx.fill();
   }
 
-  // Face — narrow angled eye-slits with a pinprick of light deep inside, and a
-  // ragged, too-wide grin. All track the player; the eyes rarely blink.
-  _drawEyes(ctx, bx, by, r, look, t, pulse) {
-    const blink = Math.sin(t * 0.9 + this.id) > 0.97 ? 0.15 : 1;
-    const fx = Math.cos(look), fy = Math.sin(look);   // toward the player ("down" the face)
+  // Mouth — a thin, crooked, ragged grin facing the player; it surfaces in the
+  // light and sinks back again
+  _drawMouth(ctx, bx, by, r, look, t) {
+    const fx = Math.cos(look), fy = Math.sin(look);   // toward the player
     const lx = -fy, ly = fx;                           // across the face
     const at = (f, l) => [bx + fx * r * f + lx * r * l, by + fy * r * f + ly * r * l];
 
-    // The face surfaces in the light and sinks back again
     const prevAlpha = ctx.globalAlpha;
     ctx.globalAlpha = prevAlpha * (0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(t * 0.6 + this.id * 1.3), 0.6));
 
-    // Soft void: faint wide ellipse under a darker core — no outline
-    const voidAt = (x, y, rx, ry, rot, a) => {
-      for (const [sc, k] of [[1.5, 0.3], [1, 1]]) {
-        ctx.fillStyle = `rgba(3,0,10,${a * k})`;
-        ctx.beginPath();
-        ctx.ellipse(x, y, rx * sc, ry * sc, rot, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    };
-
-    // Eye slits — long across the face, thin, inner ends tilted toward the mouth
-    const eyes = [-1, 1].map(side => at(0.12, 0.34 * side));
-    eyes.forEach(([x, y], i) => {
-      const side = i ? 1 : -1;
-      voidAt(x, y, r * 0.09 * blink, r * 0.27, look - 0.55 * side, 0.9);
-    });
-
-    // Grin — a thin, crooked, ragged rip; one corner hitches higher than the other
+    // One corner hitches higher than the other
     const M = 14, half = 0.52, gape = 0.6 + 0.4 * Math.sin(t * 1.3 + this.id * 2);
     const top = [], bot = [];
     for (let i = 0; i <= M; i++) {
@@ -582,19 +563,6 @@ class Enemy {
     for (const p of bot.reverse()) ctx.lineTo(...p);
     ctx.closePath();
     ctx.fill();
-
-    // Pinprick glints — barely-there cold lights deep in the dark
-    if (blink === 1) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = rgba(this.cfg.color, 0.2 + 0.25 * pulse, '#ffffff', 0.5);
-      for (const [x, y] of eyes) {
-        ctx.beginPath();
-        ctx.arc(x, y, Math.max(0.5, r * 0.035), 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
     ctx.globalAlpha = prevAlpha;
   }
 
