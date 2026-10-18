@@ -94,7 +94,7 @@ export const CONFIG = {
       color:                '#f81d78',
       edge_color:           '#ff6aaa',
       glow_color:           '#f81d78',
-      size:                 16.5,     // +10% from 15 (was 22 originally, was getting stuck)
+      size:                 19.8,     // 15 → 16.5 → 19.8 (+10%, +20%); was 22 originally, was getting stuck
       shape:                'square',
       wavelength_nm:        [680, 410],   // magenta is non-spectral: red + violet mixed
     },
