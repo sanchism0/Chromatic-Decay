@@ -6,6 +6,8 @@ import { haloSprite, drawSprite, mix, rgba } from './sprites.js';
 
 let _nextId = 0;
 
+const HIT_GLOW_TIME = 0.25;   // seconds a hit glow takes to fade
+
 // ── Light-wave profiles ──────────────────────────────────────
 // Each Chromatic is drawn as the light it is made of, and its colour's
 // wavelength sets its form. Frequency = c / λ; higher frequency means more
@@ -120,7 +122,7 @@ class Enemy {
     // Track low-HP state before deducting (used by Frequency Shatter)
     this.wasBelow25 = (this.hp / this.maxHp) < 0.25;
     this.hp -= amount;
-    this.hitFlash = 0.12;
+    this.hitFlash = HIT_GLOW_TIME;
     if (this.hp <= 0) {
       this.alive = false;
     }
@@ -336,7 +338,8 @@ class Enemy {
     const wave  = waveProfile(this.type);
     const t     = Date.now() / 1000 + this.id * 0.37;          // per-ghost phase offset
     const bx    = this.x, by = this.y - this.lift;
-    const flash = this.hitFlash > 0;
+    // Hit glow: brightens toward white and fades smoothly — no hard flash
+    const heat  = Math.pow(this.hitFlash / HIT_GLOW_TIME, 2);
     const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * wave.pulseHz);
     const look  = this._look ?? 0;
     const head  = this._heading ?? look;
@@ -351,18 +354,19 @@ class Enemy {
     ctx.drawImage(pool.canvas, this.x - r * 1.8, this.y + r * 0.35 - r * 0.7, r * 3.6, r * 1.4);
     ctx.globalAlpha = 1;
 
-    for (const strand of wave.strands) this._drawTail(ctx, bx, by, r, head, t, strand, flash);
+    for (const strand of wave.strands) this._drawTail(ctx, bx, by, r, head, t, strand, heat);
 
-    // Chromatic glitch — every so often the signal tears into offset copies
-    const glitch = Math.sin(t * 2.3 + this.id * 1.7) * Math.sin(t * 5.1) > 0.82;
-    if (glitch && !flash) {
-      const j = r * 0.35;
-      ctx.globalAlpha = 0.6;
-      this._drawBody(ctx, bx - j, by, r, t + 0.2, wave, false, pulse, head);
-      this._drawBody(ctx, bx + j, by + j * 0.3, r, t - 0.2, wave, false, pulse, head);
+    // Chromatic glitch — every so often the signal drifts apart into offset
+    // copies; eased in and out so it never pops
+    const g = Math.min(1, Math.max(0, (Math.sin(t * 2.3 + this.id * 1.7) * Math.sin(t * 5.1) - 0.75) / 0.2));
+    if (g > 0) {
+      const j = r * 0.35 * g;
+      ctx.globalAlpha = 0.6 * g;
+      this._drawBody(ctx, bx - j, by, r, t + 0.2, wave, 0, pulse, head);
+      this._drawBody(ctx, bx + j, by + j * 0.3, r, t - 0.2, wave, 0, pulse, head);
       ctx.globalAlpha = 1;
     }
-    this._drawBody(ctx, bx, by, r, t, wave, flash, pulse, head);
+    this._drawBody(ctx, bx, by, r, t, wave, heat, pulse, head);
     this._drawCore(ctx, bx, by, r, pulse);
     ctx.restore();
 
@@ -378,12 +382,13 @@ class Enemy {
   // the length scale with frequency, so short wavelengths ripple tighter.
   // Soft-edged too: a wide faint layer under a narrow brighter one, so the
   // sides fade rather than end in a line.
-  _drawTail(ctx, bx, by, r, heading, t, s, flash) {
+  _drawTail(ctx, bx, by, r, heading, t, s, heat) {
     const back = heading + Math.PI + s.spread;
     const ux = Math.cos(back), uy = Math.sin(back);   // along the tail
     const px = -uy, py = ux;                          // across it
     const L = r * 3.0 * s.len, N = 14;
-    const col = flash ? '#ffffff' : s.color;
+    const col = s.color;
+    const wt  = 0.2 + 0.5 * heat;
 
     for (const [widthScale, peak] of [[1.0, 0.22], [0.5, 0.35]]) {
       const left = [], right = [];
@@ -403,10 +408,10 @@ class Enemy {
       ctx.closePath();
       // Fades in only beyond the body, so the overlap leaves no seam
       const grad = ctx.createLinearGradient(bx, by, bx + ux * L, by + uy * L);
-      grad.addColorStop(0,    rgba(col, 0,    '#ffffff', 0.2));
-      grad.addColorStop(0.22, rgba(col, 0,    '#ffffff', 0.2));
-      grad.addColorStop(0.45, rgba(col, peak, '#ffffff', 0.2));
-      grad.addColorStop(1,    rgba(col, 0,    '#ffffff', 0.2));
+      grad.addColorStop(0,    rgba(col, 0,    '#ffffff', wt));
+      grad.addColorStop(0.22, rgba(col, 0,    '#ffffff', wt));
+      grad.addColorStop(0.45, rgba(col, peak, '#ffffff', wt));
+      grad.addColorStop(1,    rgba(col, 0,    '#ffffff', wt));
       ctx.fillStyle = grad;
       ctx.fill();
     }
@@ -415,10 +420,10 @@ class Enemy {
   // Body — no outline. Stacked layers of faint light, each a standing wave
   // (crests set by wavelength) with a slightly shifted phase, so the shape is
   // carried by brightness and the edge dissolves instead of ending in a line.
-  _drawBody(ctx, bx, by, r, t, wave, flash, pulse, heading) {
+  _drawBody(ctx, bx, by, r, t, wave, heat, pulse, heading) {
     const N      = 40;
     const back   = heading + Math.PI;
-    const col    = flash ? '#ffffff' : this.cfg.color;
+    const col    = this.cfg.color;
     const layers = [            // scale, alpha, whiten
       [1.3,  0.05, 0.0],
       [1.1,  0.08, 0.1],
@@ -441,7 +446,7 @@ class Enemy {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.closePath();
-      ctx.fillStyle = rgba(col, alpha * (0.8 + 0.4 * pulse), '#ffffff', whiten);
+      ctx.fillStyle = rgba(col, alpha * (0.8 + 0.4 * pulse) * (1 + 0.6 * heat), '#ffffff', whiten + (1 - whiten) * 0.55 * heat);
       ctx.fill();
     });
   }

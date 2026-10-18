@@ -158,7 +158,6 @@ export class Player {
     this.fireTimer   = 0;
     this.alive       = true;
     this.invincible  = 0;
-    this.flashTimer  = 0;
     this.justFired   = false;   // audio hook: true for one frame when a shot fires
     this.justHit     = false;   // audio hook: true for one frame when damage taken
 
@@ -339,13 +338,8 @@ export class Player {
       this._useAbility();
     }
 
-    // ── Invincibility flash ──────────────────────────────────
-    if (this.invincible > 0) {
-      this.invincible -= dt;
-      this.flashTimer += dt;
-    } else {
-      this.flashTimer = 0;
-    }
+    // ── Invincibility window ─────────────────────────────────
+    if (this.invincible > 0) this.invincible -= dt;
 
     // ── Ghost transparency target ────────────────────────────
     const targetAlpha = this.classId === 'ghost' ? 0.65 : 1.0;
@@ -616,10 +610,18 @@ export class Player {
 
   draw(ctx) {
     if (!this.alive) return;
-    if (this.invincible > 0 && Math.floor(this.flashTimer * 12) % 2 === 1) return;
 
     const _mob = 'ontouchstart' in window;
     const s = _mob ? this.size / 2 * 1.35 : this.size / 2;
+
+    // Protection window (after a hit, Phase Shift, Margin Call): no blinking.
+    // Track the window's full length whenever it's (re)started, so the shield
+    // ring can drain from full to empty.
+    const inv = Math.max(0, this.invincible);
+    if (inv > (this._invPrev || 0) + 1e-4) this._invMax = inv;
+    this._invPrev = inv;
+    const shield = inv > 0 ? Math.min(1, inv / 0.15) : 0;   // eases out over the last 0.15s
+    const alpha  = this._drawAlpha * (1 - 0.4 * shield);    // see-through while protected
 
     // Movement trail — fading white smear behind the player
     const tLen = this._trail.length;
@@ -628,8 +630,7 @@ export class Player {
         const pt    = this._trail[i];
         const frac  = (i + 1) / tLen;
         const r     = s * 0.65 * frac;
-        const alpha = frac * 0.5 * this._drawAlpha;
-        ctx.globalAlpha  = alpha;
+        ctx.globalAlpha  = frac * 0.5 * alpha;
         ctx.shadowBlur   = 0;
         ctx.fillStyle    = this.glowColor || '#FFFFFF';
         ctx.beginPath();
@@ -640,11 +641,11 @@ export class Player {
     }
 
     // Contact shadow, then the body hovering above it
-    drawGroundShadow(ctx, this.x, this.y + s * 0.6, s * 1.4, s * 0.6, 0.6 * this._drawAlpha);
+    drawGroundShadow(ctx, this.x, this.y + s * 0.6, s * 1.4, s * 0.6, 0.6 * alpha);
     const by = this.y - this.lift;
 
     ctx.save();
-    ctx.globalAlpha = this._drawAlpha;
+    ctx.globalAlpha = alpha;
     ctx.translate(this.x, by);
     ctx.rotate(this.facing);
 
@@ -679,6 +680,35 @@ export class Player {
     ctx.restore();
     ctx.shadowBlur  = 0;
     ctx.globalAlpha = 1;
+
+    // Shimmer shield — soft light bending around the body, plus a thin ring
+    // that drains as the protection runs out
+    if (shield > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.45 * shield;
+      drawSprite(ctx, haloSprite('#bff4ff', Math.round(s * 3.2), 0.6), this.x, by);
+
+      const ringR = s + 6;
+      const drift = Date.now() * 0.0015;                       // slow, steady rotation
+      ctx.lineWidth   = 1;
+      ctx.strokeStyle = `rgba(191,244,255,${0.18 * shield})`;  // faint full track
+      ctx.beginPath(); ctx.arc(this.x, by, ringR, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth   = 1.5;
+      ctx.strokeStyle = `rgba(220,250,255,${0.75 * shield})`;  // remaining time
+      ctx.beginPath();
+      ctx.arc(this.x, by, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (inv / (this._invMax || inv)));
+      ctx.stroke();
+
+      // Two faint glints gliding around the shield
+      ctx.strokeStyle = `rgba(255,255,255,${0.35 * shield})`;
+      for (const off of [0, Math.PI]) {
+        ctx.beginPath();
+        ctx.arc(this.x, by, ringR + 3, drift + off, drift + off + 0.6);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Ability cooldown / ready ring
     if (this.classId && this.abilityCooldownMax > 0) {

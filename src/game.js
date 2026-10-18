@@ -1902,11 +1902,8 @@ function drawArchive(W, H) {
   }
 
   // ── Back hint ─────────────────────────────────────────────────
-  const blink = Math.floor(Date.now() / 600) % 2 === 0;
-  if (blink) {
-    ctx.fillStyle = 'rgba(180,190,210,0.45)'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('ESC or tap to return', W / 2, H - 10);
-  }
+  ctx.fillStyle = 'rgba(180,190,210,0.45)'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ESC or tap to return', W / 2, H - 10);
 
   ctx.textAlign = 'left';
 }
@@ -2776,11 +2773,9 @@ function drawWin(W, H) {
     ctx.font        = 'bold 20px monospace';
     ctx.fillText('SCORE RECORDED', W / 2, ly + 18);
     ctx.shadowBlur  = 0;
-    if (Math.floor(Date.now() / 600) % 2 === 0) {
-      ctx.fillStyle = '#5ddbb4';
-      ctx.font      = '16px monospace';
-      ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
-    }
+    ctx.fillStyle = '#5ddbb4';
+    ctx.font      = '16px monospace';
+    ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
     _kbdBtns = [];
   }
 
@@ -2927,11 +2922,9 @@ function drawFragmentRescue(W, H) {
   }
 
   // Continue prompt pinned to card bottom
-  if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '11px monospace';
-    ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
-  }
+  ctx.fillStyle = '#C4C8D4';
+  ctx.font      = '11px monospace';
+  ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
 
   ctx.textAlign = 'left';
 }
@@ -3052,11 +3045,9 @@ function drawClassEmergence(W, H) {
     ctx.beginPath(); ctx.moveTo(cardX + 20, div2Y); ctx.lineTo(cardX + cardW - 20, div2Y); ctx.stroke();
   }
 
-  if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '11px monospace';
-    ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
-  }
+  ctx.fillStyle = '#C4C8D4';
+  ctx.font      = '11px monospace';
+  ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
 
   ctx.textAlign = 'left';
 }
@@ -3247,10 +3238,8 @@ function drawGameOver(W, H) {
   } else {
     ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
     ctx.fillText('SCORE RECORDED', W/2, iy + 18);
-    if (Math.floor(Date.now()/600)%2===0) {
-      ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
-      ctx.fillText('PRESS SPACE TO PLAY AGAIN', W/2, iy + 46);
-    }
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
+    ctx.fillText('PRESS SPACE TO PLAY AGAIN', W/2, iy + 46);
     _kbdBtns = [];
   }
   ctx.textAlign = 'left';
