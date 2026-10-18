@@ -139,7 +139,7 @@ export const CONFIG = {
   fragment_weight: 500,
 
   // ── Particles ────────────────────────────────────────────────
-  max_particles: 200,
+  max_particles: 600,
 
   // ── Camera ───────────────────────────────────────────────────
   camera_zoom: 1.7,   // how many world px = 1 screen px (higher = more zoomed in)
