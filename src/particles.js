@@ -40,6 +40,9 @@ export class ParticleSystem {
   }
 
   draw(ctx) {
+    // Additive — sparks read as light and brighten where they overlap
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
     for (const p of this.pool) {
       if (!p.active) continue;
       const alpha = p.fade ? Math.max(0, p.life / p.maxLife) : 1;
@@ -54,7 +57,7 @@ export class ParticleSystem {
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
       }
     }
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   // ── Effect presets ──────────────────────────────────────────

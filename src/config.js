@@ -135,7 +135,10 @@ export const CONFIG = {
   max_particles: 200,
 
   // ── Camera ───────────────────────────────────────────────────
-  camera_zoom: 2.2,   // how many world px = 1 screen px (higher = more zoomed in)
+  camera_zoom: 1.7,   // how many world px = 1 screen px (higher = more zoomed in)
+
+  // ── Walls ────────────────────────────────────────────────────
+  wall_height_factor: 0.07,   // how far rack tops lean out from screen centre (0 = flat)
 
   // ── Lore feed ────────────────────────────────────────────────
   lore_hold_duration: 3.5,   // seconds blurb stays visible

@@ -2,6 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { clamp, dist } from './utils.js';
+import { drawGroundShadow } from './sprites.js';
 
 let _echoId = 0;
 
@@ -110,6 +111,10 @@ export class EchoSystem {
 
       const pulse = (Math.sin(echo.pulseTimer * 2.8) * 0.5 + 0.5);
       const bob   = Math.sin(echo.bobTimer * 2.2) * 3;
+
+      // Contact shadow stays on the floor while the pickup bobs above it
+      const shR = echo.isFragment ? 14 : 9;
+      drawGroundShadow(ctx, echo.x, echo.y + shR, shR * 1.2, shR * 0.45, 0.55);
 
       if (echo.isFragment) {
         this._drawFragment(ctx, echo.x, echo.y + bob, pulse, echo);

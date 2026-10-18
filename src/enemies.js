@@ -2,7 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } from './utils.js';
-import { drawEnemyShape } from './utils.js';
+import { shapeSprite, haloSprite, drawSprite, drawGroundShadow } from './sprites.js';
 
 let _nextId = 0;
 
@@ -55,6 +55,16 @@ class Enemy {
   }
 
   get isAlive() { return this.alive && this.hp > 0; }
+
+  // Visual radius — scaled up on mobile to match the larger hitbox
+  get drawSize() {
+    return 'ontouchstart' in window ? this.cfg.size * 1.35 : this.cfg.size;
+  }
+
+  // How high the body hovers above its ground shadow (visual only)
+  get lift() {
+    return this.drawSize * 0.35 + Math.sin(Date.now() * 0.004 + this.id) * 1.2;
+  }
 
   scaleHp(elapsedMinutes) {
     const scale = 1 + elapsedMinutes * CONFIG.hp_scale_per_minute;
@@ -310,8 +320,7 @@ class Enemy {
     if (!this.alive) return;
 
     const cfg      = this.cfg;
-    const _mob     = 'ontouchstart' in window;
-    const drawSize = _mob ? cfg.size * 1.35 : cfg.size;
+    const drawSize = this.drawSize;
 
     // Movement trail — fading dots behind the enemy
     const tLen = this._trail.length;
@@ -331,26 +340,16 @@ class Enemy {
       ctx.globalAlpha = 1;
     }
 
-    ctx.save();
-    ctx.translate(this.x, this.y);
-
-    // Hit flash — white overlay
-    const flashColor = this.hitFlash > 0 ? '#FFFFFF' : cfg.color;
-
-    // Glow
-    ctx.shadowBlur = this.type === 'pink' ? 20 : 10;
-    ctx.shadowColor = cfg.glow_color;
-
-    ctx.strokeStyle = cfg.edge_color;
-    ctx.lineWidth = this.type === 'pink' ? 2.5 : 1.5;
-    ctx.fillStyle = flashColor;
-
-    drawEnemyShape(ctx, cfg.shape, 0, 0, drawSize);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.restore();
-    ctx.shadowBlur = 0;
+    // Contact shadow + hovering shaded body (hit flash turns it white)
+    const isPink = this.type === 'pink';
+    drawGroundShadow(ctx, this.x, this.y + drawSize * 0.35, drawSize * 1.05, drawSize * 0.45, 0.55);
+    const body = shapeSprite(
+      cfg.shape, drawSize,
+      this.hitFlash > 0 ? '#FFFFFF' : cfg.color,
+      cfg.edge_color, cfg.glow_color,
+      isPink ? 20 : 10, isPink ? 2.5 : 1.5,
+    );
+    drawSprite(ctx, body, this.x, this.y - this.lift);
 
     // Pink boss beam
     if (this.type === 'pink' && this.beamPhase !== 'idle') {
@@ -385,11 +384,19 @@ class Enemy {
     ctx.shadowBlur = 0;
   }
 
+  // Additive halo — drawn in the glow pass after the racks
+  drawHalo(ctx) {
+    if (!this.alive) return;
+    const isPink = this.type === 'pink';
+    const halo   = haloSprite(this.cfg.glow_color, Math.round(this.drawSize * (isPink ? 4 : 3.2)), isPink ? 0.35 : 0.28);
+    drawSprite(ctx, halo, this.x, this.y - this.lift);
+  }
+
   _drawHpBar(ctx) {
     const barW = this.size * 2.2;
     const barH = 3;
     const bx   = this.x - barW / 2;
-    const by   = this.y - this.size - 7;
+    const by   = this.y - this.lift - this.size - 7;
     ctx.fillStyle = '#1E2130';
     ctx.fillRect(bx, by, barW, barH);
     ctx.fillStyle = this.cfg.color;
@@ -564,6 +571,10 @@ export class EnemySystem {
     for (const e of this.enemies) {
       e.draw(ctx);
     }
+  }
+
+  drawHalos(ctx) {
+    for (const e of this.enemies) e.drawHalo(ctx);
   }
 
   countByType(type) {

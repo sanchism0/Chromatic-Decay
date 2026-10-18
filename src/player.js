@@ -2,6 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { clamp, normalize, angle, circleVsRect, dist } from './utils.js';
+import { haloSprite, drawSprite, drawGroundShadow } from './sprites.js';
 
 // Class emergence thresholds
 const EMERGE_THRESHOLD   = 4;   // traits from one class → full emergence
@@ -634,19 +635,31 @@ export class Player {
       ctx.globalAlpha = 1;
     }
 
+    // Contact shadow, then the body hovering above it
+    drawGroundShadow(ctx, this.x, this.y + s * 0.6, s * 1.4, s * 0.6, 0.6 * this._drawAlpha);
+    const by = this.y - this.lift;
+
     ctx.save();
     ctx.globalAlpha = this._drawAlpha;
-    ctx.translate(this.x, this.y);
+    ctx.translate(this.x, by);
     ctx.rotate(this.facing);
 
     ctx.shadowBlur  = 14;
     ctx.shadowColor = this.glowColor;
 
-    ctx.fillStyle   = '#FFFFFF';
+    // Shaded body — the highlight stays top-left in world space as the body
+    // rotates, so the light source never appears to spin with the player
+    const la = -Math.PI * 0.75 - this.facing;
+    const lx = Math.cos(la) * s * 0.6, ly = Math.sin(la) * s * 0.6;
+    const body = ctx.createRadialGradient(lx, ly, s * 0.1, 0, 0, s * 1.5);
+    body.addColorStop(0,    '#FFFFFF');
+    body.addColorStop(0.5,  '#E4ECF6');
+    body.addColorStop(1,    '#8E9AAE');
+    ctx.fillStyle   = body;
     ctx.strokeStyle = this.glowColor;
     ctx.lineWidth   = 1.5;
     ctx.beginPath();
-    ctx.roundRect(-s, -s, this.size, this.size, 2);
+    ctx.roundRect(-s, -s, s * 2, s * 2, 2);
     ctx.fill();
     ctx.stroke();
 
@@ -679,14 +692,14 @@ export class Player {
         ctx.shadowBlur  = 18;
         ctx.shadowColor = '#fff5c2';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, ringR + 4, 0, Math.PI * 2);
+        ctx.arc(this.x, by, ringR + 4, 0, Math.PI * 2);
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         // Inner cyan ring — rotating dashes (lightning feel)
         const dashRotate = t * 1.2;
         ctx.save();
-        ctx.translate(this.x, this.y);
+        ctx.translate(this.x, by);
         ctx.rotate(dashRotate);
         ctx.globalAlpha = 0.85;
         ctx.strokeStyle = '#00e5ff';
@@ -708,7 +721,7 @@ export class Player {
         ctx.shadowBlur  = 6;
         ctx.shadowColor = '#00e5ff';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, ringR,
+        ctx.arc(this.x, by, ringR,
           -Math.PI / 2,
           -Math.PI / 2 + Math.PI * 2 * cdPct);
         ctx.stroke();
@@ -726,11 +739,26 @@ export class Player {
       ctx.shadowBlur  = 10;
       ctx.shadowColor = CLASS_DATA.warden.color;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, s + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldRatio);
+      ctx.arc(this.x, by, s + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldRatio);
       ctx.stroke();
       ctx.shadowBlur  = 0;
       ctx.globalAlpha = 1;
     }
+  }
+
+  // How high the body hovers above its ground shadow (visual only)
+  get lift() {
+    const s = ('ontouchstart' in window ? 1.35 : 1) * this.size / 2;
+    return s * 0.45 + Math.sin(Date.now() * 0.005) * 0.8;
+  }
+
+  // Additive halo — drawn in the glow pass after the racks
+  drawHalo(ctx) {
+    if (!this.alive) return;
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = prev * this._drawAlpha;
+    drawSprite(ctx, haloSprite(this.glowColor, 30, 0.22), this.x, this.y - this.lift);
+    ctx.globalAlpha = prev;
   }
 
   frequencyScore(elapsedSeconds) {

@@ -2,6 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { distSq } from './utils.js';
+import { orbSprite, drawSprite, drawGroundShadow } from './sprites.js';
 
 class Residual {
   constructor(x, y, amount) {
@@ -95,21 +96,10 @@ export class ResidualSystem {
       const bob   = Math.sin(r.age * 3 + r.x * 0.1) * 2;
       const alpha = Math.min(1, r.age * 4);
 
+      const size = CONFIG.residual_size;
       ctx.globalAlpha = alpha;
-      ctx.shadowBlur  = 8;
-      ctx.shadowColor = '#E8C86A';
-
-      ctx.fillStyle = '#B8882A';
-      ctx.beginPath();
-      ctx.arc(r.x, r.y + bob, CONFIG.residual_size, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#E8C86A';
-      ctx.beginPath();
-      ctx.arc(r.x, r.y + bob, CONFIG.residual_size * 0.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
+      drawGroundShadow(ctx, r.x, r.y + size + 2, size * 1.1, size * 0.45, 0.5);
+      drawSprite(ctx, orbSprite('#B8882A', size, 8, '#E8C86A'), r.x, r.y + bob - 2);
     }
     ctx.globalAlpha = 1;
   }
