@@ -88,14 +88,13 @@ export const CONFIG = {
       aggro_range:          300,
       projectile_damage:    30,       // flat bullet hit damage
       projectile_speed:     170,      // px/sec (was 200, −15%)
-      beam_damage:          180,      // 180 × dt @ 60fps = 3 damage/frame
       projectile_fire_rate: 2.0,      // high fire rate
       residual_drop:        60,
       spawn_weight:         0.05,
       color:                '#f81d78',
       edge_color:           '#ff6aaa',
       glow_color:           '#f81d78',
-      size:                 15,       // smaller — was 22, was getting stuck
+      size:                 16.5,     // +10% from 15 (was 22 originally, was getting stuck)
       shape:                'square',
       wavelength_nm:        [680, 410],   // magenta is non-spectral: red + violet mixed
     },

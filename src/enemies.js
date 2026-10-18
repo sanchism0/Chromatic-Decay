@@ -87,13 +87,6 @@ class Enemy {
     // Tracks whether enemy was below 25% HP before a killing hit (Frequency Shatter)
     this.wasBelow25 = false;
 
-    // Beam state (Pink only)
-    this.beamPhase    = 'idle'; // idle | charge | fire
-    this.beamTimer    = 0;
-    this.beamTargetX  = 0;
-    this.beamTargetY  = 0;
-    this.beamCooldown = 0;
-
     // Movement trail
     this._trail = [];
   }
@@ -293,7 +286,7 @@ class Enemy {
     }
   }
 
-  // PINK (boss) — dash bursts every 3s, rapid fire, sustained beam
+  // PINK (boss) — dash bursts every 3s, rapid fire
   _updatePink(dt, player, map, projectileSystem) {
     // ── Dash movement ──────────────────────────────────────────
     if (this.dashState === undefined) {
@@ -333,48 +326,6 @@ class Enemy {
         this.fireTimer = 1 / this.cfg.projectile_fire_rate;
       }
     }
-
-    // ── Beam ──────────────────────────────────────────────────
-    this.beamCooldown = Math.max(0, this.beamCooldown - dt);
-
-    if (this.beamPhase === 'idle' && this.beamCooldown <= 0) {
-      this.beamPhase   = 'charge';
-      this.beamTimer   = 0.5;
-      this.beamTargetX = player.x;
-      this.beamTargetY = player.y;
-    }
-
-    if (this.beamPhase === 'charge') {
-      this.beamTargetX = player.x;
-      this.beamTargetY = player.y;
-      this.beamTimer -= dt;
-      if (this.beamTimer <= 0) {
-        this.beamPhase = 'fire';
-        this.beamTimer = 0.8;
-      }
-    }
-
-    if (this.beamPhase === 'fire') {
-      this.beamTimer -= dt;
-      if (projectileSystem && this._playerInBeam(player)) {
-        player.takeDamage((this.cfg.beam_damage ?? this.cfg.projectile_damage) * dt);
-      }
-      if (this.beamTimer <= 0) {
-        this.beamPhase    = 'idle';
-        this.beamCooldown = 1.5;
-      }
-    }
-  }
-
-  _playerInBeam(player) {
-    // Distance from player to the line between this enemy and beam target
-    const bx = this.beamTargetX - this.x, by = this.beamTargetY - this.y;
-    const len = Math.sqrt(bx * bx + by * by);
-    if (len === 0) return false;
-    const t = clamp(((player.x - this.x) * bx + (player.y - this.y) * by) / (len * len), 0, 1);
-    const cx = this.x + t * bx - player.x;
-    const cy = this.y + t * by - player.y;
-    return cx * cx + cy * cy < 18 * 18;
   }
 
   draw(ctx) {
@@ -417,37 +368,10 @@ class Enemy {
 
     this._drawMouth(ctx, bx, by, r, look, t);
 
-    // Pink boss beam
-    if (this.type === 'pink' && this.beamPhase !== 'idle') {
-      this._drawBeam(ctx);
-    }
-
     // HP bar
     if (this.hp < this.maxHp) {
       this._drawHpBar(ctx);
     }
-  }
-
-  _drawBeam(ctx) {
-    const isCharge = this.beamPhase === 'charge';
-    ctx.save();
-    ctx.globalAlpha = isCharge ? 0.4 : 0.85;
-    ctx.strokeStyle = isCharge ? '#ff6aaa' : '#f81d78';
-    ctx.lineWidth   = isCharge ? 2 : 5;
-    ctx.shadowBlur  = isCharge ? 6 : 18;
-    ctx.shadowColor = '#f81d78';
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y);
-    ctx.lineTo(this.beamTargetX, this.beamTargetY);
-    ctx.stroke();
-    if (!isCharge) {
-      ctx.globalAlpha = 0.6;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth   = 2;
-      ctx.stroke();
-    }
-    ctx.restore();
-    ctx.shadowBlur = 0;
   }
 
   // Tail — a transverse wave streaming behind the heading. Its cycles along
