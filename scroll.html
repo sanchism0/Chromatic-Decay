@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Daily Scroll</title>
+  <style>
+    :root {
+      --bg: #f5f4f0;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --history: #92400e;
+      --tech: #1e40af;
+      --culture: #5b21b6;
+      --fact: #065f46;
+      --note: #166534;
+      --link: #1d4ed8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    /* ─── Header ──────────────────────────────────── */
+
+    header {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 28px 16px 12px;
+    }
+
+    .greeting {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .masthead {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--text);
+    }
+
+    .dateline {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 2px solid var(--text);
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── Feed ────────────────────────────────────── */
+
+    #feed {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 12px 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ─── Cards ───────────────────────────────────── */
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .card-tag::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .tag-history { color: var(--history); }
+    .tag-tech    { color: var(--tech); }
+    .tag-culture { color: var(--culture); }
+    .tag-fact    { color: var(--fact); }
+    .tag-note    { color: var(--note); }
+
+    .card-image {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .card-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text);
+    }
+
+    .card-excerpt {
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.65;
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .card-link {
+      display: inline-block;
+      margin-top: 2px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--link);
+      text-decoration: none;
+    }
+
+    .card-link:hover {
+      text-decoration: underline;
+    }
+
+    /* ─── Skeleton loading ────────────────────────── */
+
+    .skeleton-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .skel {
+      background: linear-gradient(90deg, #e5e7eb 25%, #d1d5db 50%, #e5e7eb 75%);
+      background-size: 200% 100%;
+      border-radius: 4px;
+      animation: shimmer 1.6s infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─── Refresh FAB ─────────────────────────────── */
+
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 16px;
+      background: var(--text);
+      color: #fff;
+      border: none;
+      border-radius: 28px;
+      padding: 12px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      z-index: 100;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .fab:active {
+      transform: scale(0.96);
+      opacity: 0.85;
+    }
+
+    .fab:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    /* ─── Empty / error state ─────────────────────── */
+
+    .feed-empty {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <p class="greeting" id="greeting"></p>
+  <h1 class="masthead">Daily Scroll</h1>
+  <p class="dateline" id="dateline"></p>
+</header>
+
+<main id="feed" aria-live="polite"></main>
+
+<button class="fab" id="refresh-btn" onclick="loadFeed()">↺ Refresh</button>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  YOUR PERSONAL NOTES
+//  Add as many entries as you like. 2 surface randomly per load.
+// ════════════════════════════════════════════════════════
+const PERSONAL_NOTES = [
+  {
+    title: "On deep work",
+    text: "The ability to perform deep work is becoming increasingly rare at exactly the same time it is becoming increasingly valuable. — Cal Newport",
+  },
+  {
+    title: "First principles",
+    text: "Boil things down to their most fundamental truths and reason up from there, rather than reasoning by analogy.",
+  },
+  {
+    title: "Sturgeon's Law",
+    text: "90% of everything is crud. The remaining 10% is worth your time — the trick is learning to filter quickly.",
+  },
+  {
+    title: "Add your own",
+    text: "Edit the PERSONAL_NOTES array in scroll.html to add quotes, ideas, or reminders you want to surface while scrolling.",
+  },
+];
+// ════════════════════════════════════════════════════════
+
+// ─── Utilities ──────────────────────────────────────────
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function cap(text, max = 240) {
+  if (!text || text.length <= max) return text;
+  return text.slice(0, max).trimEnd() + '…';
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ─── API fetchers ────────────────────────────────────────
+
+async function fetchOnThisDay() {
+  try {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day   = today.getDate();
+    const res   = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${month}/${day}`
+    );
+    const data = await res.json();
+    const events = data.events || [];
+    return shuffle(events).slice(0, 3).map(e => ({
+      type:    'history',
+      tag:     `On This Day · ${e.year}`,
+      title:   null,
+      excerpt: e.text,
+      link:    e.pages?.[0]?.content_urls?.desktop?.page ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchWikipedia() {
+  try {
+    const fetches = [1, 2, 3].map(() =>
+      fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary').then(r => r.json())
+    );
+    const results = await Promise.all(fetches);
+    return results
+      .filter(r => r.extract && r.extract.length > 80 && r.type !== 'disambiguation')
+      .map(r => ({
+        type:    'culture',
+        tag:     'Wikipedia',
+        title:   r.title,
+        excerpt: cap(r.extract),
+        link:    r.content_urls?.desktop?.page ?? null,
+        image:   r.thumbnail?.source ?? null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchHackerNews() {
+  try {
+    const res  = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
+    const ids  = await res.json();
+    const pool = shuffle(ids.slice(0, 20)).slice(0, 4);
+    const items = await Promise.all(
+      pool.map(id =>
+        fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).then(r => r.json())
+      )
+    );
+    return items.filter(s => s && s.title).map(s => {
+      let host = '';
+      try { host = new URL(s.url).hostname.replace('www.', ''); } catch {}
+      return {
+        type:    'tech',
+        tag:     'Hacker News',
+        title:   s.title,
+        excerpt: host,
+        link:    s.url || `https://news.ycombinator.com/item?id=${s.id}`,
+        meta:    s.score ? `${s.score} points` : null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function fetchFacts() {
+  try {
+    const fetches = [1, 2, 3].map(() =>
+      fetch('https://uselessfacts.jsph.pl/api/v2/facts/random').then(r => r.json())
+    );
+    const results = await Promise.all(fetches);
+    return results.filter(r => r.text).map(r => ({
+      type:    'fact',
+      tag:     'Random Fact',
+      title:   null,
+      excerpt: r.text,
+      link:    null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function getPersonalNotes() {
+  return shuffle(PERSONAL_NOTES).slice(0, 2).map(n => ({
+    type:    'note',
+    tag:     'Your Notes',
+    title:   n.title,
+    excerpt: n.text,
+    link:    null,
+  }));
+}
+
+// ─── Render ──────────────────────────────────────────────
+
+function skeletonHTML() {
+  return Array.from({ length: 7 }, (_, i) => `
+    <div class="skeleton-card" aria-hidden="true">
+      <div class="skel" style="height:10px;width:${60 + (i % 3) * 15}px;"></div>
+      ${i % 3 !== 2 ? `<div class="skel" style="height:17px;width:${80 + (i % 5) * 5}%;"></div>` : ''}
+      <div class="skel" style="height:13px;width:100%;"></div>
+      <div class="skel" style="height:13px;width:${65 + (i % 4) * 8}%;"></div>
+    </div>
+  `).join('');
+}
+
+function cardHTML(c) {
+  const tagClass = `tag-${c.type}`;
+  const img   = c.image  ? `<img class="card-image" src="${esc(c.image)}" alt="" loading="lazy">` : '';
+  const title = c.title  ? `<div class="card-title">${esc(c.title)}</div>` : '';
+  const body  = c.excerpt ? `<div class="card-excerpt">${esc(c.excerpt)}</div>` : '';
+  const meta  = c.meta   ? `<div class="card-meta">${esc(c.meta)}</div>` : '';
+  const link  = c.link   ? `<a class="card-link" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Read more →</a>` : '';
+  return `
+    <article class="card">
+      <span class="card-tag ${tagClass}">${esc(c.tag)}</span>
+      ${img}${title}${body}${meta}${link}
+    </article>
+  `;
+}
+
+// ─── Main loader ─────────────────────────────────────────
+
+async function loadFeed() {
+  const feed = document.getElementById('feed');
+  const btn  = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  feed.innerHTML = skeletonHTML();
+
+  const [history, culture, tech, facts] = await Promise.all([
+    fetchOnThisDay(),
+    fetchWikipedia(),
+    fetchHackerNews(),
+    fetchFacts(),
+  ]);
+
+  const notes = getPersonalNotes();
+  const all   = shuffle([...history, ...culture, ...tech, ...facts, ...notes]);
+
+  if (all.length === 0) {
+    feed.innerHTML = `
+      <div class="feed-empty">
+        <p>Could not load content.</p>
+        <p>Check your connection and tap Refresh.</p>
+      </div>`;
+  } else {
+    feed.innerHTML = all.map(cardHTML).join('');
+  }
+
+  btn.disabled = false;
+}
+
+// ─── Init ─────────────────────────────────────────────────
+
+(function init() {
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('greeting').textContent = greet;
+  document.getElementById('dateline').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  loadFeed();
+})();
+</script>
+</body>
+</html>

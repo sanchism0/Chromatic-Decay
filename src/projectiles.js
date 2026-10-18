@@ -2,6 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { clamp } from './utils.js';
+import { orbSprite, haloSprite, drawSprite, mix } from './sprites.js';
 
 class Projectile {
   constructor() { this.active = false; }
@@ -186,22 +187,20 @@ export class ProjectileSystem {
             ctx.fillRect(p.x + nx * td - 1.5, p.y + ny * td - 1.5, 3, 3);
           }
           ctx.globalAlpha = 1;
-          ctx.shadowBlur  = 6;
-          ctx.shadowColor = '#FFFFFF';
-          ctx.fillStyle   = '#FFFFFF';
-          ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
-          ctx.shadowBlur  = 0;
+          drawSprite(ctx, orbSprite('#FFFFFF', 1.8, 6, '#FFFFFF'), p.x, p.y);
         }
       } else {
-        ctx.shadowBlur  = 8;
-        ctx.shadowColor = p.color;
-        ctx.fillStyle   = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur  = 0;
+        drawSprite(ctx, orbSprite(p.color, 4, 8, mix(p.color, '#ffffff', 0.6)), p.x, p.y);
       }
     }
     ctx.globalAlpha = 1;
+  }
+
+  // Additive halos for enemy shots — drawn in the glow pass after the racks
+  drawHalos(ctx) {
+    for (const p of this._pool) {
+      if (!p.active || p.isPlayer) continue;
+      drawSprite(ctx, haloSprite(p.color, 12, 0.3), p.x, p.y);
+    }
   }
 }

@@ -55,6 +55,7 @@ const FIELD_GROUPS = [
     label: 'CAMERA',
     fields: [
       { key: 'camera_zoom', label: 'Zoom', type: 'number', min: 1.0, max: 4.0, step: 0.1 },
+      { key: 'wall_height_factor', label: 'Wall Height', type: 'number', min: 0, max: 0.2, step: 0.01 },
     ],
   },
   {

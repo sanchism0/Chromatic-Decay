@@ -147,7 +147,16 @@ export function circleVsRect(cx, cy, cr, rx, ry, rw, rh) {
   const dy = cy - nearY;
   const d2 = dx * dx + dy * dy;
   if (d2 >= cr * cr) return null;
-  const d = Math.sqrt(d2) || 0.001;
+  if (d2 === 0) {
+    // Centre is inside the rect — push out through the nearest edge
+    const l = cx - rx, r = rx + rw - cx, t = cy - ry, b = ry + rh - cy;
+    const m = Math.min(l, r, t, b);
+    if (m === l) return { nx: -1, ny:  0, depth: l + cr };
+    if (m === r) return { nx:  1, ny:  0, depth: r + cr };
+    if (m === t) return { nx:  0, ny: -1, depth: t + cr };
+    return               { nx:  0, ny:  1, depth: b + cr };
+  }
+  const d = Math.sqrt(d2);
   return { nx: dx / d, ny: dy / d, depth: cr - d };
 }
 

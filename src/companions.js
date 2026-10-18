@@ -2,6 +2,7 @@
 // Orbiting damage-absorbing orbs that explode on expiry
 
 import { dist } from './utils.js';
+import { mix } from './sprites.js';
 
 const ORB_BASE_HP       = 30;
 const ORB_BASE_DURATION = 8;    // seconds
@@ -147,11 +148,11 @@ export class CompanionSystem {
       const lifeRatio = orb.life / orb.maxLife;
       const hpRatio   = orb.hp   / orb.maxHp;
       const pulse     = (Math.sin(Date.now() * 0.004) * 0.5 + 0.5);
-      const flash     = orb.hitFlash > 0;
+      const heat      = orb.hitFlash / 0.15;   // fades from 1 to 0 — no hard flash
 
       // Outer ring
       ctx.globalAlpha = 0.4 + pulse * 0.3;
-      ctx.strokeStyle = flash ? '#FFFFFF' : '#fddede';
+      ctx.strokeStyle = mix('#fddede', '#ffffff', heat * 0.7);
       ctx.lineWidth   = 1.5;
       ctx.shadowBlur  = 12;
       ctx.shadowColor = '#fddede';
@@ -161,7 +162,7 @@ export class CompanionSystem {
 
       // Core
       ctx.globalAlpha = 0.85;
-      ctx.fillStyle   = flash ? '#FFFFFF' : '#c85050';
+      ctx.fillStyle   = mix('#c85050', '#ffffff', heat * 0.7);
       ctx.shadowBlur  = 8;
       ctx.beginPath();
       ctx.arc(sx, sy, 7, 0, Math.PI * 2);

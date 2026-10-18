@@ -33,6 +33,7 @@ export const CONFIG = {
       glow_color:           '#5200ff',
       size:                 10,       // radius px
       shape:                'octagon',
+      wavelength_nm:        410,      // drives ripple count, shimmer, pulse, tail waves
     },
     yellow: {
       base_hp:              50,
@@ -47,12 +48,14 @@ export const CONFIG = {
       glow_color:           '#e9ff6a',
       size:                 11,
       shape:                'circle',
+      wavelength_nm:        575,
     },
     green: {
       base_hp:              60,
-      move_speed:           120,      // 3 × 60, −20%, −17%
+      move_speed:           102,      // 3 × 60, −20%, −17%, −15%
       aggro_range:          200,
       projectile_damage:    12,
+      projectile_speed:     187,      // px/sec (was 220, −15%)
       projectile_fire_rate: 0.8,
       residual_drop:        12,
       spawn_weight:         0.6,
@@ -61,12 +64,14 @@ export const CONFIG = {
       glow_color:           '#8dff6a',
       size:                 13,
       shape:                'triangle',
+      wavelength_nm:        530,
     },
     orange: {
       base_hp:              70,
       move_speed:           60,       // 1 × 60 (halved — shooters stay back)
       aggro_range:          180,
       projectile_damage:    18,       // +20%
+      projectile_speed:     153,      // homing, px/sec (was 180, −15%)
       projectile_fire_rate: 0.9,      // −10%
       residual_drop:        18,
       spawn_weight:         0.4,
@@ -75,21 +80,23 @@ export const CONFIG = {
       glow_color:           '#fd6c1d',
       size:                 12,
       shape:                'diamond',
+      wavelength_nm:        605,
     },
     pink: {
       base_hp:              900,
-      move_speed:           55,       // slow drift between dashes
+      move_speed:           66,       // slow drift between dashes (+20% from 55)
       aggro_range:          300,
       projectile_damage:    30,       // flat bullet hit damage
-      beam_damage:          180,      // 180 × dt @ 60fps = 3 damage/frame
+      projectile_speed:     170,      // px/sec (was 200, −15%)
       projectile_fire_rate: 2.0,      // high fire rate
       residual_drop:        60,
       spawn_weight:         0.05,
       color:                '#f81d78',
       edge_color:           '#ff6aaa',
       glow_color:           '#f81d78',
-      size:                 15,       // smaller — was 22, was getting stuck
+      size:                 19.8,     // 15 → 16.5 → 19.8 (+10%, +20%); was 22 originally, was getting stuck
       shape:                'square',
+      wavelength_nm:        [680, 410],   // magenta is non-spectral: red + violet mixed
     },
   },
 
@@ -132,10 +139,13 @@ export const CONFIG = {
   fragment_weight: 500,
 
   // ── Particles ────────────────────────────────────────────────
-  max_particles: 200,
+  max_particles: 600,
 
   // ── Camera ───────────────────────────────────────────────────
-  camera_zoom: 2.2,   // how many world px = 1 screen px (higher = more zoomed in)
+  camera_zoom: 1.7,   // how many world px = 1 screen px (higher = more zoomed in)
+
+  // ── Walls ────────────────────────────────────────────────────
+  wall_height_factor: 0.07,   // how far rack tops lean out from screen centre (0 = flat)
 
   // ── Lore feed ────────────────────────────────────────────────
   lore_hold_duration: 3.5,   // seconds blurb stays visible

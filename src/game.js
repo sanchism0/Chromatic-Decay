@@ -38,13 +38,13 @@ function updateZoom() {
   // Base zoom by screen size — desktop unchanged
   let z;
   if      (!mobile)      z = CONFIG.camera_zoom;  // PC always uses config value
-  else if (minDim < 400) z = 1.6;
-  else if (minDim < 600) z = 1.9;
-  else if (minDim < 900) z = 2.1;
+  else if (minDim < 400) z = 1.3;
+  else if (minDim < 600) z = 1.5;
+  else if (minDim < 900) z = 1.65;
   else                   z = CONFIG.camera_zoom;
 
-  // On mobile: cap zoom so at least 280px of world width is always visible.
-  if (mobile) z = Math.min(z, W / 280);
+  // On mobile: cap zoom so at least 340px of world width is always visible.
+  if (mobile) z = Math.min(z, W / 340);
 
   ZOOM = z;
 }
@@ -774,8 +774,18 @@ function _castRay(ox, oy, cos, sin, segs, maxDist) {
   return t;
 }
 
+// Wrap an angle into [-π, π)
+function _wrapAngle(a) {
+  if (a >= Math.PI)  return a - Math.PI * 2;
+  if (a < -Math.PI)  return a + Math.PI * 2;
+  return a;
+}
+
 // Compute visibility polygon for a light at (ox,oy) with given radius.
 // uniformRays: extra rays spread evenly for areas with no nearby corners.
+// All angles must share one range: corner rays come from atan2 (-π..π), so the
+// uniform rays are generated in the same range. Mixing ranges made the upper
+// half of the polygon trace twice out of order, leaving black slivers.
 function _visPoly(ox, oy, segs, radius, obstacles, uniformRays = 48) {
   const angles = [];
   const r2 = (radius + 50) * (radius + 50);
@@ -784,11 +794,11 @@ function _visPoly(ox, oy, segs, radius, obstacles, uniformRays = 48) {
       const dx = cx-ox, dy = cy-oy;
       if (dx*dx + dy*dy < r2) {
         const a = Math.atan2(dy, dx);
-        angles.push(a-0.0001, a+0.0001);
+        angles.push(_wrapAngle(a-0.0001), _wrapAngle(a+0.0001));
       }
     }
   }
-  for (let i = 0; i < uniformRays; i++) angles.push(i * (Math.PI * 2 / uniformRays));
+  for (let i = 0; i < uniformRays; i++) angles.push(-Math.PI + i * (Math.PI * 2 / uniformRays));
   angles.sort((a, b) => a - b);
   const poly = [];
   for (const a of angles) {
@@ -1034,10 +1044,33 @@ function draw() {
   }
 }
 
+// Light radii (world px) — larger than before to match the wider zoom
+const _PLAYER_LIGHT_R = 175;
+const _ENEMY_LIGHT_R  = 130;
+
+// Player light falling on a rack surface, 0–1.
+// Side faces (nx,ny ≠ 0) must face the player and have a clear line of sight;
+// top faces (0,0) only fall off with distance.
+function _wallLight(px, py, nx, ny) {
+  if (!player || !player.alive) return 0;
+  const dx = px - player.x, dy = py - player.y;
+  const d  = Math.hypot(dx, dy);
+  const R  = _PLAYER_LIGHT_R * 1.4;
+  if (d >= R) return 0;
+  let f = Math.pow(1 - d / R, 1.5);
+  if (nx || ny) {
+    const facing = -(dx * nx + dy * ny) / (d || 1);
+    if (facing <= 0) return 0;
+    if (_castRay(player.x, player.y, dx / d, dy / d, _getSegments(map), d) < d - 1) return 0;
+    f *= 0.4 + 0.6 * facing;
+  }
+  return f;
+}
+
 function drawGame(W, H) {
   applyWorldTransform();
 
-  map.draw(ctx);
+  map.drawFloor(ctx);
 
   // ── Shadow-occluded lighting ──────────────────────────────────
   // Uses a visibility polygon per light source so light is blocked by server walls.
@@ -1047,8 +1080,8 @@ function drawGame(W, H) {
   {
     const _segs     = _getSegments(map);
     const _eRgb     = { violet:'82,0,255', yellow:'233,255,106', green:'141,255,106', orange:'253,108,29', pink:'248,29,120' };
-    const _playerR  = 143;
-    const _enemyR   = 114;
+    const _playerR  = _PLAYER_LIGHT_R;
+    const _enemyR   = _ENEMY_LIGHT_R;
     // Pre-compute visibility polygons
     const _pPoly = player.alive ? _visPoly(player.x, player.y, _segs, _playerR, map.obstacles, 48) : null;
     const _ePairs = enemies.enemies
@@ -1066,7 +1099,7 @@ function drawGame(W, H) {
     // ── Build light mask ──────────────────────────────────────
     const lctx = _ensureLightMask();
     lctx.clearRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
-    lctx.fillStyle = 'rgba(0,0,0,0.78)';  // darker base — rely on character lights
+    lctx.fillStyle = 'rgba(0,0,0,0.70)';  // dark base — rely on character lights
     lctx.fillRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
 
     // Apply the same world→screen transform so polygons (world coords) land correctly
@@ -1162,21 +1195,6 @@ function drawGame(W, H) {
     }
   }
 
-  // ── Server LED strips — redrawn after darkness so always visible ──
-  for (const obs of map.obstacles) {
-    if (obs.h <= 60) continue;
-    const lx = obs.x + 4, ly = obs.y + obs.h - 6, lw = obs.w - 8, lh = 3;
-    ctx.shadowColor = '#00FFFF';
-    ctx.shadowBlur  = 12;
-    ctx.fillStyle   = '#00FFFF';
-    ctx.fillRect(lx, ly, lw, lh);
-    // Second pass for a broader bloom
-    ctx.shadowBlur  = 6;
-    ctx.fillStyle   = 'rgba(0,255,255,0.7)';
-    ctx.fillRect(lx, ly, lw, lh);
-    ctx.shadowBlur  = 0;
-  }
-
   traps.draw(ctx);
   echoes.draw(ctx);
   residuals.draw(ctx);
@@ -1185,6 +1203,23 @@ function drawGame(W, H) {
   player.draw(ctx);
   companions.draw(ctx);
   particles.draw(ctx);
+
+  // ── Racks — drawn over entities so tall tops hide what's behind them ──
+  map.drawWalls(
+    ctx,
+    camera.x + vw() / 2, camera.y + vh() / 2,
+    CONFIG.wall_height_factor,
+    { x: camera.x, y: camera.y, w: vw(), h: vh() },
+    _wallLight,
+  );
+
+  // ── Additive glow pass — halos bloom where they overlap and show through racks ──
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  projectiles.drawHalos(ctx);
+  enemies.drawHalos(ctx);
+  player.drawHalo(ctx);
+  ctx.restore();
 
   // ── Charging zones (pre-spawn indicators) ────────────────
   if (waveSystem && waveSystem.pendingSpawns.length > 0) {
@@ -1867,11 +1902,8 @@ function drawArchive(W, H) {
   }
 
   // ── Back hint ─────────────────────────────────────────────────
-  const blink = Math.floor(Date.now() / 600) % 2 === 0;
-  if (blink) {
-    ctx.fillStyle = 'rgba(180,190,210,0.45)'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('ESC or tap to return', W / 2, H - 10);
-  }
+  ctx.fillStyle = 'rgba(180,190,210,0.45)'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ESC or tap to return', W / 2, H - 10);
 
   ctx.textAlign = 'left';
 }
@@ -2741,11 +2773,9 @@ function drawWin(W, H) {
     ctx.font        = 'bold 20px monospace';
     ctx.fillText('SCORE RECORDED', W / 2, ly + 18);
     ctx.shadowBlur  = 0;
-    if (Math.floor(Date.now() / 600) % 2 === 0) {
-      ctx.fillStyle = '#5ddbb4';
-      ctx.font      = '16px monospace';
-      ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
-    }
+    ctx.fillStyle = '#5ddbb4';
+    ctx.font      = '16px monospace';
+    ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
     _kbdBtns = [];
   }
 
@@ -2892,11 +2922,9 @@ function drawFragmentRescue(W, H) {
   }
 
   // Continue prompt pinned to card bottom
-  if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '11px monospace';
-    ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
-  }
+  ctx.fillStyle = '#C4C8D4';
+  ctx.font      = '11px monospace';
+  ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
 
   ctx.textAlign = 'left';
 }
@@ -3017,11 +3045,9 @@ function drawClassEmergence(W, H) {
     ctx.beginPath(); ctx.moveTo(cardX + 20, div2Y); ctx.lineTo(cardX + cardW - 20, div2Y); ctx.stroke();
   }
 
-  if (Math.floor(Date.now() / 550) % 2 === 0) {
-    ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '11px monospace';
-    ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
-  }
+  ctx.fillStyle = '#C4C8D4';
+  ctx.font      = '11px monospace';
+  ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
 
   ctx.textAlign = 'left';
 }
@@ -3212,10 +3238,8 @@ function drawGameOver(W, H) {
   } else {
     ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
     ctx.fillText('SCORE RECORDED', W/2, iy + 18);
-    if (Math.floor(Date.now()/600)%2===0) {
-      ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
-      ctx.fillText('PRESS SPACE TO PLAY AGAIN', W/2, iy + 46);
-    }
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
+    ctx.fillText('PRESS SPACE TO PLAY AGAIN', W/2, iy + 46);
     _kbdBtns = [];
   }
   ctx.textAlign = 'left';

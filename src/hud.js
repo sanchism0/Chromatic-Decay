@@ -42,9 +42,7 @@ export class HUD {
 
     if (hpPct > 0) {
       ctx.fillStyle = hpColor;
-      if (hpPct <= 0.25) ctx.globalAlpha = 0.7 + Math.sin(Date.now() * 0.008) * 0.3;
       ctx.fillRect(hpX, hpY, hpBarW * hpPct, hpBarH);
-      ctx.globalAlpha = 1;
     }
 
     ctx.fillStyle = '#C4C8D4';
@@ -166,12 +164,9 @@ export class HUD {
       }
 
       if (ready) {
-        const blink = Math.floor(Date.now() / 500) % 2 === 0;
-        if (blink) {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font      = '22px monospace';
-          ctx.fillText('SPACE / F', abX + abilityBarW + 6, abY + 6);
-        }
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font      = '22px monospace';
+        ctx.fillText('SPACE / F', abX + abilityBarW + 6, abY + 6);
       }
     }
 
@@ -181,8 +176,7 @@ export class HUD {
 
       // Overclock active: doubled fire rate
       if (player.overclockActive && player.overclockTimer > 0) {
-        const blink = Math.floor(Date.now() / 200) % 2 === 0;
-        ctx.fillStyle = blink ? '#fff5c2' : '#B8882A';
+        ctx.fillStyle = '#fff5c2';
         ctx.font      = '22px monospace';
         ctx.textAlign = 'left';
         ctx.shadowBlur  = 6;
@@ -215,8 +209,7 @@ export class HUD {
 
     // ── Near-death vignette ────────────────────────────────────
     if (player.hp / player.maxHp <= 0.2 && player.alive) {
-      const t = Date.now() * 0.004;
-      ctx.globalAlpha = 0.06 + Math.sin(t) * 0.04;
+      ctx.globalAlpha = 0.07;   // steady tint — no pulsing
       ctx.fillStyle   = '#f81d78';
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;

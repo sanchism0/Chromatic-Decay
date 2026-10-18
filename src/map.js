@@ -215,7 +215,18 @@ export class GameMap {
     };
   }
 
-  draw(ctx) {
+  // Floor never changes, so it is rendered once to an offscreen canvas
+  drawFloor(ctx) {
+    if (!this._floor) this._floor = this._buildFloor();
+    ctx.drawImage(this._floor, 0, 0);
+  }
+
+  _buildFloor() {
+    const c   = document.createElement('canvas');
+    c.width   = W;
+    c.height  = H;
+    const ctx = c.getContext('2d');
+
     // ── Tile floor ────────────────────────────────────────────
     for (let ty = 0; ty < H / T; ty++) {
       for (let tx = 0; tx < W / T; tx++) {
@@ -283,48 +294,13 @@ export class GameMap {
     ctx.fillStyle = deepFade;
     ctx.fillRect(0, H * 0.75, W, 240);
 
-    // ── Server rack obstacles ─────────────────────────────────
-    for (const obs of this.obstacles) {
-      // Cyan glow halo
-      ctx.shadowColor = '#00E5FF';
-      ctx.shadowBlur  = 22;
-      ctx.fillStyle   = '#D8F8FF';
-      ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-      ctx.shadowBlur  = 0;
-
-      // Screen panel — cyan-white
-      const screenH = Math.min(24, obs.h * 0.35);
-      const screenInset = 4;
-      ctx.fillStyle = '#E0FAFF';
-      ctx.fillRect(
-        obs.x + screenInset,
-        obs.y + screenInset,
-        obs.w - screenInset * 2,
-        screenH
-      );
-
-      // Scan-line — cyan
-      ctx.globalAlpha = 0.5;
-      ctx.fillStyle   = '#00E5FF';
-      ctx.fillRect(obs.x + screenInset, obs.y + screenInset + screenH * 0.45, obs.w - screenInset * 2, 1);
-      ctx.globalAlpha = 1;
-
-      // Bright cyan edge
-      ctx.strokeStyle = '#00E5FF';
-      ctx.lineWidth   = 1;
-      ctx.globalAlpha = 0.85;
-      ctx.strokeRect(obs.x + 0.5, obs.y + 0.5, obs.w - 1, obs.h - 1);
-      ctx.globalAlpha = 1;
-
-      // Status LED row — vivid cyan
-      if (obs.h > 60) {
-        ctx.shadowColor = '#00E5FF';
-        ctx.shadowBlur  = 8;
-        ctx.fillStyle   = '#00FFFF';
-        ctx.fillRect(obs.x + 4, obs.y + obs.h - 6, obs.w - 8, 3);
-        ctx.shadowBlur  = 0;
-      }
-    }
+    // ── Ambient occlusion — soft dark pool around each rack base ──
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur  = 14;
+    ctx.fillStyle   = 'rgba(0,0,0,0.7)';
+    for (const obs of this.obstacles) ctx.fillRect(obs.x - 2, obs.y - 2, obs.w + 4, obs.h + 4);
+    ctx.restore();
 
     // ── Border walls ──────────────────────────────────────────
     const B = 20;
@@ -351,5 +327,161 @@ export class GameMap {
     ctx.globalAlpha  = 1;
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'alphabetic';
+
+    return c;
+  }
+
+  // ── Racks as 3D boxes ───────────────────────────────────────
+  // The camera sits above the screen centre (cx, cy). Each rack's top face is
+  // its footprint scaled away from that point by 1 + k, so racks lean outward
+  // toward the screen edges. Collision still uses the flat footprint.
+  // lightAt(x, y, nx, ny) → 0–1 player light at a point (normal 0,0 = top face).
+  drawWalls(ctx, cx, cy, k, view, lightAt) {
+    const s      = 1 + k;
+    const margin = 60;
+    const racks  = [];
+    for (const o of this.obstacles) {
+      if (o.x + o.w < view.x - margin || o.x > view.x + view.w + margin ||
+          o.y + o.h < view.y - margin || o.y > view.y + view.h + margin) continue;
+      const mx = o.x + o.w / 2, my = o.y + o.h / 2;
+      racks.push({
+        o,
+        d:  (mx - cx) ** 2 + (my - cy) ** 2,
+        tx: cx + (o.x - cx) * s,
+        ty: cy + (o.y - cy) * s,
+        tw: o.w * s,
+        th: o.h * s,
+      });
+    }
+    // Farthest first, so nearer side faces paint over farther ones
+    racks.sort((a, b) => b.d - a.d);
+
+    // Side faces first, then tops — all tops share one height, so no top
+    // can ever be behind another rack's side face
+    for (const r of racks) this._drawSides(ctx, r, cx, cy, lightAt);
+    for (const r of racks) this._drawTop(ctx, r, lightAt);
+    for (const r of racks) this._drawRim(ctx, r, lightAt);
+  }
+
+  _drawSides(ctx, r, cx, cy, lightAt) {
+    const { o, tx, ty, tw, th } = r;
+    // [base x1,y1, base x2,y2, top above x2, top above x1, normal]
+    const faces = [];
+    if (o.y + o.h < cy) faces.push([o.x, o.y + o.h, o.x + o.w, o.y + o.h, tx + tw, ty + th, tx,      ty + th,  0,  1]);
+    if (o.y > cy)       faces.push([o.x, o.y,       o.x + o.w, o.y,       tx + tw, ty,      tx,      ty,       0, -1]);
+    if (o.x + o.w < cx) faces.push([o.x + o.w, o.y, o.x + o.w, o.y + o.h, tx + tw, ty + th, tx + tw, ty,       1,  0]);
+    if (o.x > cx)       faces.push([o.x,       o.y, o.x,       o.y + o.h, tx,      ty + th, tx,      ty,      -1,  0]);
+
+    for (const [x1, y1, x2, y2, x3, y3, x4, y4, nx, ny] of faces) {
+      const lit     = lightAt((x1 + x2) / 2 + nx * 2, (y1 + y2) / 2 + ny * 2, nx, ny);
+      const ambient = (nx < 0 || ny < 0) ? 0.10 : 0.06;   // up/left faces catch the key light
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4);
+      ctx.closePath();
+      ctx.fillStyle = '#0a0f16';
+      ctx.fill();
+      ctx.fillStyle = `rgba(150,215,255,${ambient + lit * 0.5})`;
+      ctx.fill();
+
+      // Rack-unit lines across the face
+      ctx.strokeStyle = `rgba(0,229,255,${0.10 + lit * 0.25})`;
+      ctx.lineWidth   = 0.75;
+      ctx.beginPath();
+      for (const t of [0.3, 0.55, 0.8]) {
+        ctx.moveTo(x1 + (x4 - x1) * t, y1 + (y4 - y1) * t);
+        ctx.lineTo(x2 + (x3 - x2) * t, y2 + (y3 - y2) * t);
+      }
+      ctx.stroke();
+
+      // Rim light where the face meets the top
+      ctx.strokeStyle = `rgba(0,229,255,${0.35 + lit * 0.4})`;
+      ctx.lineWidth   = 1;
+      ctx.beginPath(); ctx.moveTo(x4, y4); ctx.lineTo(x3, y3); ctx.stroke();
+    }
+  }
+
+  // Footprint edge segments not buried inside another rack (cached per rack)
+  _rimEdges(o) {
+    if (o._rim) return o._rim;
+    const others = this.obstacles.filter(b => b !== o);
+    // Subtract covered intervals from [a0, a1] along one axis
+    const visible = (a0, a1, covers) => {
+      let parts = [[a0, a1]];
+      for (const [c0, c1] of covers) {
+        parts = parts.flatMap(([p0, p1]) => {
+          if (c1 <= p0 || c0 >= p1) return [[p0, p1]];
+          const out = [];
+          if (c0 > p0) out.push([p0, c0]);
+          if (c1 < p1) out.push([c1, p1]);
+          return out;
+        });
+      }
+      return parts;
+    };
+    const rim = [];
+    for (const y of [o.y, o.y + o.h]) {
+      const covers = others.filter(b => y > b.y && y < b.y + b.h).map(b => [b.x, b.x + b.w]);
+      for (const [a, b] of visible(o.x, o.x + o.w, covers)) rim.push([a, y, b, y]);
+    }
+    for (const x of [o.x, o.x + o.w]) {
+      const covers = others.filter(b => x > b.x && x < b.x + b.w).map(b => [b.y, b.y + b.h]);
+      for (const [a, b] of visible(o.y, o.y + o.h, covers)) rim.push([x, a, x, b]);
+    }
+    o._rim = rim;
+    return rim;
+  }
+
+  _drawTop(ctx, r, lightAt) {
+    const { o, tx, ty, tw, th } = r;
+    const lit   = lightAt(o.x + o.w / 2, o.y + o.h / 2, 0, 0);
+    const inset = 3;
+
+    ctx.fillStyle = '#16202b';
+    ctx.fillRect(tx, ty, tw, th);
+    ctx.fillStyle = `rgba(190,240,255,${0.06 + lit * 0.4})`;
+    ctx.fillRect(tx, ty, tw, th);
+
+    // Screen panel + scan-line
+    const sh = Math.min(16, th * 0.3);
+    ctx.fillStyle = `rgba(160,240,255,${0.18 + lit * 0.35})`;
+    ctx.fillRect(tx + inset, ty + inset, tw - inset * 2, sh);
+    ctx.fillStyle = 'rgba(0,229,255,0.5)';
+    ctx.fillRect(tx + inset, ty + inset + sh * 0.5, tw - inset * 2, 1);
+
+    // Vents
+    if (th > sh + 24) {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      for (let i = 0; i < 3; i++) ctx.fillRect(tx + inset, ty + inset + sh + 5 + i * 5, tw - inset * 2, 1.5);
+    }
+
+    // LED strip along the south rim (tall racks) — always visible
+    if (o.h > 60) {
+      const lx = tx + 4, ly = ty + th - 6, lw = tw - 8;
+      ctx.fillStyle = 'rgba(0,255,255,0.25)';
+      ctx.fillRect(lx - 2, ly - 2, lw + 4, 7);
+      ctx.fillStyle = '#00FFFF';
+      ctx.fillRect(lx, ly, lw, 3);
+    }
+  }
+
+  // Rim glow — wide soft stroke + thin bright stroke (cheaper than shadowBlur).
+  // Only outer edges are stroked, so overlapping racks (L-clusters) read as one shape.
+  _drawRim(ctx, r, lightAt) {
+    const { o, tx, ty, tw } = r;
+    const lit = lightAt(o.x + o.w / 2, o.y + o.h / 2, 0, 0);
+    const s = tw / o.w;
+    const ox = tx - o.x * s, oy = ty - o.y * s;   // footprint → top-face transform
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2] of this._rimEdges(o)) {
+      ctx.moveTo(ox + x1 * s, oy + y1 * s);
+      ctx.lineTo(ox + x2 * s, oy + y2 * s);
+    }
+    ctx.strokeStyle = 'rgba(0,229,255,0.16)';
+    ctx.lineWidth   = 4;
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(0,229,255,${0.6 + lit * 0.4})`;
+    ctx.lineWidth   = 1;
+    ctx.stroke();
   }
 }

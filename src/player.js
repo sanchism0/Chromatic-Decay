@@ -2,6 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { clamp, normalize, angle, circleVsRect, dist } from './utils.js';
+import { haloSprite, drawSprite, drawGroundShadow } from './sprites.js';
 
 // Class emergence thresholds
 const EMERGE_THRESHOLD   = 4;   // traits from one class → full emergence
@@ -157,7 +158,6 @@ export class Player {
     this.fireTimer   = 0;
     this.alive       = true;
     this.invincible  = 0;
-    this.flashTimer  = 0;
     this.justFired   = false;   // audio hook: true for one frame when a shot fires
     this.justHit     = false;   // audio hook: true for one frame when damage taken
 
@@ -288,23 +288,27 @@ export class Player {
 
     const dir = normalize(dx, dy);
     const spd = this.effectiveSpeed;
-    let nx = this.x + dir.x * spd * dt;
-    let ny = this.y + dir.y * spd * dt;
 
     // Pickup radius scales with speed (Ghost: Momentum Feed)
     if (this.momentumPickup) {
       this.pickupRadius = CONFIG.player_pickup_radius + (spd / CONFIG.player_move_speed) * 20;
     }
 
-    // Obstacle collision
-    const r = this.size / 2;
-    for (const obs of map.obstacles) {
-      const hit = circleVsRect(nx, ny, r + 1, obs.x, obs.y, obs.w, obs.h);
-      if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
+    // Move in sub-steps no longer than a quarter of the body, so a slow frame
+    // (large dt) can't jump the player's centre inside a rack
+    const r     = this.size / 2;
+    const moveDist = spd * dt;
+    const steps = Math.max(1, Math.ceil(moveDist / (r * 0.5)));
+    for (let i = 0; i < steps; i++) {
+      let nx = this.x + dir.x * moveDist / steps;
+      let ny = this.y + dir.y * moveDist / steps;
+      for (const obs of map.obstacles) {
+        const hit = circleVsRect(nx, ny, r + 1, obs.x, obs.y, obs.w, obs.h);
+        if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
+      }
+      this.x = clamp(nx, r, CONFIG.map_width  - r);
+      this.y = clamp(ny, r, CONFIG.map_height - r);
     }
-
-    this.x = clamp(nx, r, CONFIG.map_width  - r);
-    this.y = clamp(ny, r, CONFIG.map_height - r);
 
     // Record trail position (cap at 8 points)
     this._trail.push({ x: this.x, y: this.y });
@@ -334,13 +338,8 @@ export class Player {
       this._useAbility();
     }
 
-    // ── Invincibility flash ──────────────────────────────────
-    if (this.invincible > 0) {
-      this.invincible -= dt;
-      this.flashTimer += dt;
-    } else {
-      this.flashTimer = 0;
-    }
+    // ── Invincibility window ─────────────────────────────────
+    if (this.invincible > 0) this.invincible -= dt;
 
     // ── Ghost transparency target ────────────────────────────
     const targetAlpha = this.classId === 'ghost' ? 0.65 : 1.0;
@@ -611,10 +610,18 @@ export class Player {
 
   draw(ctx) {
     if (!this.alive) return;
-    if (this.invincible > 0 && Math.floor(this.flashTimer * 12) % 2 === 1) return;
 
     const _mob = 'ontouchstart' in window;
     const s = _mob ? this.size / 2 * 1.35 : this.size / 2;
+
+    // Protection window (after a hit, Phase Shift, Margin Call): no blinking.
+    // Track the window's full length whenever it's (re)started, so the shield
+    // ring can drain from full to empty.
+    const inv = Math.max(0, this.invincible);
+    if (inv > (this._invPrev || 0) + 1e-4) this._invMax = inv;
+    this._invPrev = inv;
+    const shield = inv > 0 ? Math.min(1, inv / 0.15) : 0;   // eases out over the last 0.15s
+    const alpha  = this._drawAlpha * (1 - 0.4 * shield);    // see-through while protected
 
     // Movement trail — fading white smear behind the player
     const tLen = this._trail.length;
@@ -623,8 +630,7 @@ export class Player {
         const pt    = this._trail[i];
         const frac  = (i + 1) / tLen;
         const r     = s * 0.65 * frac;
-        const alpha = frac * 0.5 * this._drawAlpha;
-        ctx.globalAlpha  = alpha;
+        ctx.globalAlpha  = frac * 0.5 * alpha;
         ctx.shadowBlur   = 0;
         ctx.fillStyle    = this.glowColor || '#FFFFFF';
         ctx.beginPath();
@@ -634,19 +640,31 @@ export class Player {
       ctx.globalAlpha = 1;
     }
 
+    // Contact shadow, then the body hovering above it
+    drawGroundShadow(ctx, this.x, this.y + s * 0.6, s * 1.4, s * 0.6, 0.6 * alpha);
+    const by = this.y - this.lift;
+
     ctx.save();
-    ctx.globalAlpha = this._drawAlpha;
-    ctx.translate(this.x, this.y);
+    ctx.globalAlpha = alpha;
+    ctx.translate(this.x, by);
     ctx.rotate(this.facing);
 
     ctx.shadowBlur  = 14;
     ctx.shadowColor = this.glowColor;
 
-    ctx.fillStyle   = '#FFFFFF';
+    // Shaded body — the highlight stays top-left in world space as the body
+    // rotates, so the light source never appears to spin with the player
+    const la = -Math.PI * 0.75 - this.facing;
+    const lx = Math.cos(la) * s * 0.6, ly = Math.sin(la) * s * 0.6;
+    const body = ctx.createRadialGradient(lx, ly, s * 0.1, 0, 0, s * 1.5);
+    body.addColorStop(0,    '#FFFFFF');
+    body.addColorStop(0.5,  '#E4ECF6');
+    body.addColorStop(1,    '#8E9AAE');
+    ctx.fillStyle   = body;
     ctx.strokeStyle = this.glowColor;
     ctx.lineWidth   = 1.5;
     ctx.beginPath();
-    ctx.roundRect(-s, -s, this.size, this.size, 2);
+    ctx.roundRect(-s, -s, s * 2, s * 2, 2);
     ctx.fill();
     ctx.stroke();
 
@@ -662,6 +680,35 @@ export class Player {
     ctx.restore();
     ctx.shadowBlur  = 0;
     ctx.globalAlpha = 1;
+
+    // Shimmer shield — soft light bending around the body, plus a thin ring
+    // that drains as the protection runs out
+    if (shield > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.45 * shield;
+      drawSprite(ctx, haloSprite('#bff4ff', Math.round(s * 3.2), 0.6), this.x, by);
+
+      const ringR = s + 6;
+      const drift = Date.now() * 0.0015;                       // slow, steady rotation
+      ctx.lineWidth   = 1;
+      ctx.strokeStyle = `rgba(191,244,255,${0.18 * shield})`;  // faint full track
+      ctx.beginPath(); ctx.arc(this.x, by, ringR, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth   = 1.5;
+      ctx.strokeStyle = `rgba(220,250,255,${0.75 * shield})`;  // remaining time
+      ctx.beginPath();
+      ctx.arc(this.x, by, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (inv / (this._invMax || inv)));
+      ctx.stroke();
+
+      // Two faint glints gliding around the shield
+      ctx.strokeStyle = `rgba(255,255,255,${0.35 * shield})`;
+      for (const off of [0, Math.PI]) {
+        ctx.beginPath();
+        ctx.arc(this.x, by, ringR + 3, drift + off, drift + off + 0.6);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Ability cooldown / ready ring
     if (this.classId && this.abilityCooldownMax > 0) {
@@ -679,14 +726,14 @@ export class Player {
         ctx.shadowBlur  = 18;
         ctx.shadowColor = '#fff5c2';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, ringR + 4, 0, Math.PI * 2);
+        ctx.arc(this.x, by, ringR + 4, 0, Math.PI * 2);
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         // Inner cyan ring — rotating dashes (lightning feel)
         const dashRotate = t * 1.2;
         ctx.save();
-        ctx.translate(this.x, this.y);
+        ctx.translate(this.x, by);
         ctx.rotate(dashRotate);
         ctx.globalAlpha = 0.85;
         ctx.strokeStyle = '#00e5ff';
@@ -708,7 +755,7 @@ export class Player {
         ctx.shadowBlur  = 6;
         ctx.shadowColor = '#00e5ff';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, ringR,
+        ctx.arc(this.x, by, ringR,
           -Math.PI / 2,
           -Math.PI / 2 + Math.PI * 2 * cdPct);
         ctx.stroke();
@@ -726,11 +773,26 @@ export class Player {
       ctx.shadowBlur  = 10;
       ctx.shadowColor = CLASS_DATA.warden.color;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, s + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldRatio);
+      ctx.arc(this.x, by, s + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldRatio);
       ctx.stroke();
       ctx.shadowBlur  = 0;
       ctx.globalAlpha = 1;
     }
+  }
+
+  // How high the body hovers above its ground shadow (visual only)
+  get lift() {
+    const s = ('ontouchstart' in window ? 1.35 : 1) * this.size / 2;
+    return s * 0.45 + Math.sin(Date.now() * 0.005) * 0.8;
+  }
+
+  // Additive halo — drawn in the glow pass after the racks
+  drawHalo(ctx) {
+    if (!this.alive) return;
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = prev * this._drawAlpha;
+    drawSprite(ctx, haloSprite(this.glowColor, 30, 0.22), this.x, this.y - this.lift);
+    ctx.globalAlpha = prev;
   }
 
   frequencyScore(elapsedSeconds) {
