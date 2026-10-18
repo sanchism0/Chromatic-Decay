@@ -33,6 +33,7 @@ export const CONFIG = {
       glow_color:           '#5200ff',
       size:                 10,       // radius px
       shape:                'octagon',
+      wavelength_nm:        410,      // drives ripple count, shimmer, pulse, tail waves
     },
     yellow: {
       base_hp:              50,
@@ -47,6 +48,7 @@ export const CONFIG = {
       glow_color:           '#e9ff6a',
       size:                 11,
       shape:                'circle',
+      wavelength_nm:        575,
     },
     green: {
       base_hp:              60,
@@ -61,6 +63,7 @@ export const CONFIG = {
       glow_color:           '#8dff6a',
       size:                 13,
       shape:                'triangle',
+      wavelength_nm:        530,
     },
     orange: {
       base_hp:              70,
@@ -75,6 +78,7 @@ export const CONFIG = {
       glow_color:           '#fd6c1d',
       size:                 12,
       shape:                'diamond',
+      wavelength_nm:        605,
     },
     pink: {
       base_hp:              900,
@@ -90,6 +94,7 @@ export const CONFIG = {
       glow_color:           '#f81d78',
       size:                 15,       // smaller — was 22, was getting stuck
       shape:                'square',
+      wavelength_nm:        [680, 410],   // magenta is non-spectral: red + violet mixed
     },
   },
 

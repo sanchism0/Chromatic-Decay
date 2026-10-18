@@ -289,23 +289,27 @@ export class Player {
 
     const dir = normalize(dx, dy);
     const spd = this.effectiveSpeed;
-    let nx = this.x + dir.x * spd * dt;
-    let ny = this.y + dir.y * spd * dt;
 
     // Pickup radius scales with speed (Ghost: Momentum Feed)
     if (this.momentumPickup) {
       this.pickupRadius = CONFIG.player_pickup_radius + (spd / CONFIG.player_move_speed) * 20;
     }
 
-    // Obstacle collision
-    const r = this.size / 2;
-    for (const obs of map.obstacles) {
-      const hit = circleVsRect(nx, ny, r + 1, obs.x, obs.y, obs.w, obs.h);
-      if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
+    // Move in sub-steps no longer than a quarter of the body, so a slow frame
+    // (large dt) can't jump the player's centre inside a rack
+    const r     = this.size / 2;
+    const moveDist = spd * dt;
+    const steps = Math.max(1, Math.ceil(moveDist / (r * 0.5)));
+    for (let i = 0; i < steps; i++) {
+      let nx = this.x + dir.x * moveDist / steps;
+      let ny = this.y + dir.y * moveDist / steps;
+      for (const obs of map.obstacles) {
+        const hit = circleVsRect(nx, ny, r + 1, obs.x, obs.y, obs.w, obs.h);
+        if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
+      }
+      this.x = clamp(nx, r, CONFIG.map_width  - r);
+      this.y = clamp(ny, r, CONFIG.map_height - r);
     }
-
-    this.x = clamp(nx, r, CONFIG.map_width  - r);
-    this.y = clamp(ny, r, CONFIG.map_height - r);
 
     // Record trail position (cap at 8 points)
     this._trail.push({ x: this.x, y: this.y });

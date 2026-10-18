@@ -21,6 +21,13 @@ export function mix(hex, target, t) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
+// Hex colour → rgba() string, optionally blended toward another colour first
+export function rgba(hex, a, toward = null, t = 0) {
+  let c = _rgb(hex);
+  if (toward) { const b = _rgb(toward); c = c.map((v, i) => Math.round(v + (b[i] - v) * t)); }
+  return `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+}
+
 function _canvas(worldSize) {
   const c = document.createElement('canvas');
   c.width = c.height = Math.ceil(worldSize * SCALE);
