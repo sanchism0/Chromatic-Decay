@@ -301,7 +301,7 @@ class Enemy {
     if (this.dashState === 'cooldown' && this.dashTimer <= 0) {
       // Start dash — lock direction toward player at moment of dash
       this.dashState = 'dashing';
-      this.dashTimer = 0.35;
+      this.dashTimer = 0.7;    // × 380 px/s ≈ 266px (doubled from 0.35s)
       const ddx = player.x - this.x, ddy = player.y - this.y;
       const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
       this.dashDirX = ddx / dlen;

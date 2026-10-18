@@ -84,7 +84,7 @@ export const CONFIG = {
     },
     pink: {
       base_hp:              900,
-      move_speed:           55,       // slow drift between dashes
+      move_speed:           66,       // slow drift between dashes (+20% from 55)
       aggro_range:          300,
       projectile_damage:    30,       // flat bullet hit damage
       projectile_speed:     170,      // px/sec (was 200, −15%)
