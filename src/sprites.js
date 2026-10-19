@@ -118,6 +118,31 @@ export function haloSprite(color, r, alpha) {
   });
 }
 
+// Soft glow with an even linear falloff to the edge — the look of the Chromatic
+// ghosts and their Colour Drain motes. Drawn scaled; set alpha with globalAlpha.
+const GLOW_R = 32;
+export function softGlow(color) {
+  return _cached(`soft|${color}`, () => {
+    const { c, g } = _canvas(GLOW_R * 2);
+    const [R, G, B] = _rgb(color);
+    const grad = g.createRadialGradient(GLOW_R, GLOW_R, 0, GLOW_R, GLOW_R, GLOW_R);
+    grad.addColorStop(0, `rgba(${R},${G},${B},1)`);
+    grad.addColorStop(1, `rgba(${R},${G},${B},0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, GLOW_R * 2, GLOW_R * 2);
+    return { canvas: c, half: GLOW_R };
+  });
+}
+
+// softGlow centred on (x, y) at radius r and opacity a
+export function drawGlow(ctx, color, x, y, r, a) {
+  if (a <= 0.003 || r <= 0) return;
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = prev * Math.min(1, a);
+  ctx.drawImage(softGlow(color).canvas, x - r, y - r, r * 2, r * 2);
+  ctx.globalAlpha = prev;
+}
+
 // Soft elliptical contact shadow under hovering objects
 let _shadow = null;
 export function drawGroundShadow(ctx, x, y, rx, ry, alpha = 0.5) {
