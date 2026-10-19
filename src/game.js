@@ -1512,7 +1512,7 @@ function drawTitle(W, H) {
   } else {
     // Anchor title block just above button row
     const playH    = 60;
-    const rowY     = H * 0.42;
+    const rowY     = H * (H < 450 ? 0.36 : 0.42);
     const titleSize = Math.max(36, Math.min(52, Math.floor(W * 0.040)));
     const blockH   = titleSize + 10 + 18 + 10; // title + underline gap + subtitle + padding
     const titleY   = rowY - blockH - 14;
@@ -1536,7 +1536,7 @@ function drawTitle(W, H) {
     const playW = Math.min(W * 0.88, 340);
     const playH = 52;
     const playX = W / 2 - playW / 2;
-    const playY = H * 0.44;
+    const playY = H * (H < 700 ? 0.38 : 0.44);   // short phones: leave room for records
     const storyH = 44;
     const storyY = playY + playH + 10;
     const smW   = (playW - 12) / 2;
@@ -1560,7 +1560,7 @@ function drawTitle(W, H) {
     const gap    = 16;
     const totalW = sideW + gap + playW + gap + sideW;
     const rowX   = W / 2 - totalW / 2;
-    const rowY   = H * 0.42;
+    const rowY   = H * (H < 450 ? 0.36 : 0.42);
     const sideY  = rowY + (playH - sideH) / 2;
 
     _titleBtns.archive = { x: rowX,                             y: sideY, w: sideW, h: sideH };
@@ -1578,7 +1578,10 @@ function drawTitle(W, H) {
   const scores  = loadScores();
   const panelY  = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 18;
   const panelW  = mobile ? W * 0.88 : Math.min(560, W * 0.58);
-  const rowsH   = scores.length > 0 ? 14 + Math.min(scores.length, 5) * 16 + 6 : 0;
+  // Show as many rows (up to 5) as fit above the bottom of the screen
+  const bottomLimit = H - (mobile ? 118 : 24);
+  const maxRows = Math.max(0, Math.min(5, scores.length, Math.floor((bottomLimit - panelY - 34 - 20) / 16)));
+  const rowsH   = maxRows > 0 ? 14 + maxRows * 16 + 6 : 0;
   const panelH  = 34 + rowsH;
   const panelX  = W / 2 - panelW / 2;
 
@@ -1600,7 +1603,7 @@ function drawTitle(W, H) {
     wave:  panelX + panelW * 0.88,
   };
 
-  if (scores.length > 0) {
+  if (maxRows > 0) {
     // Header row
     ctx.font      = 'bold 13px monospace';
     ctx.fillStyle = '#5de8e8';
@@ -1620,7 +1623,7 @@ function drawTitle(W, H) {
     ctx.stroke();
 
     // Data rows
-    scores.slice(0, 5).forEach((s, i) => {
+    scores.slice(0, maxRows).forEach((s, i) => {
       const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
       const rowY  = panelY + 52 + i * 16;
       const color = _scoreColor(s.score, i);
@@ -1629,15 +1632,23 @@ function drawTitle(W, H) {
       ctx.textAlign = 'left';
       const nameLabel = i === 0 ? '♛ ' + s.initials : s.initials;
       ctx.fillText(nameLabel,                           _lbCols.name,  rowY);
-      ctx.fillText(classLabel.toUpperCase(),            _lbCols.cls,   rowY);
+      // Class is clipped so it never runs into the score column
+      const scoreTxt = s.score.toLocaleString();
+      const clsMaxW  = _lbCols.score - ctx.measureText(scoreTxt).width - 10 - _lbCols.cls;
+      let cls = classLabel.toUpperCase();
+      if (ctx.measureText(cls).width > clsMaxW) {
+        while (cls.length > 1 && ctx.measureText(cls + '…').width > clsMaxW) cls = cls.slice(0, -1);
+        cls += '…';
+      }
+      ctx.fillText(cls,                                 _lbCols.cls,   rowY);
       ctx.textAlign = 'right';
-      ctx.fillText(s.score.toLocaleString(),            _lbCols.score, rowY);
+      ctx.fillText(scoreTxt,                            _lbCols.score, rowY);
       ctx.fillText(s.time != null ? formatTime(s.time) : '—', _lbCols.time, rowY);
       ctx.fillText(s.wave != null ? s.wave : '—',       _lbCols.wave,  rowY);
     });
   } else {
-    ctx.fillStyle = '#2A2E42'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('no records yet', W / 2, panelY + 30);
+    ctx.fillStyle = '#4A5068'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(scores.length ? '' : 'no records yet', W / 2, panelY + 30);
   }
 
   // ── Controls hint box (mobile only) ──────────────────────
@@ -1650,13 +1661,16 @@ function drawTitle(W, H) {
     ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.stroke();
     _drawSciFiCorners(boxX, boxY, boxW, boxH, 8, tealDim + '88');
     ctx.fillStyle = '#6A8E8A'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
-    ctx.fillText('WASD  move  ·  MOUSE  aim  ·  CLICK  fire', boxX + 14, boxY + 26);
-    ctx.fillText('SPACE / F  ability  ·  ESC  pause',          boxX + 14, boxY + 46);
+    ctx.textAlign = 'center';
+    ctx.fillText('LEFT THUMB  move',            boxX + boxW / 2, boxY + 30);
+    ctx.fillText('RIGHT THUMB  aim + fire',     boxX + boxW / 2, boxY + 50);
   }
 
   // ── Version ───────────────────────────────────────────────
-  ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('v0.3.0', W / 2, H - 8);
+  if (panelY + panelH < H - 22) {
+    ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('v0.3.0', W / 2, H - 8);
+  }
   ctx.textAlign = 'left';
 }
 
@@ -1742,31 +1756,39 @@ function drawArchive(W, H) {
   };
 
   const foundCount = fragments.filter(id => archive[id]).length;
-  const pageW      = Math.min(880, W - 48);
+  const pageW      = Math.min(880, W - 32);
   const pageX      = W / 2 - pageW / 2;
+  // Density by screen height: normal → compact → short (phone landscape)
+  const short   = H < 450;
+  const compact = !short && H < 620;
+  const narrow  = pageW < 560;
 
   ctx.fillStyle = 'rgba(13,14,18,0.97)';
   ctx.fillRect(0, 0, W, H);
 
   // ── Header ────────────────────────────────────────────────────
+  const headY = short ? 28 : 44;
   ctx.shadowBlur = 20; ctx.shadowColor = '#B8882A';
-  ctx.fillStyle  = '#B8882A'; ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('— WARDEN ARCHIVE —', W / 2, 44);
+  ctx.fillStyle  = '#B8882A'; ctx.font = `bold ${short ? 18 : 22}px monospace`; ctx.textAlign = 'center';
+  ctx.fillText('— WARDEN ARCHIVE —', W / 2, headY);
   ctx.shadowBlur = 0;
-  ctx.fillStyle  = '#C4C8D4'; ctx.font = '13px monospace';
-  ctx.fillText(`${foundCount} / 5 FRAGMENTS RECOVERED`, W / 2, 66);
+  ctx.fillStyle  = '#C4C8D4'; ctx.font = `${short ? 11 : 13}px monospace`;
+  ctx.fillText(`${foundCount} / 5 FRAGMENTS RECOVERED`, W / 2, headY + (short ? 17 : 22));
 
   // ── Fragment slots row ────────────────────────────────────────
-  const slotGap = 14;
+  const slotGap = narrow ? 6 : 14;
   const slotW   = Math.floor((pageW - slotGap * 4) / 5);
-  const slotH   = Math.max(160, Math.min(200, H * 0.22));
-  const slotY   = 90;
+  const slotY   = headY + (short ? 30 : 46);
+  const showBlurb = !short && slotW >= 96;
+  const slotH   = short ? 58 : !showBlurb ? 74 : compact ? 124 : Math.max(160, Math.min(200, H * 0.22));
+  const nameFs  = slotW < 70 ? 11 : 15;
 
   for (let i = 0; i < 5; i++) {
     const id   = fragments[i];
     const data = FRAG_DATA[id];
     const isFound = !!archive[id];
     const sx   = pageX + i * (slotW + slotGap);
+    const mid  = sx + slotW / 2;
 
     ctx.fillStyle   = isFound ? 'rgba(28,30,42,0.95)' : 'rgba(16,17,22,0.8)';
     ctx.strokeStyle = isFound ? data.color + 'CC' : '#2A2E42';
@@ -1777,90 +1799,104 @@ function drawArchive(W, H) {
 
     ctx.textAlign = 'center';
     if (isFound) {
-      // Top accent bar
       ctx.fillStyle = data.color + '55';
       ctx.fillRect(sx, slotY, slotW, 4);
-
-      ctx.fillStyle = data.color; ctx.font = 'bold 15px monospace';
-      ctx.fillText(data.name, sx + slotW / 2, slotY + 28);
-      ctx.fillStyle = '#C4C8D4'; ctx.font = '11px monospace';
-      ctx.fillText(data.class.toUpperCase(), sx + slotW / 2, slotY + 45);
-      ctx.strokeStyle = data.color + '33'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(sx + 12, slotY + 54); ctx.lineTo(sx + slotW - 12, slotY + 54); ctx.stroke();
-      ctx.fillStyle = data.color + 'BB'; ctx.font = 'italic 11px monospace';
-      _wrapText(ctx, `"${data.blurb}"`, sx + slotW / 2, slotY + 72, slotW - 20, 15, 'center');
+      ctx.fillStyle = data.color; ctx.font = `bold ${nameFs}px monospace`;
+      ctx.fillText(data.name, mid, slotY + (short ? 24 : 28));
+      ctx.fillStyle = '#C4C8D4'; ctx.font = `${slotW < 70 ? 9 : 11}px monospace`;
+      ctx.fillText(data.class.toUpperCase(), mid, slotY + (short ? 40 : 45));
+      if (showBlurb) {
+        ctx.strokeStyle = data.color + '33'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sx + 12, slotY + 54); ctx.lineTo(sx + slotW - 12, slotY + 54); ctx.stroke();
+        ctx.fillStyle = data.color + 'BB'; ctx.font = 'italic 11px monospace';
+        _wrapText(ctx, `"${data.blurb}"`, mid, slotY + 72, slotW - 20, 15, 'center');
+      }
     } else if (!data.built) {
-      ctx.fillStyle = '#2A2E42'; ctx.font = 'bold 12px monospace';
-      ctx.fillText(data.name, sx + slotW / 2, slotY + 30);
-      ctx.fillStyle = '#2E3248'; ctx.font = '10px monospace';
-      ctx.fillText('COMING SOON', sx + slotW / 2, slotY + 48);
-      ctx.fillStyle = '#252840'; ctx.font = '9px monospace';
-      ctx.fillText(data.class.toUpperCase(), sx + slotW / 2, slotY + 64);
+      ctx.fillStyle = '#3A3E52'; ctx.font = `bold ${slotW < 70 ? 10 : 12}px monospace`;
+      ctx.fillText(data.name, mid, slotY + (short ? 24 : 30));
+      ctx.fillStyle = '#3A3E52'; ctx.font = `${slotW < 70 ? 8 : 10}px monospace`;
+      ctx.fillText(slotW < 70 ? 'SOON' : 'COMING SOON', mid, slotY + (short ? 40 : 48));
+      if (!short && slotH > 70) {
+        ctx.fillStyle = '#2E3248'; ctx.font = '9px monospace';
+        ctx.fillText(data.class.toUpperCase(), mid, slotY + 64);
+      }
     } else {
-      ctx.fillStyle = '#2A2E42'; ctx.font = '28px monospace';
-      ctx.fillText('?', sx + slotW / 2, slotY + slotH / 2 + 10);
+      ctx.fillStyle = '#2A2E42'; ctx.font = `${short ? 20 : 28}px monospace`;
+      ctx.fillText('?', mid, slotY + slotH / 2 + (short ? 4 : 10));
       ctx.fillStyle = '#3A3E52'; ctx.font = '10px monospace';
-      ctx.fillText('NOT FOUND', sx + slotW / 2, slotY + slotH - 14);
+      ctx.fillText('NOT FOUND', mid, slotY + slotH - (short ? 8 : 14));
     }
   }
 
-  // ── Divider + entries heading pinned at ~40% down ─────────────
-  const divY1 = Math.max(slotY + slotH + 22, Math.floor(H * 0.40));
+  // ── Divider + entries ─────────────────────────────────────────
+  const divY1 = slotY + slotH + (short ? 12 : compact ? 18 : Math.max(22, Math.floor(H * 0.40) - slotY - slotH));
   ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(pageX, divY1); ctx.lineTo(pageX + pageW, divY1); ctx.stroke();
 
-  // ── Lore Entries as chapter list ──────────────────────────────
-  ctx.fillStyle = '#B8882A'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('— COLLECTED ENTRIES —', W / 2, divY1 + 18);
+  let entryY = divY1 + (short ? 10 : 34);
+  if (!short) {
+    ctx.fillStyle = '#B8882A'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('— COLLECTED ENTRIES —', W / 2, divY1 + 18);
+  }
 
   const _loreDefs = [
     { key: 'world', label: 'THE CHROMATIC DECAY', sub: 'Incident Report  //  World History', color: '#8ab4d4', num: '001' },
     { key: 'raze',  label: 'RAZE',                sub: 'Breaker Fragment  //  Class Origin', color: '#fff5c2', num: '002' },
   ];
 
-  const entryH   = 56;
+  // Short screens put the two entries side by side; narrow ones stack the
+  // subtitle under the title instead of beside it
+  const sideBySide = short;
   const entryGap = 10;
-  let   entryY   = divY1 + 34;
+  const entryW   = sideBySide ? (pageW - entryGap) / 2 : pageW;
+  ctx.font = 'bold 15px monospace';
+  const subBelow = sideBySide || narrow ||
+    _loreDefs.some(d => { ctx.font = 'bold 15px monospace'; const lw = ctx.measureText(d.label).width; ctx.font = '11px monospace'; return lw + ctx.measureText(d.sub).width + 60 > entryW; });
+  const entryH   = short ? 46 : subBelow ? 62 : compact ? 48 : 56;
 
   _loreDefs.forEach((def, i) => {
     const isUnlocked = def.key === 'world' || !!archive[def.key];
     const pulse      = (Math.sin(Date.now() * 0.002 + i) * 0.5 + 0.5) * 0.25;
-    _archiveLoreBtns[def.key] = { x: pageX, y: entryY, w: pageW, h: entryH };
+    const ex = sideBySide ? pageX + i * (entryW + entryGap) : pageX;
+    const ey = sideBySide ? entryY : entryY + i * (entryH + entryGap);
+    _archiveLoreBtns[def.key] = { x: ex, y: ey, w: entryW, h: entryH };
 
     ctx.fillStyle   = isUnlocked ? 'rgba(22,25,36,0.9)' : 'rgba(14,15,20,0.6)';
     ctx.strokeStyle = isUnlocked ? def.color + '99' : '#2A2E42';
     ctx.lineWidth   = isUnlocked ? 1.2 : 0.8;
     if (isUnlocked) { ctx.shadowBlur = 6 + pulse * 8; ctx.shadowColor = def.color; }
-    ctx.beginPath(); ctx.roundRect(pageX, entryY, pageW, entryH, 5); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(ex, ey, entryW, entryH, 5); ctx.fill(); ctx.stroke();
     ctx.shadowBlur = 0;
 
     if (isUnlocked) {
       ctx.fillStyle = def.color; ctx.shadowBlur = 6; ctx.shadowColor = def.color;
-      ctx.beginPath(); ctx.roundRect(pageX, entryY + 6, 3, entryH - 12, 2); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(ex, ey + 6, 3, entryH - 12, 2); ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = def.color + '66'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`ENTRY ${def.num}`, pageX + 16, entryY + 16);
-      ctx.fillStyle = def.color; ctx.font = 'bold 15px monospace';
-      ctx.fillText(def.label, pageX + 16, entryY + 34);
-      ctx.fillStyle = '#C4C8D4'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
-      ctx.fillText(def.sub, pageX + pageW - 14, entryY + 34);
-      ctx.fillStyle = def.color + 'AA'; ctx.font = '14px monospace';
-      ctx.fillText('›', pageX + pageW - 14, entryY + 16);
+      ctx.fillStyle = def.color + '66'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(`ENTRY ${def.num}`, ex + 14, ey + 14);
+      ctx.fillStyle = def.color + 'AA'; ctx.font = '14px monospace'; ctx.textAlign = 'right';
+      ctx.fillText('›', ex + entryW - 12, ey + 16);
+      ctx.fillStyle = def.color; ctx.font = `bold ${short ? 13 : 15}px monospace`; ctx.textAlign = 'left';
+      ctx.fillText(def.label, ex + 14, ey + (short ? 30 : subBelow ? 32 : 34));
+      ctx.fillStyle = '#C4C8D4'; ctx.font = `${short ? 9 : 11}px monospace`;
+      if (subBelow) ctx.fillText(def.sub, ex + 14, ey + (short ? 42 : 50));
+      else { ctx.textAlign = 'right'; ctx.fillText(def.sub, ex + entryW - 14, ey + 34); }
     } else {
       ctx.fillStyle = '#3A3E52'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`ENTRY ${def.num}  —  ${def.label}`, pageX + 16, entryY + 24);
-      ctx.fillStyle = '#2A2E42'; ctx.font = '11px monospace';
-      ctx.fillText('Find the fragment to unlock this entry.', pageX + 16, entryY + 40);
+      ctx.fillText(`ENTRY ${def.num}  —  ${def.label}`, ex + 14, ey + 24);
+      ctx.fillStyle = '#4A5068'; ctx.font = '11px monospace';
+      ctx.fillText('Find the fragment to unlock this entry.', ex + 14, ey + 40);
     }
-
-    entryY += entryH + entryGap;
   });
+  entryY += sideBySide ? entryH + entryGap : 2 * (entryH + entryGap);
 
   // ── Corrupted Processes — compact 5-across grid ───────────────
-  entryY += 4;
-  ctx.fillStyle = '#5a5e72'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('— CORRUPTED PROCESSES —', W / 2, entryY + 10);
-  entryY += 22;
+  if (!short) {
+    entryY += 4;
+    ctx.fillStyle = '#5a5e72'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('— CORRUPTED PROCESSES —', W / 2, entryY + 10);
+    entryY += 22;
+  }
 
   const _enemies = [
     { key: 'violet', label: 'VIOLET', sub: 'ROUTING',  color: '#9966ff', num: '003' },
@@ -1869,14 +1905,15 @@ function drawArchive(W, H) {
     { key: 'orange', label: 'ORANGE', sub: 'RELAY',    color: '#fd8c3d', num: '006' },
     { key: 'pink',   label: 'PINK',   sub: 'MED AI',   color: '#ff6aaa', num: '007' },
   ];
-  const eGap  = 10;
+  const eGap   = narrow ? 6 : 10;
   const eSlotW = Math.floor((pageW - eGap * 4) / 5);
-  const eSlotH = 72;
+  const eSlotH = short ? 52 : 72;
 
   for (let i = 0; i < _enemies.length; i++) {
     const e  = _enemies[i];
     const ex = pageX + i * (eSlotW + eGap);
     const ey = entryY;
+    const mid = ex + eSlotW / 2;
     const pulse = (Math.sin(Date.now() * 0.002 + i * 1.5) * 0.5 + 0.5) * 0.3;
 
     _archiveLoreBtns[e.key] = { x: ex, y: ey, w: eSlotW, h: eSlotH };
@@ -1888,32 +1925,27 @@ function drawArchive(W, H) {
     ctx.beginPath(); ctx.roundRect(ex, ey, eSlotW, eSlotH, 5); ctx.fill(); ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Top accent bar
     ctx.fillStyle = e.color + '44';
     ctx.fillRect(ex, ey, eSlotW, 3);
 
-    // Color dot
     ctx.shadowBlur = 8; ctx.shadowColor = e.color;
     ctx.fillStyle  = e.color;
-    ctx.beginPath(); ctx.arc(ex + eSlotW / 2, ey + 18, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mid, ey + (short ? 14 : 18), 5, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Name
     ctx.fillStyle = e.color; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-    ctx.fillText(e.label, ex + eSlotW / 2, ey + 36);
-
-    // Sub-type tag
+    ctx.fillText(e.label, mid, ey + (short ? 32 : 36));
     ctx.fillStyle = '#8A8E99'; ctx.font = '9px monospace';
-    ctx.fillText(e.sub, ex + eSlotW / 2, ey + 49);
-
-    // Entry number + chevron
-    ctx.fillStyle = e.color + '66'; ctx.font = '8px monospace';
-    ctx.fillText(`${e.num}  ›`, ex + eSlotW / 2, ey + 62);
+    ctx.fillText(e.sub, mid, ey + (short ? 44 : 49));
+    if (!short) {
+      ctx.fillStyle = e.color + '66'; ctx.font = '8px monospace';
+      ctx.fillText(`${e.num}  ›`, mid, ey + 62);
+    }
   }
 
   // ── Back hint ─────────────────────────────────────────────────
-  ctx.fillStyle = 'rgba(180,190,210,0.45)'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('ESC or tap to return', W / 2, H - 10);
+  ctx.fillStyle = 'rgba(180,190,210,0.45)'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ESC or tap to return', W / 2, Math.max(entryY + eSlotH + 20, H - 10));
 
   ctx.textAlign = 'left';
 }
@@ -2018,9 +2050,37 @@ function _drawLoreCard(W, H, type) {
   const accentColor = cd.accent;
   const borderColor = cd.border;
 
-  // Card dimensions
-  const cardW = Math.min(360, W * 0.88);
-  const cardH = cardW * 1.55;
+  // ── Layout ───────────────────────────────────────────────────
+  // Short landscape screens put the illustration beside the text; otherwise
+  // it sits on top. The card is sized to its text: the illustration shrinks
+  // first, then the type, so the lore always fits inside the card.
+  const sideLayout = H < 500 && W > H;
+  const cardW  = sideLayout ? Math.min(760, W - 24) : Math.min(380, W - 24);
+  const hdrH   = 38;
+  const footH  = 30;
+  const badgeH = 18;
+  const maxH   = H - 24;
+  const textW  = (sideLayout ? cardW * 0.58 : cardW) - 36;
+
+  const measure = (fs) => {
+    ctx.font = `${fs}px monospace`;
+    const lh = Math.round(fs * 1.3);
+    const paras = cd.paras.map(p => _wrapLines(p, textW));
+    const h = paras.reduce((sum, ls) => sum + ls.length * lh + 8, 0) - 8;
+    return { fs, lh, paras, h };
+  };
+  let txt = measure(13), illustH, cardH;
+  if (sideLayout) {
+    for (let fs = 13; fs >= 9 && hdrH + 12 + badgeH + 14 + txt.h + 10 + footH > maxH; fs--) txt = measure(fs);
+    cardH   = maxH;
+    illustH = cardH - hdrH - footH;
+  } else {
+    const fixed = hdrH + 10 + badgeH + 16 + 10 + footH;
+    illustH = Math.round(cardW * 0.42);
+    if (fixed + illustH + txt.h > maxH) illustH = Math.max(90, maxH - fixed - txt.h);
+    for (let fs = 13; fs >= 9 && fixed + illustH + txt.h > maxH; fs--) txt = measure(fs);
+    cardH = Math.min(maxH, fixed + illustH + txt.h);
+  }
   const cardX = W / 2 - cardW / 2;
   const cardY = Math.max(12, H / 2 - cardH / 2);
 
@@ -2042,21 +2102,24 @@ function _drawLoreCard(W, H, type) {
   ctx.globalAlpha = 1;
 
   // ── Card Header ──────────────────────────────────────────────
-  const hdrH = 36;
   ctx.fillStyle = borderColor;
   ctx.beginPath();
   ctx.roundRect(cardX, cardY, cardW, hdrH, [8, 8, 0, 0]);
   ctx.fill();
 
-  ctx.fillStyle = accentColor; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(cd.title, W / 2, cardY + 14);
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px monospace';
-  ctx.fillText(cd.sub, W / 2, cardY + 28);
+  const xSize = 30;
+  const titleW = cardW - (xSize + 14) * 2;   // keep clear of the close button
+  ctx.textAlign = 'center';
+  ctx.fillStyle = accentColor;
+  _fitFont(cd.title, titleW, 13, 'bold ');
+  ctx.fillText(cd.title, W / 2, cardY + 16);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  _fitFont(cd.sub, titleW, 11, '');
+  ctx.fillText(cd.sub, W / 2, cardY + 30);
 
   // ── Close (X) button ────────────────────────────────────────
-  const xSize = 32;
   const xBx = cardX + cardW - xSize - 6;
-  const xBy = cardY + 2;
+  const xBy = cardY + (hdrH - xSize) / 2;
   _archiveLoreBtns.close = { x: xBx, y: xBy, w: xSize, h: xSize };
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.strokeStyle = accentColor; ctx.lineWidth = 1; ctx.globalAlpha = 0.7;
@@ -2069,66 +2132,67 @@ function _drawLoreCard(W, H, type) {
   ctx.lineCap = 'butt';
 
   // ── Illustration Panel ───────────────────────────────────────
+  const illustX = cardX + 1;
   const illustY = cardY + hdrH;
-  const illustH = Math.floor(cardH * 0.30);
+  const illustW = sideLayout ? Math.round(cardW * 0.42) : cardW - 2;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(cardX + 1, illustY, cardW - 2, illustH);
+  ctx.rect(illustX, illustY, illustW, illustH);
   ctx.clip();
-  cd.illus(ctx, cardX, illustY, cardW, illustH);
+  cd.illus(ctx, illustX, illustY, illustW, illustH);
   ctx.restore();
 
-  // Illustration border bottom
   ctx.strokeStyle = borderColor; ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(cardX + 1, illustY + illustH);
-  ctx.lineTo(cardX + cardW - 1, illustY + illustH);
+  if (sideLayout) { ctx.moveTo(illustX + illustW, illustY); ctx.lineTo(illustX + illustW, illustY + illustH); }
+  else            { ctx.moveTo(cardX + 1, illustY + illustH); ctx.lineTo(cardX + cardW - 1, illustY + illustH); }
   ctx.stroke();
 
-  // ── Type Badge ───────────────────────────────────────────────
-  const badgeY = illustY + illustH + 10;
+  // ── Text column ──────────────────────────────────────────────
+  const colX = sideLayout ? illustX + illustW : cardX;
+  const colW = sideLayout ? cardX + cardW - colX : cardW;
+  const colMid = colX + colW / 2;
+
+  // Type badge
+  const badgeY = sideLayout ? cardY + hdrH + 12 : illustY + illustH + 10;
+  const badgeW = colW - 24;
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.strokeStyle = accentColor; ctx.lineWidth = 0.8;
-  const badgeW = cardW - 24; const badgeH = 18;
-  ctx.beginPath(); ctx.roundRect(cardX + 12, badgeY, badgeW, badgeH, 3); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = accentColor; ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(cd.badge, W / 2, badgeY + 12);
+  ctx.beginPath(); ctx.roundRect(colX + 12, badgeY, badgeW, badgeH, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = accentColor; ctx.textAlign = 'center';
+  _fitFont(cd.badge, badgeW - 12, 10, '');
+  ctx.fillText(cd.badge, colMid, badgeY + 12);
 
-  // ── Lore Text ────────────────────────────────────────────────
-  const textX  = cardX + 18;
-  const textW  = cardW - 36;
-  const textY0 = badgeY + badgeH + 16;
-  const lineH  = 16;
-
-  ctx.fillStyle = '#C4C8D4'; ctx.font = '13px monospace'; ctx.textAlign = 'left';
-
-  let curY = textY0;
-  for (const para of cd.paras) {
-    const words = para.split(' ');
-    let line = '';
-    for (const word of words) {
-      const test = line + (line ? ' ' : '') + word;
-      if (ctx.measureText(test).width > textW && line) {
-        ctx.fillText(line, textX, curY); line = word; curY += lineH;
-      } else { line = test; }
-    }
-    if (line) { ctx.fillText(line, textX, curY); curY += lineH; }
+  // Lore text
+  ctx.fillStyle = '#C4C8D4'; ctx.font = `${txt.fs}px monospace`; ctx.textAlign = 'left';
+  let curY = badgeY + badgeH + 16;
+  for (const lines of txt.paras) {
+    for (const line of lines) { ctx.fillText(line, colX + 18, curY); curY += txt.lh; }
     curY += 8;
-    if (curY > cardY + cardH - 50) break;
   }
 
   // ── Card Footer ──────────────────────────────────────────────
-  const footY = cardY + cardH - 28;
+  const footY = cardY + cardH - footH + 2;
   ctx.strokeStyle = borderColor; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cardX + 12, footY); ctx.lineTo(cardX + cardW - 12, footY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(colX + 12, footY); ctx.lineTo(colX + colW - 12, footY); ctx.stroke();
   ctx.fillStyle = '#8A8E99'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(cd.foot, W / 2, footY + 14);
+  ctx.fillText(cd.foot, colMid, footY + 16);
   ctx.textAlign = 'right';
   ctx.fillStyle = accentColor; ctx.globalAlpha = 0.5;
-  ctx.fillText('◈', cardX + cardW - 12, footY + 14);
+  ctx.fillText('◈', colX + colW - 12, footY + 16);
   ctx.globalAlpha = 1;
 
   ctx.textAlign = 'left';
+}
+
+// Set ctx.font to the largest size ≤ px (down to 8) at which text fits maxW
+function _fitFont(text, maxW, px, weight) {
+  for (; px > 8; px--) {
+    ctx.font = `${weight}${px}px monospace`;
+    if (ctx.measureText(text).width <= maxW) return px;
+  }
+  ctx.font = `${weight}8px monospace`;
+  return 8;
 }
 
 // ── Illustration: World ───────────────────────────────────────
@@ -2663,8 +2727,14 @@ function drawWin(W, H) {
   ctx.globalAlpha = 1;
 
   const wd          = waveSystem;
-  const cy          = H * 0.22;
   const underTarget = wd.completionTime < CONFIG.target_time_seconds;
+  // Everything is centred as one block that fits the screen height
+  const touch   = 'ontouchstart' in window;
+  const titleFs = Math.round(Math.max(24, Math.min(54, W * 0.075, H * 0.08)));
+  const lineGap = H < 520 ? 18 : 22;
+  const promptH = winInitialsSubmitted ? 56 : (touch ? 136 : 72);
+  const blockH  = titleFs + 26 + 32 + lineGap * 3 + 4 + 50 + 30 + promptH;
+  const cy      = Math.max(titleFs + 8, (H - blockH) / 2 + titleFs);
 
   // Pulse glow behind title
   const pulse = 0.6 + Math.sin(t * 2.2) * 0.3;
@@ -2679,8 +2749,8 @@ function drawWin(W, H) {
   ctx.shadowBlur  = 28;
   ctx.shadowColor = '#00e5ff';
   ctx.fillStyle   = '#00e5ff';
-  ctx.font        = `bold ${Math.floor(W * 0.042)}px monospace`;
   ctx.textAlign   = 'center';
+  _fitFont('SIGNAL RESTORED', W - 32, titleFs, 'bold ');
   ctx.fillText('SIGNAL RESTORED', W / 2, cy);
   ctx.shadowBlur  = 0;
 
@@ -2697,7 +2767,6 @@ function drawWin(W, H) {
   ctx.fillText('ALL 15 WAVES CLEARED', W / 2, cy + 26);
 
   // Score breakdown
-  const lineGap = 22;
   let ly = cy + 58;
 
   ctx.fillStyle = '#C4C8D4';
@@ -2708,10 +2777,10 @@ function drawWin(W, H) {
   if (underTarget) {
     const secondsUnder = CONFIG.target_time_seconds - wd.completionTime;
     ctx.fillStyle = '#B8882A';
-    ctx.fillText(
-      `Time bonus:  +${wd.timeBonus.toLocaleString()} pts  (${_formatMMSS(secondsUnder)} under target)`,
-      W / 2, ly
-    );
+    const bonusTxt = `Time bonus:  +${wd.timeBonus.toLocaleString()} pts  (${_formatMMSS(secondsUnder)} under target)`;
+    _fitFont(bonusTxt, W - 32, 12, '');
+    ctx.fillText(bonusTxt, W / 2, ly);
+    ctx.font = '12px monospace';
   } else {
     ctx.fillStyle = '#A0A4B0';
     ctx.fillText('Time bonus:  —  (target: 15:00)', W / 2, ly);
@@ -2761,9 +2830,9 @@ function drawWin(W, H) {
     ctx.shadowBlur  = 0;
     ctx.fillStyle   = '#C4C8D4';
     ctx.font        = '12px monospace';
-    if ('ontouchstart' in window) {
-      ctx.fillText('tap ⌨ to enter initials', W / 2, ly + 56);
-      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = ly + 68;
+    if (touch) {
+      ctx.fillText('tap ⌨ to enter initials', W / 2, ly + 64);
+      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = ly + 76;
       _kbdIconBtn = { x: ibX, y: ibY, w: ibW, h: ibH };
       ctx.fillStyle   = 'rgba(0,137,123,0.25)';
       _roundRect(ibX, ibY, ibW, ibH, 8); ctx.fill();
@@ -2773,7 +2842,7 @@ function drawWin(W, H) {
       ctx.fillText('⌨', ibX + ibW/2, ibY + ibH/2 + 9);
       _kbdBtns = [];
     } else {
-      ctx.fillText('type 3 letters · ENTER to confirm', W / 2, ly + 56);
+      ctx.fillText('type 3 letters · ENTER to confirm', W / 2, ly + 64);
       _kbdBtns = [];
     }
   } else {
@@ -2784,8 +2853,8 @@ function drawWin(W, H) {
     ctx.fillText('SCORE RECORDED', W / 2, ly + 18);
     ctx.shadowBlur  = 0;
     ctx.fillStyle = '#5ddbb4';
-    ctx.font      = '16px monospace';
-    ctx.fillText('PRESS SPACE TO RETURN', W / 2, ly + 46);
+    ctx.font      = '15px monospace';
+    ctx.fillText(touch ? 'TAP TO RETURN TO MENU' : 'PRESS SPACE TO RETURN TO MENU', W / 2, ly + 46);
     _kbdBtns = [];
   }
 
@@ -2794,214 +2863,163 @@ function drawWin(W, H) {
 
 // ── Fragment rescue screen ────────────────────────────────────
 
+// ── Flow cards (Fragment rescue, Class emergence) ─────────────
+// A card is a list of blocks laid out top to bottom. Text wraps to the card
+// width, the card is sized to its content, and everything scales down
+// together if the screen is too short — so nothing overlaps or runs off.
+//   { text, px, bold, italic, color, glow, gap }   gap = space above, px
+//   { divider: true, color }
+//   { pill: [blocks], color }                      boxed group
+//   { footer: text }                               pinned under the content
+
+function _wrapLines(text, maxW) {
+  const words = String(text).split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(test).width > maxW) { lines.push(line); line = word; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function _blockFont(b, k) {
+  return `${b.italic ? 'italic ' : ''}${b.bold ? 'bold ' : ''}${Math.max(9, Math.round(b.px * k))}px monospace`;
+}
+
+// Measure (and optionally draw) blocks in a column of width w starting at y
+function _flowBlocks(blocks, cx, y, w, k, draw) {
+  for (const b of blocks) {
+    if (b.divider) {
+      const dy = y + Math.round(10 * k);
+      if (draw) {
+        ctx.strokeStyle = b.color; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx - w / 2, dy + 0.5); ctx.lineTo(cx + w / 2, dy + 0.5); ctx.stroke();
+      }
+      y = dy + Math.round(10 * k);
+      continue;
+    }
+    if (b.pill) {
+      y += Math.round((b.gap ?? 10) * k);
+      const pad = Math.round(12 * k);
+      const innerH = _flowBlocks(b.pill, cx, 0, w - pad * 2, k, false);
+      const ph = innerH + pad * 2;
+      if (draw) {
+        ctx.fillStyle = b.color + '1A';
+        ctx.fillRect(cx - w / 2, y, w, ph);
+        ctx.strokeStyle = b.color + 'CC'; ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 12; ctx.shadowColor = b.color;
+        ctx.strokeRect(cx - w / 2 + 0.5, y + 0.5, w - 1, ph - 1);
+        ctx.shadowBlur = 0;
+        _flowBlocks(b.pill, cx, y + pad, w - pad * 2, k, true);
+      }
+      y += ph;
+      continue;
+    }
+    y += Math.round((b.gap ?? 6) * k);
+    ctx.font = _blockFont(b, k);
+    let lines = _wrapLines(b.text, w);
+    // Single-word lines that still overflow (big titles) shrink to fit
+    let px = b.px * k;
+    while (lines.length === 1 && ctx.measureText(lines[0]).width > w && px > 9) {
+      px -= 1; ctx.font = _blockFont({ ...b, px }, 1);
+    }
+    const lh = Math.round(px * 1.4);
+    for (const line of lines) {
+      y += lh;
+      if (draw) {
+        ctx.fillStyle = b.color;
+        if (b.glow) { ctx.shadowBlur = b.glow; ctx.shadowColor = b.color; }
+        ctx.fillText(line, cx, y - Math.round(lh * 0.28));
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+  return y;
+}
+
+function _drawFlowCard(W, H, color, blocks, footer) {
+  const wide  = H < 500 && W > H;                     // short landscape screens
+  const cardW = Math.min(wide ? 560 : 420, W - 32);
+  const padX  = Math.round(Math.min(24, cardW * 0.06));
+  const depth = 14;
+  ctx.textAlign = 'center';
+
+  // Largest scale (1 → 0.6) at which the whole card fits on screen
+  let k = 1, cardH = 0;
+  for (; k >= 0.6; k -= 0.05) {
+    const padY = Math.round(18 * k);
+    cardH = _flowBlocks(blocks, W / 2, 0, cardW - padX * 2, k, false) + padY * 2 + Math.round(26 * k);
+    if (cardH <= H - 24 - depth) break;
+  }
+  k = Math.max(0.6, k);
+  const padY  = Math.round(18 * k);
+  const cardX = (W - cardW) / 2;
+  const cardY = Math.max(8, (H - cardH - depth) / 2);
+
+  drawSlab(ctx, cardX, cardY, cardW, cardH, { accent: color, depth, glow: 0.2, screen: 6, led: false });
+  _flowBlocks(blocks, W / 2, cardY + padY, cardW - padX * 2, k, true);
+
+  ctx.fillStyle = '#C4C8D4';
+  ctx.font      = `${Math.max(9, Math.round(11 * k))}px monospace`;
+  ctx.fillText(footer, W / 2, cardY + cardH - Math.round(14 * k));
+  ctx.textAlign = 'left';
+}
+
 function drawFragmentRescue(W, H) {
   if (!pendingFragment) return;
   const f = pendingFragment;
 
-  // Dim background
   ctx.fillStyle = 'rgba(10,9,6,0.82)';
   ctx.fillRect(0, 0, W, H);
 
-  // ── Card geometry ─────────────────────────────────────────
-  const landscape = ('ontouchstart' in window) && H < W;   // mobile in landscape only
-  const cardW  = Math.min(420, W - 32);
-  const cardH  = Math.min(f.id === 'raze' ? 580 : 540, H - 38);
-  const cardX  = (W - cardW) / 2;
-  const cardY  = (H - cardH - 14) / 2;
-
-  // Card — a raised rack-style slab in the fragment's colour
-  drawSlab(ctx, cardX, cardY, cardW, cardH, { accent: f.color, depth: 14, glow: 0.2, screen: 6, led: false });
-
-  // ── Card content — pinned to proportional zones ──────────
-  const ls    = landscape;
-  ctx.textAlign = 'center';
-  const cx    = W / 2;
-  const maxTW = cardW - 48;
-  const cBot  = cardY + cardH;   // card bottom
-
-  // ── ZONE A: top ~28% — identity header ───────────────────
-  const zA = cardY + cardH * 0.06;
-
-  ctx.fillStyle = f.color + 'BB';
-  ctx.font      = '11px monospace';
-  ctx.fillText(`— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, cx, zA);
-
-  ctx.shadowBlur  = 18; ctx.shadowColor = f.color;
-  ctx.fillStyle   = f.color;
-  ctx.font        = `bold ${ls ? 30 : 44}px monospace`;
-  ctx.fillText(f.name, cx, zA + (ls ? 26 : 36));
-  ctx.shadowBlur  = 0;
-
-  // Lore text — dimmed, 2 lines max
-  ctx.fillStyle = f.color + '88';
-  ctx.font      = 'italic 11px monospace';
-  _wrapText(ctx, `${f.was} ${f.detail || ''}`.trim(), cx, zA + (ls ? 50 : 64), maxTW, 16, 'center');
-
-  // ── Divider 1 at ~30% ────────────────────────────────────
-  const div1Y = cardY + cardH * 0.30;
-  ctx.strokeStyle = f.color + '55'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cardX + 20, div1Y); ctx.lineTo(cardX + cardW - 20, div1Y); ctx.stroke();
-
-  // ── ZONE B: 33–68% — class unlock + description ──────────
-  const zB = cardY + cardH * 0.36;
-
-  ctx.shadowBlur = 16; ctx.shadowColor = f.color;
-  ctx.fillStyle  = '#FFFFFF';
-  ctx.font       = `bold ${ls ? 16 : 22}px monospace`;
-  ctx.fillText(`CLASS UNLOCKED: ${f.class.toUpperCase()}`, cx, zB);
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = '#E8EAF0';
-  ctx.font      = `${ls ? 12 : 14}px monospace`;
-  _wrapText(ctx, f.classDesc || '', cx, zB + (ls ? 18 : 24), maxTW, ls ? 17 : 21, 'center');
-
-  // ── ZONE C: passive pill — centred at ~62% ────────────────
+  const blocks = [
+    { text: `— ${f.class.toUpperCase()} FRAGMENT RECOVERED —`, px: 11, color: f.color + 'BB', gap: 0 },
+    { text: f.name, px: 44, bold: true, color: f.color, glow: 18, gap: 2 },
+    { text: `${f.was} ${f.detail || ''}`.trim(), px: 12, italic: true, color: f.color + '99', gap: 4 },
+    { divider: true, color: f.color + '55' },
+    { text: `CLASS UNLOCKED: ${f.class.toUpperCase()}`, px: 20, bold: true, color: '#FFFFFF', glow: 14, gap: 4 },
+    { text: f.classDesc || '', px: 14, color: '#E8EAF0', gap: 6 },
+  ];
   if (f.id === 'raze') {
-    const pillH  = ls ? 56 : 90;
-    const pillCY = cardY + cardH * 0.63;
-    const pillY  = pillCY - pillH / 2;
-
-    ctx.fillStyle   = f.color + '22';
-    ctx.strokeStyle = f.color + 'CC';
-    ctx.lineWidth   = 1.5;
-    ctx.shadowBlur  = 14; ctx.shadowColor = f.color;
-    ctx.beginPath(); ctx.roundRect(cardX + 16, pillY, cardW - 32, pillH, 8);
-    ctx.fill(); ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = f.color;
-    ctx.font      = `bold ${ls ? 11 : 13}px monospace`;
-    ctx.fillText('PASSIVE ACTIVATED', cx, pillY + (ls ? 16 : 22));
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font      = `bold ${ls ? 15 : 20}px monospace`;
-    ctx.shadowBlur = 12; ctx.shadowColor = '#FFFFFF';
-    ctx.textAlign = 'left';
-    const pillTextX = cardX + 16 + (cardW - 32) * 0.18;
-    ctx.fillText('–25%  FIRE RATE', pillTextX, pillY + (ls ? 34 : 50));
-    ctx.fillText('+25%  DAMAGE',    pillTextX, pillY + (ls ? 50 : 74));
-    ctx.shadowBlur = 0;
-    ctx.textAlign = 'center';
+    blocks.push({ pill: [
+      { text: 'PASSIVE ACTIVATED', px: 12, bold: true, color: f.color, gap: 0 },
+      { text: '−25%  FIRE RATE', px: 19, bold: true, color: '#FFFFFF', gap: 4 },
+      { text: '+25%  DAMAGE', px: 19, bold: true, color: '#FFFFFF', gap: 2 },
+    ], color: f.color, gap: 14 });
   }
-
-  // ── ZONE D: traits line at ~80% ──────────────────────────
-  const zD = cardY + cardH * 0.80;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font      = `${ls ? 11 : 13}px monospace`;
-  ctx.fillText('10 class traits now available in the upgrade pool.', cx, zD);
-
-  // ── Divider 2 + lore quote at ~87% ───────────────────────
-  if (!ls) {
-    const div2Y = cardY + cardH * 0.86;
-    ctx.strokeStyle = f.color + '33'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cardX + 20, div2Y); ctx.lineTo(cardX + cardW - 20, div2Y); ctx.stroke();
-
-    ctx.fillStyle = f.color + '66';
-    ctx.font      = 'italic 11px monospace';
-    _wrapText(ctx, `"${f.blurb}"`, cx, div2Y + 16, maxTW, 16, 'center');
-  }
-
-  // Continue prompt pinned to card bottom
-  ctx.fillStyle = '#C4C8D4';
-  ctx.font      = '11px monospace';
-  ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
-
-  ctx.textAlign = 'left';
+  blocks.push(
+    { text: '10 class traits now available in the upgrade pool.', px: 13, color: '#FFFFFF', gap: 14 },
+    { divider: true, color: f.color + '33' },
+    { text: `"${f.blurb}"`, px: 12, italic: true, color: f.color + '88', gap: 2 },
+  );
+  _drawFlowCard(W, H, f.color, blocks, 'tap or press SPACE to continue');
 }
 
-
-// Rounded rect path helper (top-only rounding option for color band)
 // ── Class Emergence Card ──────────────────────────────────────
 
 function drawClassEmergence(W, H) {
   if (!pendingEmergence) return;
-  const e      = pendingEmergence;
-  const ls     = ('ontouchstart' in window) && H < W;
+  const e = pendingEmergence;
 
-  // Dim background
   ctx.fillStyle = 'rgba(8,8,12,0.88)';
   ctx.fillRect(0, 0, W, H);
 
-  // Card geometry
-  const cardW = Math.min(420, W - 32);
-  const cardH = Math.min(ls ? 320 : 560, H - 38);
-  const cardX = (W - cardW) / 2;
-  const cardY = (H - cardH - 14) / 2;
-  const cx    = W / 2;
-  const maxTW = cardW - 48;
-
-  // Card — a raised rack-style slab in the class colour
-  drawSlab(ctx, cardX, cardY, cardW, cardH, { accent: e.color, depth: 14, glow: 0.2, screen: 6, led: false });
-
-  // ── ZONE A: top — emergence tag + class name ──────────────
-  const zA = cardY + cardH * 0.08;
-  ctx.textAlign = 'center';
-
-  ctx.fillStyle = e.color + 'BB';
-  ctx.font      = '11px monospace';
-  ctx.fillText('— CLASS EMERGED —', cx, zA);
-
-  ctx.shadowBlur = 24; ctx.shadowColor = e.color;
-  ctx.fillStyle  = e.color;
-  ctx.font       = `bold ${ls ? 32 : 48}px monospace`;
-  ctx.fillText(e.label, cx, zA + (ls ? 26 : 38));
-  ctx.shadowBlur = 0;
-
-  // Lore flavour — small
-  ctx.fillStyle = e.color + '77';
-  ctx.font      = 'italic 11px monospace';
-  ctx.fillText('Signal lock confirmed. You are no longer baseline.', cx, zA + (ls ? 48 : 62));
-
-  // ── Divider 1 at ~32% ─────────────────────────────────────
-  const div1Y = cardY + cardH * 0.32;
-  ctx.strokeStyle = e.color + '44'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cardX + 20, div1Y); ctx.lineTo(cardX + cardW - 20, div1Y); ctx.stroke();
-
-  // ── ZONE B: ability pill centred at ~55% ──────────────────
-  const pillH  = ls ? 60 : 90;
-  const pillCY = cardY + cardH * 0.54;
-  const pillY  = pillCY - pillH / 2;
-
-  ctx.fillStyle   = e.color + '1A';
-  ctx.strokeStyle = e.color + 'CC';
-  ctx.lineWidth   = 1.5;
-  ctx.shadowBlur  = 14; ctx.shadowColor = e.color;
-  ctx.beginPath(); ctx.roundRect(cardX + 16, pillY, cardW - 32, pillH, 8);
-  ctx.fill(); ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = e.color;
-  ctx.font      = `bold ${ls ? 11 : 12}px monospace`;
-  ctx.fillText('ABILITY UNLOCKED', cx, pillY + (ls ? 15 : 20));
-
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font      = `bold ${ls ? 16 : 22}px monospace`;
-  ctx.shadowBlur = 12; ctx.shadowColor = '#FFFFFF';
-  ctx.fillText(e.abilityName.toUpperCase(), cx, pillY + (ls ? 34 : 48));
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = e.color + 'CC';
-  ctx.font      = `${ls ? 10 : 12}px monospace`;
-  ctx.fillText(`${e.cooldown}s cooldown`, cx, pillY + (ls ? 50 : 72));
-
-  // ── ZONE C: ability description at ~78% ───────────────────
-  const zC = cardY + cardH * 0.76;
-  ctx.fillStyle = '#E8EAF0';
-  ctx.font      = `${ls ? 11 : 13}px monospace`;
-  _wrapText(ctx, e.abilityDesc, cx, zC, maxTW, ls ? 15 : 19, 'center');
-
-  // ── Divider 2 + continue at bottom ────────────────────────
-  if (!ls) {
-    const div2Y = cardY + cardH * 0.90;
-    ctx.strokeStyle = e.color + '33'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cardX + 20, div2Y); ctx.lineTo(cardX + cardW - 20, div2Y); ctx.stroke();
-  }
-
-  ctx.fillStyle = '#C4C8D4';
-  ctx.font      = '11px monospace';
-  ctx.fillText('tap or press SPACE to continue', cx, cardY + cardH - 14);
-
-  ctx.textAlign = 'left';
+  _drawFlowCard(W, H, e.color, [
+    { text: '— CLASS EMERGED —', px: 11, color: e.color + 'BB', gap: 0 },
+    { text: e.label, px: 46, bold: true, color: e.color, glow: 24, gap: 2 },
+    { text: 'Signal lock confirmed. You are no longer baseline.', px: 12, italic: true, color: e.color + '99', gap: 4 },
+    { divider: true, color: e.color + '44' },
+    { pill: [
+      { text: 'ABILITY UNLOCKED', px: 12, bold: true, color: e.color, gap: 0 },
+      { text: e.abilityName.toUpperCase(), px: 22, bold: true, color: '#FFFFFF', glow: 12, gap: 4 },
+      { text: `${e.cooldown}s cooldown`, px: 12, color: e.color + 'CC', gap: 4 },
+    ], color: e.color, gap: 8 },
+    { text: e.abilityDesc, px: 14, color: '#E8EAF0', gap: 14 },
+    { divider: true, color: e.color + '33' },
+  ], 'tap or press SPACE to continue');
 }
 
 function _roundRect(x, y, w, h, r, topOnly = false) {
@@ -3135,18 +3153,29 @@ function drawGameOver(W, H) {
   grad.addColorStop(0,'rgba(0,0,0,0)'); grad.addColorStop(1,'rgba(40,0,10,0.6)');
   ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
 
-  const cy = H * 0.30;
+  // Title, stats and the initials prompt are centred as one block, and the
+  // block tightens on short screens so nothing overlaps
+  const touch  = 'ontouchstart' in window;
+  const tight  = H < 520;
+  const titleFs = Math.round(Math.max(24, Math.min(52, W * 0.075, H * 0.08)));
+  const rowH   = tight ? 18 : 22;
+  const statFs = tight ? 13 : 15;
+  const promptH = initialsSubmitted ? 56 : (touch ? 136 : 72);
+  const blockH = titleFs + 26 + 22 + rowH * 6 + 18 + promptH;
+  const cy     = Math.max(titleFs + 8, (H - blockH) / 2 + titleFs);
+
   ctx.shadowBlur = 20; ctx.shadowColor = '#f81d78';
-  ctx.fillStyle = '#f81d78'; ctx.font = `bold ${Math.floor(W*0.040)}px monospace`;
-  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f81d78'; ctx.textAlign = 'center';
+  _fitFont('SIGNAL COLLAPSE', W - 32, titleFs, 'bold ');
   ctx.fillText('SIGNAL COLLAPSE', W/2, cy); ctx.shadowBlur = 0;
 
   const classLabel = gameOverData.subclass
     ? `${gameOverData.classId || 'None'} / ${gameOverData.subclass}`
     : (gameOverData.classId || 'None');
   ctx.fillStyle = '#C4C8D4'; ctx.font = '12px monospace';
-  ctx.fillText(`class: ${classLabel.toUpperCase()}`, W/2, cy + 26);
+  ctx.fillText(`class: ${classLabel.toUpperCase()}`, W/2, cy + 24);
 
+  const statsY = cy + 24 + 22;
   [['SCORE',    gameOverData.score.toLocaleString()],
    ['KILLS',    gameOverData.kills],
    ['WAVE',     gameOverData.wave || 1],
@@ -3154,14 +3183,14 @@ function drawGameOver(W, H) {
    ['ECHOES',   gameOverData.echoes],
    ['UPGRADES', gameOverData.upgrades],
   ].forEach(([label, val], i) => {
-    const row = cy + 56 + i * 22;
-    ctx.fillStyle = '#A0A4B0'; ctx.font = '15px monospace'; ctx.textAlign = 'right';
+    const row = statsY + 4 + i * rowH;
+    ctx.fillStyle = '#A0A4B0'; ctx.font = `${statFs}px monospace`; ctx.textAlign = 'right';
     ctx.fillText(label, W/2 - 8, row);
-    ctx.fillStyle = '#C4C8D4'; ctx.font = 'bold 15px monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#C4C8D4'; ctx.font = `bold ${statFs}px monospace`; ctx.textAlign = 'left';
     ctx.fillText(val, W/2 + 8, row);
   });
 
-  const iy = cy + 172;
+  const iy = statsY + rowH * 6 + 18;
   ctx.textAlign = 'center';
   if (!initialsSubmitted) {
     ctx.fillStyle = '#C4C8D4'; ctx.font = '15px monospace';
@@ -3171,10 +3200,9 @@ function drawGameOver(W, H) {
     ctx.fillText(initialsInput.padEnd(3, '_').split('').join(' '), W/2, iy + 36);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#C4C8D4'; ctx.font = '12px monospace';
-    if ('ontouchstart' in window) {
-      ctx.fillText('tap ⌨ to enter initials', W/2, iy + 56);
-      // Keyboard icon button
-      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = iy + 68;
+    if (touch) {
+      ctx.fillText('tap ⌨ to enter initials', W/2, iy + 64);
+      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = iy + 76;
       _kbdIconBtn = { x: ibX, y: ibY, w: ibW, h: ibH };
       ctx.fillStyle   = 'rgba(0,137,123,0.25)';
       _roundRect(ibX, ibY, ibW, ibH, 8); ctx.fill();
@@ -3184,14 +3212,14 @@ function drawGameOver(W, H) {
       ctx.fillText('⌨', ibX + ibW/2, ibY + ibH/2 + 9);
       _kbdBtns = [];
     } else {
-      ctx.fillText('type 3 letters · ENTER to confirm', W/2, iy + 56);
+      ctx.fillText('type 3 letters · ENTER to confirm', W/2, iy + 64);
       _kbdBtns = [];
     }
   } else {
     ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
     ctx.fillText('SCORE RECORDED', W/2, iy + 18);
-    ctx.fillStyle = '#C4C8D4'; ctx.font = '17px monospace';
-    ctx.fillText('PRESS SPACE TO PLAY AGAIN', W/2, iy + 46);
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '15px monospace';
+    ctx.fillText(touch ? 'TAP TO RETURN TO MENU' : 'PRESS SPACE TO RETURN TO MENU', W/2, iy + 46);
     _kbdBtns = [];
   }
   ctx.textAlign = 'left';

@@ -3,6 +3,18 @@
 import { CONFIG } from './config.js';
 import { drawSlab, dimBackdrop } from './ui3d.js';
 
+function _wrap(ctx, text, maxW) {
+  const lines = [];
+  let line = '';
+  for (const word of String(text).split(' ')) {
+    const test = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(test).width > maxW) { lines.push(line); line = word; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 // ── Class colors ──────────────────────────────────────────────
 export const CLASS_COLORS = {
   warden:  '#eafae4',
@@ -635,8 +647,8 @@ export class UpgradeScreen {
       // 3 cards side by side — cap height so they don't fill the whole screen
       const gap     = 8;
       const cardW   = Math.floor((W - gap * 4) / 3);
-      const startY  = headerH + gap + 4;
-      const cardH   = Math.min(H - startY - depth - 24, 130);
+      const cardH   = Math.min(H - headerH - depth - 60, 150);
+      const startY  = Math.max(headerH + 12, (H - (headerH + 12 + cardH + depth + 26)) / 2 + headerH + 12);
       return [0, 1, 2].map(i => ({ x: gap + i * (cardW + gap), y: startY, w: cardW, h: cardH }));
     }
 
@@ -645,7 +657,7 @@ export class UpgradeScreen {
     const cardW  = Math.min(500, W * 0.92);
     const gap    = (narrow ? 10 : 18) + depth;
     const footer = 30, top = 14, headGap = 14;
-    let cardH    = narrow ? 90 : 120;
+    let cardH    = narrow ? 100 : 120;
     const room   = H - top - headerH - headGap - footer - gap * 2 - depth;
     cardH = Math.max(70, Math.min(cardH, Math.floor(room / 3)));
     const totalH = headerH + headGap + cardH * 3 + gap * 2 + depth + footer;
@@ -663,7 +675,7 @@ export class UpgradeScreen {
     const narrow    = W < 600;
     const compact   = landscape || narrow;
 
-    dimBackdrop(ctx, W, H, 0.82);
+    dimBackdrop(ctx, W, H, 0.9);
 
     const layout = this._cardLayouts(W, H);
 
@@ -700,9 +712,10 @@ export class UpgradeScreen {
       const descFontSize = compact ? 11 : 16;
       const tagFontSize  = compact ? 9  : 12;
       const numFontSize  = compact ? 10 : 13;
-      const nameY        = landscape ? y + 18 : narrow ? y + 24 : y + 32;
-      const divY         = landscape ? y + 25 : narrow ? y + 32 : y + 44;
-      const descY        = landscape ? y + 40 : narrow ? y + 52 : y + 68;
+      // Class tag sits on its own line above the name, so they never collide
+      const nameY        = landscape ? y + 30 : narrow ? y + 30 : y + 34;
+      const divY         = landscape ? y + 38 : narrow ? y + 38 : y + 46;
+      const descY        = landscape ? y + 54 : narrow ? y + 56 : y + 70;
 
       // Class + tier tag (top-right)
       if (card.class) {
@@ -712,7 +725,7 @@ export class UpgradeScreen {
         ctx.textAlign   = 'right';
         ctx.shadowBlur  = 6;
         ctx.shadowColor = classColor;
-        ctx.fillText(tag, x + w - 12, y + (landscape ? 12 : 16));
+        ctx.fillText(tag, x + w - 12, y + (compact ? 14 : 16));
         ctx.shadowBlur  = 0;
       }
 
@@ -724,7 +737,8 @@ export class UpgradeScreen {
 
       // Upgrade name
       ctx.fillStyle = '#FFFFFF';
-      ctx.font      = `bold ${nameFontSize}px monospace`;
+      let nfs = nameFontSize;
+      do { ctx.font = `bold ${nfs}px monospace`; } while (ctx.measureText(card.name).width > w - 48 && --nfs > 9);
       if (isHovered) {
         ctx.shadowBlur  = 10;
         ctx.shadowColor = classColor || '#00E5FF';
@@ -740,16 +754,21 @@ export class UpgradeScreen {
       ctx.lineTo(x + w - 14, divY);
       ctx.stroke();
 
-      // Description
+      // Description — wraps, and steps down a size if it needs more lines
+      // than the card has room for (never cut off mid-word)
       ctx.fillStyle = isClass ? '#E8EAF0' : '#C8D4DC';
-      ctx.font      = `${descFontSize}px monospace`;
       ctx.textAlign = 'left';
-      const maxDescW = w - 52;
-      let desc = card.desc;
-      while (desc.length > 0 && ctx.measureText(desc).width > maxDescW) {
-        desc = desc.slice(0, -1);
+      const maxDescW = w - 50;
+      const room     = y + h - 12 - descY;
+      let fs = descFontSize, lines, lh;
+      for (;;) {
+        ctx.font = `${fs}px monospace`;
+        lh = Math.round(fs * 1.3);
+        lines = _wrap(ctx, card.desc, maxDescW);
+        if ((lines.length - 1) * lh <= room || fs <= 9) break;
+        fs--;
       }
-      ctx.fillText(desc, x + 36, descY);
+      lines.forEach((line, li) => ctx.fillText(line, x + 36, descY + li * lh));
     }
 
     // Footer hint
