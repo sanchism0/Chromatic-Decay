@@ -22,6 +22,17 @@ function pulseHz(type) {
   return (_pulseHz[type] = f.length > 1 ? Math.abs(f[0] - f[1]) / 400 : f[0] / 400);
 }
 
+// Light colours (yellow, green) blow out to white under additive blending, so
+// each type's glow is scaled by its luminance to keep every ghost spectral.
+const _glowK = {};
+function glowStrength(type) {
+  if (_glowK[type] !== undefined) return _glowK[type];
+  const n = parseInt(CONFIG.enemies[type].color.slice(1), 16);
+  const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const L = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return (_glowK[type] = Math.max(0.45, Math.min(1, 0.3 / Math.max(L, 0.01))));
+}
+
 // ── Base Enemy ───────────────────────────────────────────────
 
 class Enemy {
@@ -291,7 +302,9 @@ class Enemy {
     const heat  = Math.pow(this.hitFlash / HIT_GLOW_TIME, 2);
     const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * pulseHz(this.type));
     const beat  = 0.85 + 0.15 * pulse;
-    const wisp  = cfg.edge_color || cfg.color;
+    const col   = cfg.color;
+    const k     = glowStrength(this.type);
+    const hpK   = Math.max(0, Math.min(1, this.hp / this.maxHp));
     this._pulse = pulse;   // the halo pass breathes with the core
 
     ctx.save();
@@ -307,11 +320,12 @@ class Enemy {
     for (let i = 0; i < 5; i++) {
       const a   = seed + i * 1.257 + Math.sin(t * 1.3 + i) * 0.4;
       const len = r * (1.3 + Math.sin(t * 2 + i * 2 + seed) * 0.3);
-      drawGlow(ctx, wisp, bx + Math.cos(a) * len * 0.7, by + Math.sin(a) * len * 0.7 + r * 0.25, r * 0.9, 0.22);
+      drawGlow(ctx, col, bx + Math.cos(a) * len * 0.7, by + Math.sin(a) * len * 0.7 + r * 0.25, r * 0.9, 0.22 * k);
     }
-    drawGlow(ctx, wisp, bx, by, r * 1.5, 0.55 * beat);
-    drawGlow(ctx, '#ffffff', bx, by, r * 0.55, 0.5 * beat);
-    if (heat > 0) drawGlow(ctx, '#ffffff', bx, by, r * 1.4, 0.45 * heat);
+    drawGlow(ctx, col, bx, by, r * 1.5, 0.55 * k * beat);
+    // Small white core that shrinks as the ghost loses health
+    drawGlow(ctx, '#ffffff', bx, by, r * 0.32 * (0.35 + 0.65 * hpK), 0.45 * beat);
+    if (heat > 0) drawGlow(ctx, '#ffffff', bx, by, r * 1.0, 0.35 * k * heat);
     ctx.restore();
 
     // HP bar
@@ -324,7 +338,7 @@ class Enemy {
   drawHalo(ctx) {
     if (!this.alive) return;
     const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2);
-    drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * (0.85 + 0.15 * (this._pulse ?? 1)));
+    drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * glowStrength(this.type) * (0.85 + 0.15 * (this._pulse ?? 1)));
   }
 
   _drawHpBar(ctx) {
