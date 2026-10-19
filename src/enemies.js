@@ -2,61 +2,24 @@
 
 import { CONFIG } from './config.js';
 import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } from './utils.js';
-import { haloSprite, drawSprite, mix, rgba } from './sprites.js';
+import { haloSprite, drawGlow } from './sprites.js';
 
 let _nextId = 0;
 
 const HIT_GLOW_TIME = 0.25;   // seconds a hit glow takes to fade
 
-// ── Light-wave profiles ──────────────────────────────────────
-// Each Chromatic is drawn as the light it is made of, and its colour's
-// wavelength sets its form. Frequency = c / λ; higher frequency means more
-// ripples around the body, a faster shimmer, a quicker core pulse and tighter
-// waves in the tail. The ordering is physical; the spread is exaggerated so
-// the types read apart (violet 12 crests → orange 3).
-// Magenta has no single wavelength — the eye only sees it when red and violet
-// mix — so the pink boss is two interfering waves pulsing at their beat
-// frequency (the difference between the two).
+// ── Pulse rate ───────────────────────────────────────────────
+// Each Chromatic's core pulses at a rate set by its colour's wavelength:
+// frequency = c / λ, so violet beats fastest and orange slowest. Magenta has
+// no single wavelength (the eye sees it when red and violet mix), so the pink
+// boss pulses at the beat frequency between the two.
 
 const C_NM_THZ = 299792;   // speed of light, nm·THz
-
-function _waveFor(nm) {
-  const f = C_NM_THZ / nm;                              // THz
-  const k = Math.max(0, (f - 470) / (740 - 470));       // 0 deep red … 1 violet
-  return {
-    f,
-    crests:     Math.max(2, Math.round(2 + 10 * k)),
-    speed:      f / 100,     // rim shimmer, rad/s
-    tailCycles: f / 300,     // wave cycles along the tail
-  };
-}
-
-const _profiles = {};
-function waveProfile(type) {
-  if (_profiles[type]) return _profiles[type];
-  const cfg   = CONFIG.enemies[type];
-  const waves = [].concat(cfg.wavelength_nm).map(_waveFor);
-  const isMix = waves.length > 1;
-  const strandColors = isMix ? ['#ff2a3c', '#6a2cff'] : [cfg.color];
-  // Tail tendrils: three thin wisps for a pure wave; the boss braids its
-  // red and violet strands
-  const strands = isMix
-    ? waves.map((w, i) => ({ color: strandColors[i], cycles: w.tailCycles, speed: w.speed, offset: i * Math.PI, spread: (i ? 1 : -1) * 0.12, len: 1.15, width: 0.75 }))
-    : [[-0.38, 0.85, 0.45], [0, 1.15, 0.65], [0.38, 0.8, 0.45]].map(([spread, len, width], i) => ({
-        color: cfg.color, cycles: waves[0].tailCycles, speed: waves[0].speed, offset: i * 2.1, spread, len, width,
-      }));
-  return (_profiles[type] = {
-    modes:   waves.map((w, i) => ({ n: w.crests, amp: isMix ? 0.08 : 0.12, speed: (i % 2 ? -1 : 1) * w.speed })),
-    pulseHz: isMix ? Math.abs(waves[0].f - waves[1].f) / 400 : waves[0].f / 400,
-    strands,
-  });
-}
-
-function _lerpAngle(a, b, t) {
-  let d = b - a;
-  while (d >  Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return a + d * t;
+const _pulseHz = {};
+function pulseHz(type) {
+  if (_pulseHz[type] !== undefined) return _pulseHz[type];
+  const f = [].concat(CONFIG.enemies[type].wavelength_nm).map(nm => C_NM_THZ / nm);
+  return (_pulseHz[type] = f.length > 1 ? Math.abs(f[0] - f[1]) / 400 : f[0] / 400);
 }
 
 // ── Base Enemy ───────────────────────────────────────────────
@@ -90,7 +53,6 @@ class Enemy {
     this.wasBelow25 = false;
 
     // Movement trail
-    this._trail = [];
   }
 
   get size() { return this.cfg.size; }
@@ -150,10 +112,6 @@ class Enemy {
     this.trapSlow       = 0;
     this.trapSuppressed = false;
 
-    const pdx = player.x - this.x;
-    const pdy = player.y - this.y;
-    this._look = Math.atan2(pdy, pdx);   // the mouth faces the player
-
     switch (this.type) {
       case 'violet': this._updateViolet(dt, player, map); break;
       case 'yellow': this._updateYellow(dt, player, map); break;
@@ -162,15 +120,6 @@ class Enemy {
       case 'pink':   this._updatePink(dt, player, map, projectileSystem); break;
     }
 
-    // Heading from recent movement — the tail streams out behind it
-    const tr = this._trail;
-    if (tr.length >= 4) {
-      const a = tr[tr.length - 4], b = tr[tr.length - 1];
-      if (Math.hypot(b.x - a.x, b.y - a.y) > 0.5) {
-        const target = Math.atan2(b.y - a.y, b.x - a.x);
-        this._heading = this._heading === undefined ? target : _lerpAngle(this._heading, target, Math.min(1, dt * 6));
-      }
-    }
   }
 
   _move(dt, dx, dy, map, speedOverride) {
@@ -244,8 +193,6 @@ class Enemy {
     }
 
     // Record trail position (cap at 8 points)
-    this._trail.push({ x: this.x, y: this.y });
-    if (this._trail.length > 14) this._trail.shift();
   }
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)
@@ -330,19 +277,21 @@ class Enemy {
     }
   }
 
+  // Ghost of light: a soft body, a few drifting wisps and a pulsing core.
+  // No outline, no eyes, no tail — the shape is carried by brightness alone.
   draw(ctx) {
     if (!this.alive) return;
 
     const cfg   = this.cfg;
     const r     = this.drawSize;
-    const wave  = waveProfile(this.type);
     const t     = Date.now() / 1000 + this.id * 0.37;          // per-ghost phase offset
+    const seed  = this.id * 2.39;
     const bx    = this.x, by = this.y - this.lift;
     // Hit glow: brightens toward white and fades smoothly — no hard flash
     const heat  = Math.pow(this.hitFlash / HIT_GLOW_TIME, 2);
-    const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * wave.pulseHz);
-    const look  = this._look ?? 0;
-    const head  = this._heading ?? look;
+    const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * pulseHz(this.type));
+    const beat  = 0.85 + 0.15 * pulse;
+    const wisp  = cfg.edge_color || cfg.color;
     this._pulse = pulse;   // the halo pass breathes with the core
 
     ctx.save();
@@ -354,23 +303,16 @@ class Enemy {
     ctx.drawImage(pool.canvas, this.x - r * 1.8, this.y + r * 0.35 - r * 0.7, r * 3.6, r * 1.4);
     ctx.globalAlpha = 1;
 
-    for (const strand of wave.strands) this._drawTail(ctx, bx, by, r, head, t, strand, heat);
-
-    // Chromatic glitch — every so often the signal drifts apart into offset
-    // copies; eased in and out so it never pops
-    const g = Math.min(1, Math.max(0, (Math.sin(t * 2.3 + this.id * 1.7) * Math.sin(t * 5.1) - 0.75) / 0.2));
-    if (g > 0) {
-      const j = r * 0.35 * g;
-      ctx.globalAlpha = 0.6 * g;
-      this._drawBody(ctx, bx - j, by, r, t + 0.2, wave, 0, pulse, head);
-      this._drawBody(ctx, bx + j, by + j * 0.3, r, t - 0.2, wave, 0, pulse, head);
-      ctx.globalAlpha = 1;
+    // (the wide outer glow is drawn in drawHalo, after the racks)
+    for (let i = 0; i < 5; i++) {
+      const a   = seed + i * 1.257 + Math.sin(t * 1.3 + i) * 0.4;
+      const len = r * (1.3 + Math.sin(t * 2 + i * 2 + seed) * 0.3);
+      drawGlow(ctx, wisp, bx + Math.cos(a) * len * 0.7, by + Math.sin(a) * len * 0.7 + r * 0.25, r * 0.9, 0.22);
     }
-    this._drawBody(ctx, bx, by, r, t, wave, heat, pulse, head);
-    this._drawCore(ctx, bx, by, r, pulse);
+    drawGlow(ctx, wisp, bx, by, r * 1.5, 0.55 * beat);
+    drawGlow(ctx, '#ffffff', bx, by, r * 0.55, 0.5 * beat);
+    if (heat > 0) drawGlow(ctx, '#ffffff', bx, by, r * 1.4, 0.45 * heat);
     ctx.restore();
-
-    this._drawMouth(ctx, bx, by, r, look, t);
 
     // HP bar
     if (this.hp < this.maxHp) {
@@ -378,132 +320,11 @@ class Enemy {
     }
   }
 
-  // Tail — a transverse wave streaming behind the heading. Its cycles along
-  // the length scale with frequency, so short wavelengths ripple tighter.
-  // Soft-edged too: a wide faint layer under a narrow brighter one, so the
-  // sides fade rather than end in a line.
-  _drawTail(ctx, bx, by, r, heading, t, s, heat) {
-    const back = heading + Math.PI + s.spread;
-    const ux = Math.cos(back), uy = Math.sin(back);   // along the tail
-    const px = -uy, py = ux;                          // across it
-    const L = r * 3.0 * s.len, N = 14;
-    const col = s.color;
-    const wt  = 0.2 + 0.5 * heat;
-
-    for (const [widthScale, peak] of [[1.0, 0.22], [0.5, 0.35]]) {
-      const left = [], right = [];
-      for (let i = 0; i <= N; i++) {
-        const f    = i / N;
-        const w    = r * 0.85 * s.width * widthScale * Math.pow(1 - f, 1.3);
-        const sway = r * 0.45 * f * Math.sin(Math.PI * 2 * s.cycles * f - t * s.speed + s.offset);
-        const cx   = bx + ux * f * L + px * sway;
-        const cy   = by + uy * f * L + py * sway;
-        left.push(cx + px * w, cy + py * w);
-        right.push(cx - px * w, cy - py * w);
-      }
-      ctx.beginPath();
-      ctx.moveTo(left[0], left[1]);
-      for (let i = 2; i < left.length; i += 2) ctx.lineTo(left[i], left[i + 1]);
-      for (let i = right.length - 2; i >= 0; i -= 2) ctx.lineTo(right[i], right[i + 1]);
-      ctx.closePath();
-      // Fades in only beyond the body, so the overlap leaves no seam
-      const grad = ctx.createLinearGradient(bx, by, bx + ux * L, by + uy * L);
-      grad.addColorStop(0,    rgba(col, 0,    '#ffffff', wt));
-      grad.addColorStop(0.22, rgba(col, 0,    '#ffffff', wt));
-      grad.addColorStop(0.45, rgba(col, peak, '#ffffff', wt));
-      grad.addColorStop(1,    rgba(col, 0,    '#ffffff', wt));
-      ctx.fillStyle = grad;
-      ctx.fill();
-    }
-  }
-
-  // Body — no outline. Stacked layers of faint light, each a standing wave
-  // (crests set by wavelength) with a slightly shifted phase, so the shape is
-  // carried by brightness and the edge dissolves instead of ending in a line.
-  _drawBody(ctx, bx, by, r, t, wave, heat, pulse, heading) {
-    const N      = 40;
-    const back   = heading + Math.PI;
-    const col    = this.cfg.color;
-    const layers = [            // scale, alpha, whiten
-      [1.3,  0.05, 0.0],
-      [1.1,  0.08, 0.1],
-      [0.9,  0.11, 0.2],
-      [0.68, 0.15, 0.35],
-      [0.45, 0.2,  0.55],
-    ];
-    layers.forEach(([scale, alpha, whiten], li) => {
-      const ph = t + li * 0.35;
-      ctx.beginPath();
-      for (let i = 0; i <= N; i++) {
-        const th = (i / N) * Math.PI * 2;
-        // Slow organic wobble + the wavelength's standing wave
-        let k = 1 + 0.07 * Math.sin(2 * th + ph * 1.3) + 0.04 * Math.sin(3 * th - ph * 0.9);
-        for (const m of wave.modes) k += m.amp * Math.sin(m.n * th + ph * m.speed);
-        // Wraith silhouette: the back of the body drags out toward the tail
-        const drag = Math.max(0, Math.cos(th - back));
-        const rr = r * scale * k * (1 + 0.55 * drag * drag);
-        const x = bx + Math.cos(th) * rr, y = by + Math.sin(th) * rr;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fillStyle = rgba(col, alpha * (0.8 + 0.4 * pulse) * (1 + 0.6 * heat), '#ffffff', whiten + (1 - whiten) * 0.55 * heat);
-      ctx.fill();
-    });
-  }
-
-  // Core — the hot centre of the light; its pulse drives the glow
-  _drawCore(ctx, bx, by, r, pulse) {
-    const halo = haloSprite(this.cfg.glow_color, Math.max(4, Math.round(r * 1.1)), 0.9);
-    ctx.globalAlpha = 0.25 + 0.75 * pulse;
-    drawSprite(ctx, halo, bx, by);
-    drawSprite(ctx, haloSprite('#ffffff', Math.max(3, Math.round(r * 0.6)), 0.9), bx, by);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = mix(this.cfg.color, '#ffffff', 0.85);
-    ctx.beginPath();
-    ctx.arc(bx, by, r * 0.15 * (0.7 + 0.6 * pulse), 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Mouth — a thin, crooked, ragged grin facing the player; it surfaces in the
-  // light and sinks back again
-  _drawMouth(ctx, bx, by, r, look, t) {
-    const fx = Math.cos(look), fy = Math.sin(look);   // toward the player
-    const lx = -fy, ly = fx;                           // across the face
-    const at = (f, l) => [bx + fx * r * f + lx * r * l, by + fy * r * f + ly * r * l];
-
-    const prevAlpha = ctx.globalAlpha;
-    ctx.globalAlpha = prevAlpha * (0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(t * 0.6 + this.id * 1.3), 0.6));
-
-    // One corner hitches higher than the other
-    const M = 14, half = 0.52, gape = 0.6 + 0.4 * Math.sin(t * 1.3 + this.id * 2);
-    const top = [], bot = [];
-    for (let i = 0; i <= M; i++) {
-      const u     = i / M * 2 - 1;                                    // -1 … 1 across
-      const curve = 0.56 - 0.16 * u * u - 0.08 * u;                   // crooked pull-back
-      const thick = (0.015 + 0.045 * (1 - u * u) * gape) *
-                    (0.5 + 0.5 * Math.abs(Math.sin(u * 11 + t * 5)));  // ragged edge
-      top.push(at(curve - thick, u * half));
-      bot.push(at(curve + thick, u * half));
-    }
-    ctx.fillStyle = 'rgba(3,0,10,0.65)';
-    ctx.beginPath();
-    ctx.moveTo(...top[0]);
-    for (const p of top.slice(1)) ctx.lineTo(...p);
-    for (const p of bot.reverse()) ctx.lineTo(...p);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = prevAlpha;
-  }
-
   // Additive halo — breathes with the core; drawn in the glow pass after the racks
   drawHalo(ctx) {
     if (!this.alive) return;
-    const isPink = this.type === 'pink';
-    const halo   = haloSprite(this.cfg.glow_color, Math.round(this.drawSize * (isPink ? 4 : 3.2)), isPink ? 0.35 : 0.28);
-    const prev   = ctx.globalAlpha;
-    ctx.globalAlpha = prev * (0.55 + 0.45 * (this._pulse ?? 1));
-    drawSprite(ctx, halo, this.x, this.y - this.lift);
-    ctx.globalAlpha = prev;
+    const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2);
+    drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * (0.85 + 0.15 * (this._pulse ?? 1)));
   }
 
   _drawHpBar(ctx) {

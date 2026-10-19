@@ -7,6 +7,8 @@
 //                        turn tight around them and is absorbed (soft ring + glow tint)
 // Purely visual, plus a per-colour count for the run. No flashing anywhere.
 
+import { drawGlow } from './sprites.js';
+
 const HANG_END  = 0.5;          // motes start draining after this
 const STAGGER   = 0.06;         // spread of drain start across one kill's motes
 const DRAIN     = 0.34;         // seconds from leaving the hang to absorption
@@ -16,34 +18,14 @@ const ORBIT_END = 3;
 const RING      = 0.25;         // absorb ring lifetime
 const MAX_MOTES = 36;           // per kill
 const MAX_TOTAL = 260;          // across all kills, so huge waves stay cheap
-const HALO_R    = 32;           // cached glow sprite radius; drawn scaled
 
 // Absorb glow strength per type. Light colours read much brighter under additive
 // blending, so they're scaled down to match violet and pink.
 const PULSE = { violet: 1.0, yellow: 0.4, green: 0.45, orange: 0.55, pink: 1.0 };
 
-// Linear-falloff glow, cached per colour (matches the approved prototype's look)
-const _glow = new Map();
-function glowSprite(color) {
-  let c = _glow.get(color);
-  if (!c) {
-    c = document.createElement('canvas');
-    c.width = c.height = HALO_R * 2;
-    const g = c.getContext('2d');
-    const grad = g.createRadialGradient(HALO_R, HALO_R, 0, HALO_R, HALO_R, HALO_R);
-    grad.addColorStop(0, rgbaHex(color, 1));
-    grad.addColorStop(1, rgbaHex(color, 0));
-    g.fillStyle = grad;
-    g.fillRect(0, 0, HALO_R * 2, HALO_R * 2);
-    _glow.set(color, c);
-  }
-  return c;
-}
-
 function halo(ctx, color, x, y, r, a) {
-  if (a <= 0.003) return;
-  ctx.globalAlpha = Math.min(1, a);
-  ctx.drawImage(glowSprite(color), x - r, y - r, r * 2, r * 2);
+  ctx.globalAlpha = 1;
+  drawGlow(ctx, color, x, y, r, a);
 }
 
 function rgbaHex(hex, a) {
