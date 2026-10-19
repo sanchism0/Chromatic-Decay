@@ -10,7 +10,6 @@ export const CONFIG = {
   player_fire_slow_multiplier: 0.7,
   player_projectile_speed:     480,    // px/sec
   player_projectile_range:     650,    // max travel distance px
-  player_pickup_radius:        50,     // residual magnetic pull px
   player_size:                 14,     // sprite half-width px (total 14×14)
 
   // ── Map ─────────────────────────────────────────────────────
@@ -119,11 +118,6 @@ export const CONFIG = {
     [0.05, 0.10, 0.25, 0.50, 0.10],  // 20+ min
   ],
   population_time_brackets: [0, 2, 5, 9, 14, 20],   // minutes
-
-  // ── Residuals ────────────────────────────────────────────────
-  residual_base_threshold:   50,
-  residual_threshold_increase: 30,
-  residual_size:             5,    // orb radius px
 
   // ── Echoes ───────────────────────────────────────────────────
   echo_spawn_interval:  15,    // seconds

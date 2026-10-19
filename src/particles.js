@@ -99,15 +99,6 @@ export class ParticleSystem {
 
   // ── Effect presets ──────────────────────────────────────────
 
-  residualCollect(x, y) {
-    // Golden ring expand — approximate with outward dots
-    const count = 8;
-    for (let i = 0; i < count; i++) {
-      const a = (Math.PI * 2 * i) / count;
-      this._spawn(x, y, Math.cos(a) * 120, Math.sin(a) * 120, '#E8C86A', 2, 0.2, true, 'circle');
-    }
-  }
-
   playerHit(x, y) {
     for (let i = 0; i < 5; i++) {
       const a = Math.random() * Math.PI * 2;

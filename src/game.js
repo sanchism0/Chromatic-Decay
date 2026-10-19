@@ -6,7 +6,6 @@ import { Camera, GameMap }  from './map.js';
 import { Player }           from './player.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
-import { ResidualSystem }   from './residuals.js';
 import { EchoSystem }       from './echoes.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
@@ -91,7 +90,6 @@ const particles   = new ParticleSystem();
 const drain       = new DrainSystem();
 const projectiles = new ProjectileSystem();
 const enemies     = new EnemySystem();
-const residuals   = new ResidualSystem();
 const echoes      = new EchoSystem();
 const companions  = new CompanionSystem();
 const traps       = new TrapSystem();
@@ -226,7 +224,6 @@ function startRun() {
   companions.reset();
   traps.reset();
   enemies.reset();
-  residuals.reset();
   drain.reset();
   echoes.reset();
   projectiles.reset();
@@ -542,16 +539,8 @@ function updatePlaying(dt) {
   // Companions (Herald) — orbit, expiry AoE
   if (companions.count > 0) companions.update(dt, player, enemies, particles);
 
-  // Residuals
-  residuals.update(dt, player, particles);
   drain.update(dt, player);
 
-  // Detect residual collection for trait effects
-  // (ResidualSystem doesn't expose a callback, so we hook via a proxy update)
-  // Volatile residual: checked via count change
-  const prevTotal = player._prevResidualTotal || 0;
-  if (residuals.total > prevTotal) player.onResidualCollect();
-  player._prevResidualTotal = residuals.total;
 
   // Echoes / fragments
   const rescued = echoes.update(dt, player, map, enemies, particles);
@@ -1205,7 +1194,6 @@ function drawGame(W, H) {
   drain.drawFloor(ctx);
   traps.draw(ctx);
   echoes.draw(ctx);
-  residuals.draw(ctx);
   projectiles.draw(ctx);
   enemies.draw(ctx);
   player.draw(ctx);
@@ -1273,7 +1261,7 @@ function drawGame(W, H) {
 
   resetTransform();
 
-  hud.draw(ctx, player, residuals, elapsed, waveSystem, W, H);
+  hud.draw(ctx, player, elapsed, waveSystem, W, H);
   lore.draw(ctx, W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────

@@ -595,7 +595,7 @@ export class EnemySystem {
       e.update(dt, player, map, projectileSystem);
     }
 
-    // Remove dead enemies, spawn particles + residuals
+    // Remove dead enemies; game.js spawns their Colour Drain
     const dead = this.enemies.filter(e => !e.isAlive);
     this.enemies = this.enemies.filter(e => e.isAlive);
 

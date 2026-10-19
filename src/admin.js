@@ -20,7 +20,6 @@ const FIELD_GROUPS = [
       { key: 'player_fire_slow_multiplier', label: 'Fire Slow Mult',    type: 'number', min: 0.1, max: 1.0, step: 0.05},
       { key: 'player_projectile_speed',     label: 'Proj Speed',        type: 'number', min: 100, max: 1200,step: 40  },
       { key: 'player_projectile_range',     label: 'Proj Range',        type: 'number', min: 100, max: 2000,step: 50  },
-      { key: 'player_pickup_radius',        label: 'Pickup Radius',     type: 'number', min: 10,  max: 200, step: 5   },
     ],
   },
   {
@@ -32,14 +31,6 @@ const FIELD_GROUPS = [
       { key: 'min_spawn_interval',   label: 'Min Spawn Interval',type: 'number', min: 0.1, max: 5.0, step: 0.1 },
       { key: 'max_enemies',          label: 'Max Enemies',        type: 'number', min: 5,   max: 200, step: 5   },
       { key: 'max_simultaneous_pinks',label:'Max Pinks',          type: 'number', min: 0,   max: 5,   step: 1   },
-    ],
-  },
-  {
-    label: 'RESIDUALS',
-    fields: [
-      { key: 'residual_base_threshold',    label: 'Base Threshold',    type: 'number', min: 10,  max: 500, step: 10  },
-      { key: 'residual_threshold_increase',label: 'Threshold Increase',type: 'number', min: 5,   max: 200, step: 5   },
-      { key: 'residual_size',              label: 'Orb Size',          type: 'number', min: 2,   max: 20,  step: 1   },
     ],
   },
   {
