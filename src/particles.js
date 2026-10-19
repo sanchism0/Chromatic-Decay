@@ -99,21 +99,6 @@ export class ParticleSystem {
 
   // ── Effect presets ──────────────────────────────────────────
 
-  enemyDeath(x, y, color) {
-    const count = 7;
-    for (let i = 0; i < count; i++) {
-      const a = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-      const spd = 60 + Math.random() * 80;
-      this._spawn(x, y, Math.cos(a) * spd, Math.sin(a) * spd, '#B8882A', 3 + Math.random() * 2, 0.4 + Math.random() * 0.2);
-    }
-    // Core flash in enemy color
-    for (let i = 0; i < 3; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const spd = 30 + Math.random() * 50;
-      this._spawn(x, y, Math.cos(a) * spd, Math.sin(a) * spd, color, 2, 0.25);
-    }
-  }
-
   residualCollect(x, y) {
     // Golden ring expand — approximate with outward dots
     const count = 8;

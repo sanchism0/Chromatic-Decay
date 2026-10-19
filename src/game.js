@@ -9,6 +9,7 @@ import { ProjectileSystem } from './projectiles.js';
 import { ResidualSystem }   from './residuals.js';
 import { EchoSystem }       from './echoes.js';
 import { ParticleSystem }   from './particles.js';
+import { DrainSystem }      from './drain.js';
 import { UpgradeScreen }    from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
 import { TrapSystem }       from './traps.js';
@@ -87,6 +88,7 @@ let state = STATES.TITLE;
 const input       = new Input(canvas);
 const camera      = new Camera();
 const particles   = new ParticleSystem();
+const drain       = new DrainSystem();
 const projectiles = new ProjectileSystem();
 const enemies     = new EnemySystem();
 const residuals   = new ResidualSystem();
@@ -225,6 +227,7 @@ function startRun() {
   traps.reset();
   enemies.reset();
   residuals.reset();
+  drain.reset();
   echoes.reset();
   projectiles.reset();
   lore.reset();
@@ -417,6 +420,7 @@ function updatePlaying(dt) {
 
   // Process enemy deaths
   for (const e of dead) {
+    drain.spawn(e);
     hud.flashKill();
     sfxEnemyKill(e.type);
 
@@ -466,6 +470,7 @@ function updatePlaying(dt) {
   // Projectile → enemy hits
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
   for (const e of projKilled) {
+    drain.spawn(e);
     hud.flashKill();
 
     // Kill pulse (legacy)
@@ -539,6 +544,7 @@ function updatePlaying(dt) {
 
   // Residuals
   residuals.update(dt, player, particles);
+  drain.update(dt, player);
 
   // Detect residual collection for trait effects
   // (ResidualSystem doesn't expose a callback, so we hook via a proxy update)
@@ -1196,12 +1202,14 @@ function drawGame(W, H) {
     }
   }
 
+  drain.drawFloor(ctx);
   traps.draw(ctx);
   echoes.draw(ctx);
   residuals.draw(ctx);
   projectiles.draw(ctx);
   enemies.draw(ctx);
   player.draw(ctx);
+  drain.draw(ctx, player);
   companions.draw(ctx);
   particles.draw(ctx);
 
