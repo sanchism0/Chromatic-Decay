@@ -9,6 +9,7 @@ import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem }       from './echoes.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
+import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
 import { UpgradeScreen }    from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
 import { TrapSystem }       from './traps.js';
@@ -120,7 +121,7 @@ const _archiveLoreBtns = { world: null, raze: null, violet: null, yellow: null, 
 
 // ── Pause menu state ──────────────────────────────────────────
 let pauseQuitConfirm = false;
-const _pauseBtns = { quit: null, confirmYes: null, confirmNo: null };
+const _pauseBtns = { resume: null, quit: null, confirmYes: null, confirmNo: null };
 
 // ── Wave timer sound state (reset each wave) ──────────────────
 let _timerSounds = { wave: 0, warned: false, ticks: {} };
@@ -622,7 +623,9 @@ function updatePaused() {
     }
     return;
   }
-  if (hit(_pauseBtns.quit)) {
+  if (hit(_pauseBtns.resume)) {
+    state = STATES.PLAYING;
+  } else if (hit(_pauseBtns.quit)) {
     pauseQuitConfirm = true;
   }
 }
@@ -1662,74 +1665,59 @@ function drawTitle(W, H) {
 function drawPaused(W, H) {
   ctx.globalAlpha = 1;
   ctx.shadowBlur  = 0;
-  ctx.fillStyle = 'rgba(13,14,18,0.6)'; ctx.fillRect(0, 0, W, H);
+  dimBackdrop(ctx, W, H, 0.6);
 
   const cx = W / 2;
+  const touch = 'ontouchstart' in window;
 
-  // ── PAUSED title + resume hint ────────────────────────────────
+  // ── Panel (hidden behind the quit confirmation) ───────────────
+  if (pauseQuitConfirm) { _drawQuitConfirm(W, H); return; }
+  const pW = Math.min(340, W - 32), pH = 230;
+  const pX = cx - pW / 2, pY = H / 2 - pH / 2 - 6;
+  const top = drawSlab(ctx, pX, pY, pW, pH, { depth: 12, screen: 44 });
+
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 26px monospace';
-  ctx.fillText('PAUSED', cx, H / 2 - 46);
-  ctx.fillStyle = '#A0A4B0'; ctx.font = '15px monospace';
-  ctx.fillText('ESC to resume', cx, H / 2 - 18);
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 24px monospace';
+  ctx.shadowBlur = 10; ctx.shadowColor = '#00E5FF';
+  ctx.fillText('PAUSED', cx, top + 34);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#8FA8B8'; ctx.font = '13px monospace';
+  ctx.fillText(touch ? 'signal on hold' : 'ESC to resume', cx, top + 72);
 
-  // ── Quit button ───────────────────────────────────────────────
-  const btnW = 200, btnH = 42;
-  const btnX = cx - btnW / 2, btnY = H / 2 + 8;
-  _pauseBtns.quit = { x: btnX, y: btnY, w: btnW, h: btnH };
-
-  ctx.strokeStyle = '#f81d78'; ctx.lineWidth = 1.5;
-  ctx.fillStyle   = 'rgba(248,29,120,0.10)';
-  ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 6); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#f81d78'; ctx.font = 'bold 14px monospace';
-  ctx.fillText('QUIT TO MENU', cx, btnY + btnH / 2 + 5);
-
+  // ── Buttons ───────────────────────────────────────────────────
+  const btnW = pW - 64, btnH = 40, btnX = cx - btnW / 2;
+  _pauseBtns.resume = drawSlabButton(ctx, btnX, top + 96, btnW, btnH, 'RESUME', {
+    accent: '#00E5FF', lift: over(input, _pauseBtns.resume) ? 1 : 0,
+  });
+  _pauseBtns.quit = drawSlabButton(ctx, btnX, top + 152, btnW, btnH, 'QUIT TO MENU', {
+    accent: '#f81d78', lift: over(input, _pauseBtns.quit) ? 1 : 0,
+  });
   ctx.textAlign = 'left';
+}
 
-  // ── Confirmation overlay ──────────────────────────────────────
-  if (!pauseQuitConfirm) return;
+function _drawQuitConfirm(W, H) {
+  const cx = W / 2;
 
-  // dim everything further
-  ctx.fillStyle = 'rgba(13,14,18,0.72)'; ctx.fillRect(0, 0, W, H);
+  const dW = Math.min(340, W - 48), dH = 180;
+  const dX = cx - dW / 2, dY = H / 2 - dH / 2 - 6;
+  const dTop = drawSlab(ctx, dX, dY, dW, dH, { accent: '#f81d78', depth: 12, screen: 40, led: false });
 
-  const dW = Math.min(340, W - 48), dH = 190;
-  const dX = cx - dW / 2, dY = H / 2 - dH / 2;
-
-  // card
-  ctx.fillStyle   = '#131520';
-  ctx.strokeStyle = '#f81d78'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.roundRect(dX, dY, dW, dH, 10); ctx.fill(); ctx.stroke();
-
-  // text
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 18px monospace';
-  ctx.fillText('QUIT TO MENU?', cx, dY + 42);
+  ctx.fillText('QUIT TO MENU?', cx, dTop + 30);
   ctx.fillStyle = '#A0A4B0'; ctx.font = '13px monospace';
-  ctx.fillText('Your run progress will be lost.', cx, dY + 70);
+  ctx.fillText('Your run progress will be lost.', cx, dTop + 70);
 
-  // YES / NO buttons
   const halfGap = 10, halfW = (dW - 48 - halfGap * 2) / 2;
-  const yBtnY = dY + 100, yBtnH = 44;
-
+  const yBtnY = dTop + 104, yBtnH = 42;
   const noX  = dX + 24;
   const yesX = noX + halfW + halfGap * 2;
-
-  _pauseBtns.confirmNo  = { x: noX,  y: yBtnY, w: halfW, h: yBtnH };
-  _pauseBtns.confirmYes = { x: yesX, y: yBtnY, w: halfW, h: yBtnH };
-
-  // NO button
-  ctx.strokeStyle = '#C4C8D4'; ctx.lineWidth = 1.5;
-  ctx.fillStyle   = 'rgba(196,200,212,0.08)';
-  ctx.beginPath(); ctx.roundRect(noX, yBtnY, halfW, yBtnH, 6); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#C4C8D4'; ctx.font = 'bold 14px monospace';
-  ctx.fillText('CANCEL', noX + halfW / 2, yBtnY + yBtnH / 2 + 5);
-
-  // YES button
-  ctx.strokeStyle = '#f81d78'; ctx.lineWidth = 1.5;
-  ctx.fillStyle   = 'rgba(248,29,120,0.12)';
-  ctx.beginPath(); ctx.roundRect(yesX, yBtnY, halfW, yBtnH, 6); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#f81d78'; ctx.font = 'bold 14px monospace';
-  ctx.fillText('QUIT', yesX + halfW / 2, yBtnY + yBtnH / 2 + 5);
+  _pauseBtns.confirmNo  = drawSlabButton(ctx, noX,  yBtnY, halfW, yBtnH, 'CANCEL', {
+    accent: '#8FA8B8', textColor: '#C4C8D4', lift: over(input, _pauseBtns.confirmNo) ? 1 : 0,
+  });
+  _pauseBtns.confirmYes = drawSlabButton(ctx, yesX, yBtnY, halfW, yBtnH, 'QUIT', {
+    accent: '#f81d78', lift: over(input, _pauseBtns.confirmYes) ? 1 : 0,
+  });
 
   ctx.textAlign = 'left';
 }
@@ -2817,42 +2805,12 @@ function drawFragmentRescue(W, H) {
   // ── Card geometry ─────────────────────────────────────────
   const landscape = ('ontouchstart' in window) && H < W;   // mobile in landscape only
   const cardW  = Math.min(420, W - 32);
-  const cardH  = Math.min(f.id === 'raze' ? 580 : 540, H - 24);
+  const cardH  = Math.min(f.id === 'raze' ? 580 : 540, H - 38);
   const cardX  = (W - cardW) / 2;
-  const cardY  = (H - cardH) / 2;
-  const radius = 14;
+  const cardY  = (H - cardH - 14) / 2;
 
-  // Card outer glow
-  ctx.shadowBlur  = 40;
-  ctx.shadowColor = f.color;
-  _roundRect(cardX, cardY, cardW, cardH, radius);
-  ctx.fillStyle = f.color + '22';
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Card body gradient (dark, slightly tinted by class color)
-  const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-  grad.addColorStop(0,   '#1A1C26');
-  grad.addColorStop(0.5, '#13151C');
-  grad.addColorStop(1,   '#0D0E12');
-  _roundRect(cardX, cardY, cardW, cardH, radius);
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Card border
-  ctx.lineWidth   = 1.5;
-  ctx.strokeStyle = f.color + '99';
-  _roundRect(cardX, cardY, cardW, cardH, radius);
-  ctx.stroke();
-
-  // Color band across the top of the card
-  const bandH = 6;
-  ctx.fillStyle = f.color;
-  ctx.shadowBlur  = 12;
-  ctx.shadowColor = f.color;
-  _roundRect(cardX, cardY, cardW, bandH, radius, true);
-  ctx.fill();
-  ctx.shadowBlur = 0;
+  // Card — a raised rack-style slab in the fragment's colour
+  drawSlab(ctx, cardX, cardY, cardW, cardH, { accent: f.color, depth: 14, glow: 0.2, screen: 6, led: false });
 
   // ── Card content — pinned to proportional zones ──────────
   const ls    = landscape;
@@ -2966,42 +2924,14 @@ function drawClassEmergence(W, H) {
 
   // Card geometry
   const cardW = Math.min(420, W - 32);
-  const cardH = Math.min(ls ? 320 : 560, H - 24);
+  const cardH = Math.min(ls ? 320 : 560, H - 38);
   const cardX = (W - cardW) / 2;
-  const cardY = (H - cardH) / 2;
+  const cardY = (H - cardH - 14) / 2;
   const cx    = W / 2;
   const maxTW = cardW - 48;
 
-  // Outer glow
-  ctx.shadowBlur  = 50;
-  ctx.shadowColor = e.color;
-  _roundRect(cardX, cardY, cardW, cardH, 14);
-  ctx.fillStyle = e.color + '18';
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Card body
-  const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-  grad.addColorStop(0,   '#1A1C26');
-  grad.addColorStop(0.6, '#111318');
-  grad.addColorStop(1,   '#0D0E12');
-  _roundRect(cardX, cardY, cardW, cardH, 14);
-  ctx.fillStyle = grad; ctx.fill();
-
-  // Border
-  ctx.lineWidth   = 2;
-  ctx.strokeStyle = e.color + 'CC';
-  ctx.shadowBlur  = 16; ctx.shadowColor = e.color;
-  _roundRect(cardX, cardY, cardW, cardH, 14);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // Top color band
-  ctx.fillStyle = e.color;
-  ctx.shadowBlur = 14; ctx.shadowColor = e.color;
-  _roundRect(cardX, cardY, cardW, 6, 14, true);
-  ctx.fill();
-  ctx.shadowBlur = 0;
+  // Card — a raised rack-style slab in the class colour
+  drawSlab(ctx, cardX, cardY, cardW, cardH, { accent: e.color, depth: 14, glow: 0.2, screen: 6, led: false });
 
   // ── ZONE A: top — emergence tag + class name ──────────────
   const zA = cardY + cardH * 0.08;

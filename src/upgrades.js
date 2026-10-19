@@ -1,7 +1,7 @@
 // CHROMATIC DECAY — Upgrade System
 
 import { CONFIG } from './config.js';
-import { drawRoundedRect } from './utils.js';
+import { drawSlab, dimBackdrop } from './ui3d.js';
 
 // ── Class colors ──────────────────────────────────────────────
 export const CLASS_COLORS = {
@@ -596,41 +596,63 @@ export class UpgradeScreen {
     }
   }
 
+  // Header lines above the cards, top to bottom: [text, colour, font px, bold, glow]
+  _headerLines(W, H) {
+    const landscape = H < 500, narrow = W < 600, compact = landscape || narrow;
+    const big = compact ? 13 : 18, small = compact ? 11 : 14;
+    const lines = [];
+    const wc = this.waveContext;
+    if (!landscape) {
+      if (this.isBonusUpgrade) {
+        lines.push(['★  BONUS UPGRADE  ★', '#E8C86A', big, true, '#fff5c2']);
+        lines.push(['EARNED FROM EARLY CLEAR  ·  KEEP CLEARING FAST', '#fff5c2', small, false, null]);
+      } else if (wc) {
+        if (wc.type === 'early') {
+          lines.push([wc.bonusPts > 0 ? `WAVE CLEARED  ·  +${wc.bonusPts} BONUS PTS` : 'WAVE CLEARED', '#8dff6a', big, true, '#8dff6a']);
+        } else {
+          lines.push(["TIME'S UP  ·  NEXT WAVE INCOMING", '#fd6c1d', big, true, null]);
+          if (!wc.noDamageBonus) lines.push(['NO BONUS — CLEAR FASTER TO EARN EXTRA UPGRADES', '#A0A4B0', small, false, null]);
+        }
+        if (wc.noDamageBonus > 0) lines.push([`✦ NO DAMAGE  ·  +${wc.noDamageBonus} PTS`, '#5de8e8', small, true, '#5de8e8']);
+      }
+      lines.push(['— SIGNAL RESONANCE —', 'rgba(180,190,210,0.5)', compact ? 11 : 14, false, null]);
+    }
+    lines.push(['SELECT UPGRADE', '#FFFFFF', compact ? 18 : 28, true, '#00E5FF']);
+    return lines;
+  }
+
+  _headerHeight(W, H) {
+    return this._headerLines(W, H).reduce((sum, l) => sum + Math.round(l[2] * 1.45), 0);
+  }
+
   _cardLayouts(W, H) {
     const landscape = H < 500;   // phone in landscape — lay cards side by side
     const narrow    = W < 600;   // phone in portrait
+    const depth     = 8;         // slab front face below each card
+    const headerH   = this._headerHeight(W, H);
 
     if (landscape) {
       // 3 cards side by side — cap height so they don't fill the whole screen
-      const headerH = 36;
       const gap     = 8;
       const cardW   = Math.floor((W - gap * 4) / 3);
-      const cardH   = Math.min(H - headerH - gap * 2, 130);
-      const startY  = headerH + gap;
-      return [0, 1, 2].map(i => ({
-        x: gap + i * (cardW + gap),
-        y: startY,
-        w: cardW,
-        h: cardH,
-      }));
+      const startY  = headerH + gap + 4;
+      const cardH   = Math.min(H - startY - depth - 24, 130);
+      return [0, 1, 2].map(i => ({ x: gap + i * (cardW + gap), y: startY, w: cardW, h: cardH }));
     }
 
+    // Header + cards + footer hint are centred as one block, and never run
+    // off the top of the screen (cards shrink to fit if they must)
     const cardW  = Math.min(500, W * 0.92);
-    let cardH, gap;
-    if (narrow) {
-      gap = 10; cardH = 90;
-    } else {
-      gap = 18; cardH = 120;
-    }
-    const totalH = cardH * 3 + gap * 2;
+    const gap    = (narrow ? 10 : 18) + depth;
+    const footer = 30, top = 14, headGap = 14;
+    let cardH    = narrow ? 90 : 120;
+    const room   = H - top - headerH - headGap - footer - gap * 2 - depth;
+    cardH = Math.max(70, Math.min(cardH, Math.floor(room / 3)));
+    const totalH = headerH + headGap + cardH * 3 + gap * 2 + depth + footer;
+    const blockY = Math.max(top, (H - totalH) / 2);
+    const startY = blockY + headerH + headGap;
     const startX = (W - cardW) / 2;
-    const startY = (H - totalH) / 2;
-    return [0, 1, 2].map(i => ({
-      x: startX,
-      y: startY + i * (cardH + gap),
-      w: cardW,
-      h: cardH,
-    }));
+    return [0, 1, 2].map(i => ({ x: startX, y: startY + i * (cardH + gap), w: cardW, h: cardH }));
   }
 
   draw(ctx, canvas) {
@@ -641,111 +663,38 @@ export class UpgradeScreen {
     const narrow    = W < 600;
     const compact   = landscape || narrow;
 
-    ctx.fillStyle = 'rgba(13,14,18,0.85)';
-    ctx.fillRect(0, 0, W, H);
+    dimBackdrop(ctx, W, H, 0.82);
 
     const layout = this._cardLayouts(W, H);
-    const hasContext   = !landscape && (this.waveContext || this.isBonusUpgrade);
-    const hasNoDmg     = !landscape && this.waveContext?.noDamageBonus > 0;
-    const headerGap    = landscape ? 20 : narrow ? (hasContext ? 58 : 36) : (hasContext ? (hasNoDmg ? 98 : 80) : 50);
-    const headerY    = layout[0].y - headerGap;
 
-    // Header — wave context / bonus upgrade banner
+    // ── Header, stacked upward from just above the first card ──
     ctx.textAlign = 'center';
-    const wc = this.waveContext;
-
-    if (!landscape) {
-      if (this.isBonusUpgrade) {
-        // Gold bonus upgrade header
-        const pulse = Math.sin(Date.now() * 0.004) * 0.15 + 0.85;
-        ctx.globalAlpha = pulse;
-        ctx.fillStyle   = '#B8882A';
-        ctx.font        = `bold ${compact ? 13 : 18}px monospace`;
-        ctx.shadowBlur  = 10; ctx.shadowColor = '#fff5c2';
-        ctx.fillText('★  BONUS UPGRADE  ★', W / 2, headerY - (narrow ? 36 : 56));
-        ctx.shadowBlur  = 0; ctx.globalAlpha = 1;
-        ctx.fillStyle   = '#fff5c2';
-        ctx.font        = `${compact ? 11 : 14}px monospace`;
-        ctx.fillText('EARNED FROM EARLY CLEAR  ·  KEEP CLEARING FAST', W / 2, headerY - (narrow ? 20 : 34));
-      } else if (wc) {
-        if (wc.type === 'early') {
-          ctx.fillStyle = '#8dff6a';
-          ctx.font      = `bold ${compact ? 13 : 18}px monospace`;
-          ctx.shadowBlur = 6; ctx.shadowColor = '#8dff6a';
-          ctx.fillText(
-            wc.bonusPts > 0
-              ? `WAVE CLEARED  ·  +${wc.bonusPts} BONUS PTS`
-              : 'WAVE CLEARED',
-            W / 2, headerY - (narrow ? 36 : 56)
-          );
-          ctx.shadowBlur = 0;
-        } else {
-          ctx.fillStyle = '#fd6c1d';
-          ctx.font      = `bold ${compact ? 13 : 18}px monospace`;
-          ctx.fillText("TIME'S UP  ·  NEXT WAVE INCOMING", W / 2, headerY - (narrow ? 36 : 56));
-          if (!wc.noDamageBonus) {
-            ctx.fillStyle = '#A0A4B0';
-            ctx.font      = `${compact ? 11 : 14}px monospace`;
-            ctx.fillText('NO BONUS — CLEAR FASTER TO EARN EXTRA UPGRADES', W / 2, headerY - (narrow ? 20 : 34));
-          }
-        }
-        if (wc.noDamageBonus > 0) {
-          ctx.fillStyle  = '#5de8e8';
-          ctx.font       = `bold ${compact ? 11 : 14}px monospace`;
-          ctx.shadowBlur = 6; ctx.shadowColor = '#5de8e8';
-          ctx.fillText(`✦ NO DAMAGE  ·  +${wc.noDamageBonus} PTS`, W / 2, headerY - (narrow ? 20 : 34));
-          ctx.shadowBlur = 0;
-        }
-      }
+    const lines = this._headerLines(W, H);
+    let ly = layout[0].y - 14 - this._headerHeight(W, H);
+    for (const [text, color, px, bold, glow] of lines) {
+      ly += Math.round(px * 1.45);
+      ctx.fillStyle = color;
+      ctx.font      = `${bold ? 'bold ' : ''}${px}px monospace`;
+      if (glow) { ctx.shadowBlur = 8; ctx.shadowColor = glow; }
+      ctx.fillText(text, W / 2, ly - Math.round(px * 0.3));
+      ctx.shadowBlur = 0;
     }
 
-    ctx.fillStyle = 'rgba(180,190,210,0.5)';
-    ctx.font      = `${compact ? 11 : 15}px monospace`;
-    if (!landscape) {
-      ctx.fillText('— SIGNAL RESONANCE —', W / 2, headerY - (narrow ? 14 : 16));
-    }
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font      = `bold ${compact ? 18 : 28}px monospace`;
-    ctx.fillText('SELECT UPGRADE', W / 2, headerY);
-
+    // ── Cards — raised rack-style slabs; the hovered one rises ──
     for (let i = 0; i < this.cards.length; i++) {
       const card            = this.cards[i];
-      const { x, y, w, h } = layout[i];
+      const { x, y: y0, w, h } = layout[i];
       const isHovered       = i === this.hovered;
       const classColor      = card.class ? CLASS_COLORS[card.class] : null;
       const tierLabel       = card.tier ? `T${card.tier}` : null;
       const isClass         = !!card.class;
 
-      // Card background — class cards get a subtle tint
-      ctx.fillStyle = isHovered
-        ? (classColor ? classColor + '18' : '#1E2130')
-        : (isClass    ? classColor + '0C' : '#13151C');
-      drawRoundedRect(ctx, x, y, w, h, 6);
-      ctx.fill();
-
-      // Card border — class cards always show their color, not dimmed
-      ctx.strokeStyle = isHovered
-        ? (classColor || '#6A70A0')
-        : (classColor ? classColor + 'AA' : '#3A3E52');
-      ctx.lineWidth = isHovered ? 2 : 1.5;
-      if (classColor) {
-        ctx.shadowBlur  = isHovered ? 16 : 6;
-        ctx.shadowColor = classColor;
-      }
-      drawRoundedRect(ctx, x, y, w, h, 6);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // Color accent bar on left edge for class cards
-      if (isClass) {
-        ctx.fillStyle   = classColor + (isHovered ? 'FF' : 'CC');
-        ctx.shadowBlur  = isHovered ? 10 : 4;
-        ctx.shadowColor = classColor;
-        ctx.beginPath();
-        ctx.roundRect(x, y + 6, 3, h - 12, 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
+      const y = drawSlab(ctx, x, y0, w, h, {
+        accent: classColor || '#00E5FF',
+        depth:  8,
+        lift:   isHovered ? 1 : 0,
+        glow:   isHovered ? 0.7 : (isClass ? 0.25 : 0),
+      });
 
       const nameFontSize = compact ? 13 : 20;
       const descFontSize = compact ? 11 : 16;
@@ -755,7 +704,7 @@ export class UpgradeScreen {
       const divY         = landscape ? y + 25 : narrow ? y + 32 : y + 44;
       const descY        = landscape ? y + 40 : narrow ? y + 52 : y + 68;
 
-      // Class + tier tag (top-right) — bright, readable
+      // Class + tier tag (top-right)
       if (card.class) {
         const tag = tierLabel ? `${card.class.toUpperCase()}  ${tierLabel}` : card.class.toUpperCase();
         ctx.fillStyle   = classColor;
@@ -767,32 +716,32 @@ export class UpgradeScreen {
         ctx.shadowBlur  = 0;
       }
 
-      // Number key hint — slightly brighter
-      ctx.fillStyle = 'rgba(180,190,210,0.5)';
+      // Number key hint
+      ctx.fillStyle = 'rgba(180,200,215,0.55)';
       ctx.font      = `${numFontSize}px monospace`;
       ctx.textAlign = 'left';
       ctx.fillText(`[${i + 1}]`, x + 12, nameY);
 
-      // Upgrade name — always white, class cards get glow on hover
+      // Upgrade name
       ctx.fillStyle = '#FFFFFF';
       ctx.font      = `bold ${nameFontSize}px monospace`;
-      if (isHovered && classColor) {
+      if (isHovered) {
         ctx.shadowBlur  = 10;
-        ctx.shadowColor = classColor;
+        ctx.shadowColor = classColor || '#00E5FF';
       }
       ctx.fillText(card.name, x + 36, nameY);
       ctx.shadowBlur = 0;
 
-      // Divider line — slightly more visible
-      ctx.strokeStyle = classColor ? classColor + '33' : '#2A2E42';
+      // Divider
+      ctx.strokeStyle = classColor ? classColor + '33' : 'rgba(0,229,255,0.18)';
       ctx.lineWidth   = 1;
       ctx.beginPath();
       ctx.moveTo(x + 36, divY);
       ctx.lineTo(x + w - 14, divY);
       ctx.stroke();
 
-      // Description — bright white, no more grey
-      ctx.fillStyle = isClass ? '#E8EAF0' : '#C8CCD8';
+      // Description
+      ctx.fillStyle = isClass ? '#E8EAF0' : '#C8D4DC';
       ctx.font      = `${descFontSize}px monospace`;
       ctx.textAlign = 'left';
       const maxDescW = w - 52;
@@ -803,11 +752,11 @@ export class UpgradeScreen {
       ctx.fillText(desc, x + 36, descY);
     }
 
-    // Footer hint — slightly brighter
+    // Footer hint
     ctx.fillStyle = 'rgba(180,190,210,0.6)';
     ctx.font      = `${compact ? 11 : 15}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(compact ? 'tap a card' : 'click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + (landscape ? 14 : 22));
+    ctx.fillText(compact ? 'tap a card' : 'click or press 1 / 2 / 3', W / 2, layout[2].y + layout[2].h + 8 + (landscape ? 14 : 22));
     ctx.textAlign = 'left';
   }
 }
