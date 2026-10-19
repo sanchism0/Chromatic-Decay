@@ -86,7 +86,7 @@ export function shapeSprite(shape, r, fill, edge, glow, blur, lineWidth) {
   });
 }
 
-// Glowing orb with a bright core — bullets, residuals
+// Glowing orb with a bright core — bullets
 export function orbSprite(color, r, blur, core) {
   return _cached(`orb|${color}|${r}|${blur}|${core}`, () => {
     const half = r + blur + 2;

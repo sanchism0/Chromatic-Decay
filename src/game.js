@@ -6,9 +6,9 @@ import { Camera, GameMap }  from './map.js';
 import { Player }           from './player.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
-import { ResidualSystem }   from './residuals.js';
 import { EchoSystem }       from './echoes.js';
 import { ParticleSystem }   from './particles.js';
+import { DrainSystem }      from './drain.js';
 import { UpgradeScreen }    from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
 import { TrapSystem }       from './traps.js';
@@ -87,9 +87,9 @@ let state = STATES.TITLE;
 const input       = new Input(canvas);
 const camera      = new Camera();
 const particles   = new ParticleSystem();
+const drain       = new DrainSystem();
 const projectiles = new ProjectileSystem();
 const enemies     = new EnemySystem();
-const residuals   = new ResidualSystem();
 const echoes      = new EchoSystem();
 const companions  = new CompanionSystem();
 const traps       = new TrapSystem();
@@ -224,7 +224,7 @@ function startRun() {
   companions.reset();
   traps.reset();
   enemies.reset();
-  residuals.reset();
+  drain.reset();
   echoes.reset();
   projectiles.reset();
   lore.reset();
@@ -346,7 +346,8 @@ function update(dt) {
 }
 
 // Shared button rects computed by drawTitle each frame so update can read them
-const _titleBtns = { start: null, archive: null, admin: null };
+// story is drawn disabled (coming soon) and never handled in updateTitle
+const _titleBtns = { start: null, story: null, archive: null, admin: null };
 
 function _hitBtn(btn) {
   if (!btn) return false;
@@ -416,6 +417,7 @@ function updatePlaying(dt) {
 
   // Process enemy deaths
   for (const e of dead) {
+    drain.spawn(e);
     hud.flashKill();
     sfxEnemyKill(e.type);
 
@@ -465,6 +467,7 @@ function updatePlaying(dt) {
   // Projectile → enemy hits
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
   for (const e of projKilled) {
+    drain.spawn(e);
     hud.flashKill();
 
     // Kill pulse (legacy)
@@ -536,15 +539,8 @@ function updatePlaying(dt) {
   // Companions (Herald) — orbit, expiry AoE
   if (companions.count > 0) companions.update(dt, player, enemies, particles);
 
-  // Residuals
-  residuals.update(dt, player, particles);
+  drain.update(dt, player);
 
-  // Detect residual collection for trait effects
-  // (ResidualSystem doesn't expose a callback, so we hook via a proxy update)
-  // Volatile residual: checked via count change
-  const prevTotal = player._prevResidualTotal || 0;
-  if (residuals.total > prevTotal) player.onResidualCollect();
-  player._prevResidualTotal = residuals.total;
 
   // Echoes / fragments
   const rescued = echoes.update(dt, player, map, enemies, particles);
@@ -1195,12 +1191,13 @@ function drawGame(W, H) {
     }
   }
 
+  drain.drawFloor(ctx);
   traps.draw(ctx);
   echoes.draw(ctx);
-  residuals.draw(ctx);
   projectiles.draw(ctx);
   enemies.draw(ctx);
   player.draw(ctx);
+  drain.draw(ctx, player);
   companions.draw(ctx);
   particles.draw(ctx);
 
@@ -1264,7 +1261,7 @@ function drawGame(W, H) {
 
   resetTransform();
 
-  hud.draw(ctx, player, residuals, elapsed, waveSystem, W, H);
+  hud.draw(ctx, player, elapsed, waveSystem, W, H);
   lore.draw(ctx, W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
@@ -1446,6 +1443,25 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
   ctx.shadowBlur = 0;
 }
 
+// Greyed-out button for a mode that isn't playable yet: no hover, no glow
+function _drawComingSoonBtn(x, y, w, h, label) {
+  ctx.fillStyle = '#070B12';
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.fill();
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const fontSize = Math.max(13, Math.min(16, Math.floor(w * 0.07)));
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#4A5068';
+  ctx.font      = `bold ${fontSize}px monospace`;
+  ctx.fillText(label, x + w / 2, y + h / 2 - 2);
+  ctx.fillStyle = '#3A3F55';
+  ctx.font      = '10px monospace';
+  ctx.fillText('COMING SOON', x + w / 2, y + h / 2 + 12);
+}
+
 // ── Title screen ──────────────────────────────────────────────
 
 function drawTitle(W, H) {
@@ -1518,15 +1534,19 @@ function drawTitle(W, H) {
     const playH = 52;
     const playX = W / 2 - playW / 2;
     const playY = H * 0.44;
+    const storyH = 44;
+    const storyY = playY + playH + 10;
     const smW   = (playW - 12) / 2;
     const smH   = 40;
-    const smY   = playY + playH + 10;
+    const smY   = storyY + storyH + 10;
 
     _titleBtns.start   = { x: playX,             y: playY, w: playW, h: playH };
+    _titleBtns.story   = { x: playX,             y: storyY, w: playW, h: storyH };
     _titleBtns.archive = { x: playX,             y: smY,   w: smW,   h: smH   };
     _titleBtns.admin   = { x: playX + smW + 12,  y: smY,   w: smW,   h: smH   };
 
-    _drawSciFiBtn(playX,            playY, playW, playH, 'PLAY',     true,  pulse, teal);
+    _drawSciFiBtn(playX,            playY, playW, playH, 'ARCADE MODE', true, pulse, teal);
+    _drawComingSoonBtn(playX,       storyY, playW, storyH, 'STORY MODE');
     _drawSciFiBtn(playX,            smY,   smW,   smH,   'ARCHIVE',  false, pulse, tealDim);
     _drawSciFiBtn(playX + smW + 12, smY,   smW,   smH,   'SETTINGS', false, pulse, tealDim);
   } else {
@@ -1543,15 +1563,17 @@ function drawTitle(W, H) {
     _titleBtns.archive = { x: rowX,                             y: sideY, w: sideW, h: sideH };
     _titleBtns.start   = { x: rowX + sideW + gap,               y: rowY,  w: playW, h: playH };
     _titleBtns.admin   = { x: rowX + sideW + gap + playW + gap, y: sideY, w: sideW, h: sideH };
+    _titleBtns.story   = { x: rowX + sideW + gap,               y: rowY + playH + 12, w: playW, h: 44 };
 
     _drawSciFiBtn(_titleBtns.archive.x, _titleBtns.archive.y, sideW, sideH, 'ARCHIVE',  false, pulse, tealDim);
-    _drawSciFiBtn(_titleBtns.start.x,   _titleBtns.start.y,   playW, playH, 'PLAY',     true,  pulse, teal);
+    _drawSciFiBtn(_titleBtns.start.x,   _titleBtns.start.y,   playW, playH, 'ARCADE MODE', true, pulse, teal);
+    _drawComingSoonBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE');
     _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
 
   // ── Leaderboard panel ─────────────────────────────────────
   const scores  = loadScores();
-  const panelY  = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.start.y + _titleBtns.start.h) + 18;
+  const panelY  = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 18;
   const panelW  = mobile ? W * 0.88 : Math.min(560, W * 0.58);
   const rowsH   = scores.length > 0 ? 14 + Math.min(scores.length, 5) * 16 + 6 : 0;
   const panelH  = 34 + rowsH;

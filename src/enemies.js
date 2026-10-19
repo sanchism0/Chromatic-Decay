@@ -595,7 +595,7 @@ export class EnemySystem {
       e.update(dt, player, map, projectileSystem);
     }
 
-    // Remove dead enemies, spawn particles + residuals
+    // Remove dead enemies; game.js spawns their Colour Drain
     const dead = this.enemies.filter(e => !e.isAlive);
     this.enemies = this.enemies.filter(e => e.isAlive);
 
@@ -642,8 +642,7 @@ export class EnemySystem {
           e.takeDamage(dmg);
 
           if (!e.isAlive) {
-            particles.enemyDeath(e.x, e.y, e.cfg.color);
-            killed.push(e);
+            killed.push(e);   // death effect: DrainSystem, spawned by game.js
           } else if (wasAlive && player && player.shortSqueeze) {
             // ── Short Squeeze: surviving enemies are slowed 30% for 3s ──
             e.slowFactor = 0.3;

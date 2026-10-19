@@ -48,7 +48,6 @@ export class Player {
     this.moveSpeed    = CONFIG.player_move_speed;
     this.projSpeed    = CONFIG.player_projectile_speed;
     this.projRange    = CONFIG.player_projectile_range;
-    this.pickupRadius = CONFIG.player_pickup_radius;
     this.projCount    = 1;
     this.projSpread   = 0.12;
 
@@ -85,9 +84,6 @@ export class Player {
     this.chainReaction       = false;
     this.chainBonus          = 0;
     this.chainTimer          = 0;
-    this.volatileResidual    = false;
-    this.volatileTimer       = 0;
-    this.volatileStack       = 0;
     this.berserker           = false;
     this.cascade             = false;
     this.cascadeKilledThisSec = false;
@@ -151,7 +147,6 @@ export class Player {
     this._circuitBreakerActivated = false;  // signal to game.js
 
     // ── Generic upgrade bonuses ───────────────────────────────
-    this.residualBonus       = 0;   // Scavenger: +% to residual drops
 
     // ── State ────────────────────────────────────────────────
     this.firing      = false;
@@ -215,9 +210,6 @@ export class Player {
     // Chain reaction bonus (legacy)
     if (this.chainReaction && this.chainTimer > 0) d *= 1 + this.chainBonus;
 
-    // Volatile residual bonus (legacy)
-    if (this.volatileResidual && this.volatileTimer > 0) d *= 1 + this.volatileStack * 0.05;
-
     // Drift damage: +1% per 10px/s above base speed
     if (this.driftDamage) {
       const speedAboveBase = Math.max(0, this.effectiveSpeed - CONFIG.player_move_speed);
@@ -248,8 +240,6 @@ export class Player {
     // ── Timers ───────────────────────────────────────────────
     this.abilityCooldown = Math.max(0, this.abilityCooldown - dt);
     this.chainTimer      = Math.max(0, this.chainTimer - dt);
-    this.volatileTimer   = Math.max(0, this.volatileTimer - dt);
-    if (this.volatileTimer <= 0) this.volatileStack = 0;
     this.evasionTimer    = Math.max(0, this.evasionTimer - dt);
 
     // Cascade reset
@@ -288,11 +278,6 @@ export class Player {
 
     const dir = normalize(dx, dy);
     const spd = this.effectiveSpeed;
-
-    // Pickup radius scales with speed (Ghost: Momentum Feed)
-    if (this.momentumPickup) {
-      this.pickupRadius = CONFIG.player_pickup_radius + (spd / CONFIG.player_move_speed) * 20;
-    }
 
     // Move in sub-steps no longer than a quarter of the body, so a slow frame
     // (large dt) can't jump the player's centre inside a rack
@@ -504,14 +489,6 @@ export class Player {
     }
 
     return { killPulse: this.killPulse, cascadeTriggered, cascadeX: enemyX, cascadeY: enemyY };
-  }
-
-  // Called by game.js when a residual is collected
-  onResidualCollect() {
-    if (this.volatileResidual) {
-      this.volatileStack = Math.min(10, (this.volatileStack || 0) + 1);
-      this.volatileTimer = 5;
-    }
   }
 
   // Called by game.js when an Echo is rescued

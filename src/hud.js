@@ -17,7 +17,7 @@ export class HUD {
     this.echoFlash = Math.max(0, this.echoFlash - dt);
   }
 
-  draw(ctx, player, residuals, elapsed, waveSystem, W, H) {
+  draw(ctx, player, elapsed, waveSystem, W, H) {
     const pad = 14;
 
     // ── HP Bar ─────────────────────────────────────────────────
