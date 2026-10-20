@@ -18,17 +18,21 @@ export class HUD {
   }
 
   draw(ctx, player, elapsed, waveSystem, W, H) {
-    const pad = 14;
+    const pad    = 14;
+    // Narrow (phone portrait): smaller type, HP numbers under the bar, and the
+    // wave label moves to the right-hand column so nothing collides
+    const narrow = W < 600;
+    const fs     = px => `${narrow ? Math.round(px * 0.72) : px}px monospace`;
 
     // ── HP Bar ─────────────────────────────────────────────────
-    const hpBarW = 200;
-    const hpBarH = 14;
+    const hpBarW = narrow ? Math.round(Math.min(160, W * 0.38)) : 200;
+    const hpBarH = narrow ? 10 : 14;
     const hpX    = pad;
-    const hpY    = pad + 24;
+    const hpY    = pad + (narrow ? 18 : 24);
     const hpPct  = clamp(player.hp / player.maxHp, 0, 1);
 
     ctx.fillStyle = '#8A8E99';
-    ctx.font      = '20px monospace';
+    ctx.font      = fs(20);
     ctx.textAlign = 'left';
     ctx.fillText('HP', hpX, hpY - 5);
 
@@ -46,8 +50,9 @@ export class HUD {
     }
 
     ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '20px monospace';
-    ctx.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX + hpBarW + 8, hpY + hpBarH + 4);
+    ctx.font      = fs(20);
+    if (narrow) ctx.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX, hpY + hpBarH + 16);
+    else        ctx.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX + hpBarW + 8, hpY + hpBarH + 4);
 
     if (this.echoFlash > 0) {
       ctx.globalAlpha = this.echoFlash / 0.3 * 0.35;
@@ -56,7 +61,7 @@ export class HUD {
       ctx.globalAlpha = 1;
     }
 
-    let nextBarY = hpY + hpBarH + 4;
+    let nextBarY = hpY + hpBarH + (narrow ? 22 : 4);
 
     // ── Shield Bar (Warden) ────────────────────────────────────
     if (player.shield > 0 || player.maxHp !== CONFIG.player_base_hp) {
@@ -64,7 +69,7 @@ export class HUD {
       if (player.shield > 0 || (player.classId === 'warden')) {
         const shPct = clamp(player.shield / maxShield, 0, 1);
         ctx.fillStyle = '#8A8E99';
-        ctx.font      = '20px monospace';
+        ctx.font      = fs(20);
         ctx.fillText('SHIELD', hpX, nextBarY + 14);
         ctx.fillStyle = '#1E2130';
         ctx.fillRect(hpX + 48, nextBarY + 2, 130, 6);
@@ -80,20 +85,19 @@ export class HUD {
     }
 
     // ── Wave indicator (top center) ────────────────────────────
-    const resX = W / 2;
-    if (waveSystem && waveSystem.wave > 0) {
+    if (waveSystem && waveSystem.wave > 0 && !narrow) {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#C4C8D4';
-      ctx.font      = 'bold 22px monospace';
-      ctx.fillText(`— WAVE ${waveSystem.wave} —`, resX, pad + 16);
+      ctx.font      = 'bold ' + fs(22);
+      ctx.fillText(`— WAVE ${waveSystem.wave} —`, W / 2, pad + 16);
     }
 
     // ── Score / Wave timer (top right) ───────────────────────
     const score = waveSystem ? waveSystem.killScore : player.frequencyScore(elapsed);
     ctx.textAlign = 'right';
     ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '21px monospace';
-    ctx.fillText(`SCORE  ${score.toLocaleString()}`, W - pad, pad + 20);
+    ctx.font      = fs(21);
+    ctx.fillText(`SCORE  ${score.toLocaleString()}`, W - pad, pad + (narrow ? 14 : 20));
 
     if (waveSystem) {
       // Wave countdown — yellow at ≤10s, bright yellow + glow at ≤5s
@@ -102,9 +106,14 @@ export class HUD {
       const hot = wt > 0 && wt <= 5;
       ctx.fillStyle = low ? '#e9ff6a' : '#A0A4B0';
       if (hot) { ctx.shadowBlur = 8; ctx.shadowColor = '#e9ff6a'; }
-      ctx.font = low ? 'bold 21px monospace' : '21px monospace';
-      ctx.fillText(`${waveSystem.waveTimerStr} wave`, W - pad, pad + 44);
+      ctx.font = (low ? 'bold ' : '') + fs(21);
+      ctx.fillText(`${waveSystem.waveTimerStr} wave`, W - pad, pad + (narrow ? 32 : 44));
       ctx.shadowBlur = 0;
+      if (narrow && waveSystem.wave > 0) {
+        ctx.fillStyle = '#C4C8D4';
+        ctx.font      = 'bold ' + fs(22);
+        ctx.fillText(`WAVE ${waveSystem.wave}`, W - pad, pad + 50);
+      }
     }
 
     // ── Class + Subclass display (bottom-left) ─────────────────
@@ -112,18 +121,18 @@ export class HUD {
     if (player.subclassId) {
       ctx.textAlign = 'left';
       ctx.fillStyle = player.glowColor;
-      ctx.font      = 'bold 23px monospace';
+      ctx.font      = 'bold ' + fs(23);
       ctx.shadowBlur  = 8;
       ctx.shadowColor = player.glowColor;
       ctx.fillText(player.classLabel || player.classId.toUpperCase(), pad, classY - 22);
       ctx.shadowBlur  = 0;
       ctx.fillStyle   = '#8A8E99';
-      ctx.font        = '20px monospace';
+      ctx.font        = fs(20);
       ctx.fillText(`+ ${player.subclassId.toUpperCase()}`, pad, classY);
     } else if (player.classId) {
       ctx.textAlign = 'left';
       ctx.fillStyle = player.glowColor;
-      ctx.font      = 'bold 23px monospace';
+      ctx.font      = 'bold ' + fs(23);
       ctx.shadowBlur  = 8;
       ctx.shadowColor = player.glowColor;
       ctx.fillText(player.classLabel || player.classId.toUpperCase(), pad, classY);
@@ -140,7 +149,7 @@ export class HUD {
       const cdPct       = ready ? 1 : 1 - player.abilityCooldown / player.abilityCooldownMax;
 
       ctx.fillStyle = '#8A8E99';
-      ctx.font      = '22px monospace';
+      ctx.font      = fs(22);
       ctx.textAlign = 'left';
       const abilityNames = {
         warden: 'BARRIER PULSE', breaker: 'OVERLOAD BURST',
@@ -165,7 +174,7 @@ export class HUD {
 
       if (ready) {
         ctx.fillStyle = '#FFFFFF';
-        ctx.font      = '22px monospace';
+        ctx.font      = fs(22);
         ctx.fillText('SPACE / F', abX + abilityBarW + 6, abY + 6);
       }
     }
@@ -177,7 +186,7 @@ export class HUD {
       // Overclock active: doubled fire rate
       if (player.overclockActive && player.overclockTimer > 0) {
         ctx.fillStyle = '#fff5c2';
-        ctx.font      = '22px monospace';
+        ctx.font      = fs(22);
         ctx.textAlign = 'left';
         ctx.shadowBlur  = 6;
         ctx.shadowColor = '#fff5c2';
@@ -189,7 +198,7 @@ export class HUD {
       // Algorithmic Aggression: kill streak bonus
       if (player.algorithmicAggression && player.algoBonus > 0) {
         ctx.fillStyle = '#fff5c2';
-        ctx.font      = '22px monospace';
+        ctx.font      = fs(22);
         ctx.textAlign = 'left';
         ctx.fillText(`▲ ALGO  +${Math.round(player.algoBonus * 100)}%  ×${player.algoKillStreak}`, pad, buffY);
         buffY -= 26;
@@ -198,7 +207,7 @@ export class HUD {
       // Circuit Breaker available indicator
       if (player.circuitBreaker && !player.circuitBreakerUsed && player.abilityCooldown <= 0) {
         ctx.fillStyle = '#ffffff';
-        ctx.font      = '22px monospace';
+        ctx.font      = fs(22);
         ctx.textAlign = 'left';
         ctx.shadowBlur  = 6;
         ctx.shadowColor = '#fff5c2';
