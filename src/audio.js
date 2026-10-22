@@ -98,24 +98,128 @@ export function stopAmbient() {
   _ambientNodes = null;
 }
 
-// ── Player shoot (positive — 3 randomised variations) ─────────
+// ── Player shoot — the Pulse Emitter (positive) ───────────────
+// Each operator's emitter has its own voice: Dex's salvaged magnetron rig
+// goes "PEW" with an electric buzz; Juno's tuned antenna coil rings like glass.
 
-export function sfxShoot() {
+export function sfxShoot(overload = false, character = 'dex') {
+  if (character === 'juno') _shotGlass(overload);
+  else                      _shotPew(overload);
+}
+
+// Dex — "Electric pew": two slightly detuned sawtooths swooping down fast,
+// a fast pitch wobble for the electric buzz, a sizzle on top and a filter
+// that closes as it falls. Each shot starts at a slightly different pitch.
+// Overload shots are lower and longer.
+function _shotPew(overload) {
   const ctx = _ac();
-  const t   = ctx.currentTime;
-  const v   = Math.floor(Math.random() * 3);
-  if (v === 0) {
-    // High clean ping descending
-    _osc('sine', 1100, t, 0.06, 0.13, 750);
-  } else if (v === 1) {
-    // Slightly lower, triangle — softer texture
-    _osc('triangle', 900, t, 0.07, 0.12, 620);
-    _osc('sine', 1400, t, 0.025, 0.07, 1400); // short high transient
-  } else {
-    // Double-tap feel — two very quick partials
-    _osc('sine', 1050, t,        0.04, 0.11, 800);
-    _osc('sine', 1300, t + 0.02, 0.04, 0.08, 950);
+  const t   = ctx.currentTime + 0.002;
+  const f0  = (overload ? 1150 : 1900) * (0.95 + Math.random() * 0.1);
+  const f1  = overload ? 160 : 280;
+  const dur = overload ? 0.18 : 0.12;
+  const out = ctx.createGain();
+  out.gain.value = overload ? 0.8 : 0.6;
+  out.connect(ctx.destination);
+
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 4;
+  lp.frequency.setValueAtTime(6500, t); lp.frequency.exponentialRampToValueAtTime(900, t + dur);
+  lp.connect(out);
+
+  // Buzz: a fast square LFO wobbling both oscillators' pitch
+  const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
+  lfo.type = 'square'; lfo.frequency.value = overload ? 55 : 70;
+  lfoGain.gain.value = overload ? 90 : 120;
+  lfo.connect(lfoGain); lfo.start(t); lfo.stop(t + dur + 0.02);
+
+  for (const [det, peak] of [[1, 0.05], [1.012, 0.04]]) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * det, t);
+    o.frequency.exponentialRampToValueAtTime(f1 * det, t + dur * 0.9);
+    lfoGain.connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(lp);
+    o.start(t); o.stop(t + dur + 0.02);
   }
+
+  // Sizzle: a short band of high noise riding the start
+  const len = Math.ceil(ctx.sampleRate * 0.05);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp  = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 5200; bp.Q.value = 2;
+  const sg  = ctx.createGain(); sg.gain.value = 0.045;
+  src.connect(bp); bp.connect(sg); sg.connect(out);
+  src.start(t); src.stop(t + 0.06);
+
+  // A little weight underneath
+  _thump(ctx, out, t, overload ? 150 : 220, overload ? 60 : 90, overload ? 0.05 : 0.03, 0.06);
+  setTimeout(() => out.disconnect(), 500);
+}
+
+function _thump(ctx, out, t, f0, f1, peak, dur) {
+  const b = ctx.createOscillator(), bg = ctx.createGain();
+  b.type = 'sine';
+  b.frequency.setValueAtTime(f0, t);
+  b.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.8);
+  bg.gain.setValueAtTime(0.0001, t);
+  bg.gain.linearRampToValueAtTime(peak, t + 0.004);
+  bg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  b.connect(bg); bg.connect(out);
+  b.start(t); b.stop(t + dur + 0.02);
+}
+
+// Juno — "Glass ping": a short breath of air, then two sines a fifth apart
+// that ring briefly with a small drop, over a light body — like tapping
+// glass. Each shot steps through a small A5 pentatonic run with slight
+// random detune, so steady fire shimmers instead of ticking. Overload shots
+// are an octave lower and ring longer.
+
+const _PULSE_NOTES = [880, 988, 1109, 1319, 1480, 1319, 1109, 988];   // A5 pentatonic, up and back
+let _pulseStep = 0;
+
+function _shotGlass(overload) {
+  const ctx  = _ac();
+  const t    = ctx.currentTime + 0.002;
+  const f    = _PULSE_NOTES[_pulseStep++ % _PULSE_NOTES.length] * (overload ? 0.5 : 1)
+             * Math.pow(2, (Math.random() - 0.5) * 0.06);              // ±~35 cents
+  const out  = ctx.createGain();
+  out.gain.value = overload ? 0.95 : 0.75;
+  out.connect(ctx.destination);
+
+  // Breath: 18 ms of soft high noise, swelling and fading
+  const len = Math.ceil(ctx.sampleRate * 0.018);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp  = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 6000; bp.Q.value = 0.7;
+  const ng  = ctx.createGain(); ng.gain.value = 0.035;
+  src.connect(bp); bp.connect(ng); ng.connect(out);
+  src.start(t); src.stop(t + 0.03);
+
+  // Two sines a fifth apart, dropping slightly, ringing out
+  const ring = (freq, start, dur, peak) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq, start);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.85, start + 0.05);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.linearRampToValueAtTime(peak, start + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    o.connect(g); g.connect(out);
+    o.start(start); o.stop(start + dur + 0.02);
+  };
+  ring(f,       t,         overload ? 0.20 : 0.14, 0.07);
+  ring(f * 1.5, t + 0.004, overload ? 0.16 : 0.10, 0.035);
+
+  // Light body
+  _thump(ctx, out, t, overload ? 160 : 240, overload ? 90 : 140, overload ? 0.04 : 0.02, 0.05);
+
+  setTimeout(() => out.disconnect(), 500);
 }
 
 // ── Enemy kill (positive — ascending 2-note resolve per type) ─
