@@ -10,39 +10,26 @@ let _echoId = 0;
 // A small faceless person made of white light, a pink health cross on the
 // chest, fading into a wisp instead of legs.
 const ECHO_ART = [
-  '........ooooo........',
-  '.......o#####o.......',
-  '......o#######o......',
-  '......o#######o......',
-  '......o#######o......',
-  '......o######so......',
-  '.......os###so.......',
-  '........os#so........',
-  '.....oooo###oooo.....',
-  '....o###########o....',
-  '...o#############o...',
-  '..o##s###+++###s##o..',
-  '..o#so###+++###os#o..',
-  '..o#so#+++++++#os#o..',
-  '..o#so#+++++++#os#o..',
-  '..o#so#+++++++#os#o..',
-  '.o##so###+++###os##o.',
-  '.o#o.o###+++###o.o#o.',
-  '..o..os#######so..o..',
-  '.....os#######so.....',
-  '......os#####so......',
-  '......os#####so......',
-  '.......os###so.......',
-  '.......os###so.......',
-  '........os#so........',
-  '........os#so........',
-  '.........o#o.........',
-  '.........o#o.........',
-  '..........o..........',
+  '....ooo....',
+  '...o###o...',
+  '...o###o...',
+  '....o#o....',
+  '..ooo#ooo..',
+  '.o#######o.',
+  'o#o##+##o#o',
+  'o.o#+++#o.o',
+  '...o#+#o...',
+  '...os#so...',
+  '....s#s....',
+  '....s#s....',
+  '.....#.....',
+  '.....s.....',
+  '.....s.....',
 ];
 const ECHO_PAL = { '#': '#FFFFFF', s: '#C9D3E6', o: '#7888A6', '+': '#FF4F9A' };
 const ECHO_W = ECHO_ART[0].length, ECHO_H = ECHO_ART.length;
-const ECHO_PX = 2;   // screen pixels per art pixel
+const ECHO_PX = 1;   // screen pixels per art pixel, same as the characters
+const ECHO_TAIL = 9; // rows from here down are the wisp
 const _echoArt = (() => {
   const c = document.createElement('canvas');
   c.width = ECHO_W; c.height = ECHO_H;
@@ -50,7 +37,7 @@ const _echoArt = (() => {
   ECHO_ART.forEach((row, j) => [...row].forEach((ch, i) => {
     if (!ECHO_PAL[ch]) return;
     // The wisp thins out toward the tip
-    x.globalAlpha = j > 20 ? Math.max(0.35, 1 - (j - 20) * 0.08) : 1;
+    x.globalAlpha = j >= ECHO_TAIL ? Math.max(0.3, 1 - (j - ECHO_TAIL + 1) * 0.12) : 1;
     x.fillStyle = ECHO_PAL[ch];
     x.fillRect(i, j, 1, 1);
   }));
@@ -103,7 +90,7 @@ export class EchoSystem {
       // Only fragments can be consumed by enemies — health pickups are ignored
 
       // Player rescue — fragments need to be close, regular echoes too
-      const rescueRange = echo.isFragment ? 28 : 26;
+      const rescueRange = echo.isFragment ? 28 : 22;
       const d = dist(echo.x, echo.y, player.x, player.y);
       if (d < rescueRange) {
         echo.channeling = true;
@@ -164,7 +151,7 @@ export class EchoSystem {
       const bob   = Math.sin(echo.bobTimer * 2.2) * 3;
 
       // Contact shadow stays on the floor while the pickup bobs above it
-      const shR = echo.isFragment ? 14 : 12;
+      const shR = echo.isFragment ? 14 : 7;
       drawGroundShadow(ctx, echo.x, echo.y + shR, shR * 1.2, shR * 0.45, 0.55);
 
       if (echo.isFragment) {
@@ -180,13 +167,14 @@ export class EchoSystem {
   _drawEcho(ctx, sx, sy, pulse, echo) {
     // Soft light behind the figure (smooth, like every other light)
     const t = echo.pulseTimer;
-    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, 34 + pulse * 6);
-    g.addColorStop(0, `rgba(255,228,240,${0.32 + pulse * 0.12})`);
-    g.addColorStop(0.5, 'rgba(255,128,187,0.10)');
-    g.addColorStop(1, 'rgba(255,128,187,0)');
+    const R = 15 + pulse * 3;
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+    g.addColorStop(0, `rgba(255,255,255,${0.42 + pulse * 0.14})`);
+    g.addColorStop(0.45, 'rgba(235,242,255,0.14)');
+    g.addColorStop(1, 'rgba(235,242,255,0)');
     ctx.globalAlpha = 1;
     ctx.fillStyle = g;
-    ctx.fillRect(sx - 44, sy - 44, 88, 88);
+    ctx.fillRect(sx - R, sy - R, R * 2, R * 2);
 
     // The figure: pixel art, ECHO_PX screen pixels per art pixel, snapped to
     // whole pixels. The wispy tail sways a pixel side to side.
@@ -198,7 +186,7 @@ export class EchoSystem {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
     for (let y = 0; y < ECHO_H; y++) {
-      const sway = y >= 18 ? Math.round(Math.sin(t * 3 - y * 0.45) * (y - 16) / 8) * px : 0;
+      const sway = y >= ECHO_TAIL ? Math.round(Math.sin(t * 3 - y * 0.6) * (y - ECHO_TAIL + 2) / 4) * px : 0;
       ctx.drawImage(_echoArt, 0, y, ECHO_W, 1, ox + sway, oy + y * px, ECHO_W * px, px);
     }
     ctx.restore();
