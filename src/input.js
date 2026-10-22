@@ -7,15 +7,25 @@ export class Input {
     // Keyboard state
     this.keys = {
       w: false, a: false, s: false, d: false,
-      space: false, escape: false, f: false,
+      space: false, escape: false, f: false, q: false, enter: false,
     };
     // Edge detection — true for exactly one frame
     this.justPressed = {
-      escape: false, space: false, f: false,
+      escape: false, space: false, f: false, q: false, enter: false,
     };
     this._prevEscape = false;
     this._prevSpace  = false;
     this._prevF      = false;
+    this._prevQ      = false;
+    this._prevEnter  = false;
+
+    // Auto-fire: on by default; off means hold the mouse / aim stick to fire
+    this.autoFire = true;
+    try { this.autoFire = localStorage.getItem('chromatic_decay_autofire') !== '0'; } catch (e) {}
+
+    // On-screen buttons register a hit test here so a touch on them is a tap,
+    // not the start of a joystick
+    this.uiHit = null;
 
     // Mouse state (screen coords)
     this.mouseX = 0;
@@ -46,6 +56,8 @@ export class Input {
         case 'KeyD': case 'ArrowRight': this.keys.d = true;  break;
         case 'Space':   e.preventDefault(); this.keys.space = true;  break;
         case 'KeyF':    this.keys.f      = true;  break;
+        case 'KeyQ':    this.keys.q      = true;  break;
+        case 'Enter':   this.keys.enter  = true;  break;
         case 'Escape':  this.keys.escape = true; break;
       }
     });
@@ -58,6 +70,8 @@ export class Input {
         case 'KeyD': case 'ArrowRight': this.keys.d = false; break;
         case 'Space':   this.keys.space  = false; break;
         case 'KeyF':    this.keys.f      = false; break;
+        case 'KeyQ':    this.keys.q      = false; break;
+        case 'Enter':   this.keys.enter  = false; break;
         case 'Escape':  this.keys.escape = false; break;
       }
     });
@@ -106,6 +120,9 @@ export class Input {
         this.mouseX = x;
         this.mouseY = y;
         this._touchStartPos[t.identifier] = { x, y };
+
+        // On-screen button → leave it to the tap
+        if (this.uiHit && this.uiHit(x, y)) continue;
 
         // Left half → move joystick
         if (x < W / 2 && !this._leftTouch) {
@@ -194,12 +211,16 @@ export class Input {
     this.justPressed.escape       = this.keys.escape && !this._prevEscape;
     this.justPressed.space        = this.keys.space  && !this._prevSpace;
     this.justPressed.f            = this.keys.f      && !this._prevF;
+    this.justPressed.q            = this.keys.q      && !this._prevQ;
+    this.justPressed.enter        = this.keys.enter  && !this._prevEnter;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
     this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;
 
     this._prevEscape       = this.keys.escape;
     this._prevSpace        = this.keys.space;
     this._prevF            = this.keys.f;
+    this._prevQ            = this.keys.q;
+    this._prevEnter        = this.keys.enter;
     this._prevMouseDown    = this.mouseDown;
     this._prevAbilityTouch = this._abilityTouchDown;
 
@@ -221,6 +242,16 @@ export class Input {
   // Ability — keyboard only (Space or F); auto-trigger handled by game.js
   get abilityJustPressed() {
     return this.justPressed.space || this.justPressed.f;
+  }
+
+  setAutoFire(on) {
+    this.autoFire = on;
+    try { localStorage.setItem('chromatic_decay_autofire', on ? '1' : '0'); } catch (e) {}
+  }
+
+  // Manual fire: mouse held (not a one-frame tap) or the aim stick in use
+  get fireHeld() {
+    return (this.mouseDown && !this._tapJustEnded) || !!this._rightTouch;
   }
 
   // Expose joystick state for HUD drawing

@@ -362,12 +362,13 @@ export class Player {
       this._aimPoint = mouse;
     }
 
-    // ── Shooting — always fires toward cursor ────────────────
-    this.firing    = true;
+    // ── Shooting — toward the cursor; auto-fire or while held ─
+    this.firing    = input.autoFire || input.fireHeld;
     this.justFired = false;
     this.fireTimer -= dt;
+    if (!this.firing) this.fireTimer = Math.max(0, this.fireTimer);   // first press fires at once
 
-    if (this.fireTimer <= 0) {
+    if (this.firing && this.fireTimer <= 0) {
       this._shoot(projectileSystem);
       this.fireTimer = 1 / this.effectiveFireRate;
       this.justFired = true;
@@ -618,6 +619,9 @@ export class Player {
       this.hp = 1;
       this._lastStandUsed = true;
     }
+
+    // Story tutorial: you can be hurt, but never knocked out
+    if (this.cannotDie && this.hp < 1) this.hp = 1;
 
     const totalInvincibility = 0.6 + (this.invincibilityBonus || 0);
     this.invincible = totalInvincibility;

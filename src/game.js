@@ -6,7 +6,8 @@ import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H } from './player.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
-import { EchoSystem }       from './echoes.js';
+import { EchoSystem, Echo } from './echoes.js';
+import { StoryMode }        from './story.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
@@ -84,6 +85,8 @@ const STATES = {
   WIN:              8,
   CLASS_EMERGENCE:  9,
   CHAR_SELECT:     10,
+  STORY:           11,   // story scenes (dialogue)
+  STORY_END:       12,   // prologue complete card
 };
 let state = STATES.TITLE;
 
@@ -222,7 +225,8 @@ function getUnlockedClasses() {
 
 // ── Run setup ─────────────────────────────────────────────────
 
-function startRun() {
+function startRun(opts = {}) {
+  const tutorial = !!opts.tutorial;
   map = new GameMap();
   pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
@@ -236,6 +240,7 @@ function startRun() {
   echoes.reset();
   projectiles.reset();
   lore.reset();
+  lore.enabled = !tutorial;   // the operator does the talking in the tutorial
   upgradeUI.takenIds    = [];
   upgradeUI.takenCounts = {};
   upgradeUI.active      = false;
@@ -270,19 +275,28 @@ function startRun() {
 
   camera.follow(spawn.x, spawn.y, vw(), vh());
 
-  // ── Fragment placement (one per run) ─────────────────────────
-  const archive = loadArchive();
-  const fragId  = getRunFragment(archive);
-  if (fragId) placeFragment(echoes, map, fragId);
+  hud.minimal = tutorial;
+  if (tutorial) {
+    // Story tutorial: no waves, no fragment, no random Echoes, and the
+    // player can't die — the story director spawns everything
+    waveSystem.active = false;
+    echoes.spawnTimer = Infinity;
+    player.cannotDie  = true;
+  } else {
+    // ── Fragment placement (one per run) ─────────────────────────
+    const archive = loadArchive();
+    const fragId  = getRunFragment(archive);
+    if (fragId) placeFragment(echoes, map, fragId);
 
-  if (!archive.run_started) {
-    lore.trigger('run_start');
-    archive.run_started = true;
-    saveArchive(archive);
+    if (!archive.run_started) {
+      lore.trigger('run_start');
+      archive.run_started = true;
+      saveArchive(archive);
+    }
+
+    // Start wave 1 (needs player + map to be ready)
+    waveSystem.startWave(1, enemies, map, player);
   }
-
-  // Start wave 1 (needs player + map to be ready)
-  waveSystem.startWave(1, enemies, map, player);
 
   stopTitleMusic();
   startAmbient();
@@ -342,6 +356,8 @@ function update(dt) {
   switch (state) {
     case STATES.TITLE:           updateTitle();            break;
     case STATES.CHAR_SELECT:     updateCharSelect(dt);     break;
+    case STATES.STORY:           updateStory(dt);          break;
+    case STATES.STORY_END:       updateStoryEnd(dt);       break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -365,18 +381,30 @@ function _hitBtn(btn) {
 }
 
 function updateTitle() {
+  if (story.active) story.reset();
+  hud.minimal = false;
   resumeAudio();
   startTitleMusic();
   if (input.justPressed.space) { _openCharSelect(); return; }
   if (!input.mouseJustClicked)  return;
 
   if (_hitBtn(_titleBtns.start))   { _openCharSelect();                       return; }
+  if (_hitBtn(_titleBtns.story))   { _startStory();                           return; }
   if (_hitBtn(_titleBtns.archive)) { state = STATES.ARCHIVE;                  return; }
   if (_hitBtn(_titleBtns.admin))   { adminPanel.open(); state = STATES.ADMIN; return; }
 }
 
 function updatePlaying(dt) {
   if (input.justPressed.escape) { state = STATES.PAUSED; return; }
+
+  // Auto-fire toggle (Q or the AUTO button), and moving the operator along
+  if (input.justPressed.q || (input.mouseJustClicked && _hitBtn(_autoBtn.r))) {
+    input.setAutoFire(!input.autoFire);
+    story.onToggleFire();
+  }
+  if (story.inTutorial && story.radio.busy && (input.justPressed.enter || input.justPressed.space ||
+      (input.mouseJustClicked && story.radio.hit(input.mouseX, input.mouseY)))) story.radio.next();
+  const _px = player.x, _py = player.y;
 
   elapsed += dt;
   window._gameElapsed = elapsed;
@@ -393,7 +421,7 @@ function updatePlaying(dt) {
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
   if (player.justFired) sfxShoot(player.lastShotOverload, player.character);
-  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; }
+  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; story.onHit(); }
 
   // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
@@ -426,6 +454,7 @@ function updatePlaying(dt) {
 
   // Process enemy deaths
   for (const e of dead) {
+    if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
     drain.spawn(e);
     hud.flashKill();
     sfxEnemyKill(e.type);
@@ -476,6 +505,7 @@ function updatePlaying(dt) {
   // Projectile → enemy hits
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
   for (const e of projKilled) {
+    if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
     drain.spawn(e);
     hud.flashKill();
 
@@ -555,6 +585,7 @@ function updatePlaying(dt) {
   const rescued = echoes.update(dt, player, map, enemies, particles);
   if (rescued) {
     if (rescued.type === 'echo') {
+      if (story.inTutorial) story.onEcho();
       hud.flashEcho();
       const wasFirst = player.echoesRescued === 0;
       player.onEchoRescue();
@@ -606,6 +637,12 @@ function updatePlaying(dt) {
     else _showNextUpgrade();
   }
 
+  if (story.inTutorial) {
+    story.onMoved(Math.hypot(player.x - _px, player.y - _py));
+    if (player.justFired) story.onShot();
+    story.updateTutorial(dt);
+  }
+
   if (!player.alive) handleGameOver();
 
   camera.follow(player.x, player.y, vw(), vh());
@@ -625,6 +662,7 @@ function updatePaused() {
     if (hit(_pauseBtns.confirmYes)) {
       pauseQuitConfirm = false;
       stopAmbient();
+      story.reset();
       state = STATES.TITLE;
     } else if (hit(_pauseBtns.confirmNo)) {
       pauseQuitConfirm = false;
@@ -1041,6 +1079,8 @@ function draw() {
   switch (state) {
     case STATES.TITLE:           drawTitle(W, H);          break;
     case STATES.CHAR_SELECT:     drawCharSelect(W, H);     break;
+    case STATES.STORY:           story.drawScene(ctx, W, H, _storyTime); _drawStorySkip(W, H); break;
+    case STATES.STORY_END:       drawGame(W, H); drawStoryEnd(W, H); break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1285,6 +1325,9 @@ function drawGame(W, H) {
 
   hud.draw(ctx, player, elapsed, waveSystem, W, H);
   lore.draw(ctx, W, H);
+  _drawEchoBeacon(W, H);
+  story.drawTutorialHud(ctx, W, H);
+  _drawAutoFireBtn(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
   if (waveSystem && waveSystem.waveTimer > 0 && waveSystem.waveTimer <= 20) {
@@ -1357,6 +1400,66 @@ function drawGame(W, H) {
   if ('ontouchstart' in window) drawMobileControls(W, H);
 }
 
+// Tutorial: point out the Echo — rings and a label on it, an arrow at the
+// screen edge when it's out of view
+function _drawEchoBeacon(W, H) {
+  const e = story.highlight === 'echo' ? story.echoTarget : null;
+  if (!e || !e.active || !echoes.echoes.includes(e)) return;
+  const sx = Math.round((e.x - camera.x) * ZOOM), sy = Math.round((e.y - camera.y) * ZOOM);
+  const t = performance.now() / 1000;
+  const col = '#FFB3D4';
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 12px monospace';
+  if (sx > 0 && sx < W && sy > 0 && sy < H) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    for (let k = 0; k < 2; k++) {
+      const p = (t * 0.7 + k * 0.5) % 1;
+      ctx.globalAlpha = (1 - p) * 0.8;
+      ctx.beginPath(); ctx.arc(sx, sy, 16 + p * 46, 0, Math.PI * 2); ctx.stroke();
+    }
+    const by = sy - 46 + Math.round(Math.sin(t * 4) * 3);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(sx - 7, by - 8); ctx.lineTo(sx + 7, by - 8); ctx.lineTo(sx, by); ctx.closePath(); ctx.fill();
+    ctx.fillText('ECHO · HEALS', Math.max(52, Math.min(W - 52, sx)), by - 14);
+  } else {
+    const m = 34;
+    const cx = Math.max(m, Math.min(W - m, sx)), cy = Math.max(m + 60, Math.min(H - m, sy));
+    const ang = Math.atan2(sy - cy, sx - cx);
+    ctx.globalAlpha = 0.75 + 0.25 * Math.sin(t * 6);
+    ctx.translate(cx, cy);
+    ctx.fillStyle = col;
+    ctx.fillText('ECHO', 0, -16);
+    ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Auto-fire toggle: bottom right on desktop, between the sticks on touch
+const _autoBtn = { r: null };
+input.uiHit = (x, y) => state === STATES.PLAYING &&
+  ((_autoBtn.r && x >= _autoBtn.r.x && x <= _autoBtn.r.x + _autoBtn.r.w &&
+    y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y));
+
+function _drawAutoFireBtn(W, H) {
+  const touch = 'ontouchstart' in window;
+  const w = touch ? 100 : 118, h = touch ? 34 : 30;
+  const x = touch ? (W - w) / 2 : W - w - 16;
+  const y = touch ? H - h - 34 : H - h - 20;
+  const on = input.autoFire;
+  const pulse = story.highlight === 'autofire' ? 0.5 + 0.5 * Math.sin(performance.now() / 160) : 0;
+  _autoBtn.r = drawSlabButton(ctx, x, y, w, h, on ? 'AUTO ● ON' : 'AUTO ○ OFF', {
+    accent: on ? '#00E5CC' : '#8FA8B8', fontSize: 12, glow: 0.15 + pulse * 0.6,
+  });
+  if (!touch) {
+    ctx.fillStyle = 'rgba(143,168,184,0.7)'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('Q', x - 8, y + h / 2 + 4);
+    ctx.textAlign = 'left';
+  }
+}
+
 function drawMobileControls(W, H) {
   const r     = input.joystickRadius;
   const thumbR = r * 0.42;
@@ -1410,6 +1513,98 @@ const _ENEMY_COLORS = ['#7B3FFF', '#FFEE22', '#55FF11', '#FF5500', '#FF0066'];
 
 let _titleParts = [];
 
+// ── Story Mode ────────────────────────────────────────────────
+// Scenes, the pick and the tutorial script live in story.js; these are the
+// hooks into the world it needs.
+
+let _storyTime = 0;
+const _storySkipBtn = { r: null };
+
+const story = new StoryMode({
+  touch: () => 'ontouchstart' in window,
+  openCharSelect: () => _openCharSelect('story'),
+  startTutorialRun: agent => { selectedCharacter = agent; startRun({ tutorial: true }); },
+  // Several at once spread evenly around the player (two = opposite sides)
+  spawnNear: (type, n) => { const a0 = Math.random() * Math.PI * 2; for (let i = 0; i < n; i++) { const p = _freeSpotNear(170, 250, n > 1 ? a0 + i * Math.PI * 2 / n : null); enemies.spawnEnemyAt(type, p.x, p.y); } },
+  spawnEchoNear: () => { const p = _freeSpotNear(260, 380); const e = new Echo(p.x, p.y); echoes.echoes.push(e); return e; },
+  playerHurt: () => player.hp < player.maxHp * 0.8,
+  autoFire: () => input.autoFire,
+  endTutorial: () => {
+    try { localStorage.setItem('chromatic_decay_prologue_done', '1'); } catch {}
+    _storyEndDelay = 0.6;
+    state = STATES.STORY_END;
+  },
+});
+
+// A clear spot on the floor at a random angle, minR–maxR from the player
+function _freeSpotNear(minR, maxR, ang = null) {
+  const PAD = 24;
+  for (let tries = 0; tries < 80; tries++) {
+    const a = ang === null ? Math.random() * Math.PI * 2 : ang + (Math.random() - 0.5) * 0.8, r = minR + Math.random() * (maxR - minR);
+    const x = player.x + Math.cos(a) * r, y = player.y + Math.sin(a) * r;
+    if (x < 50 || y < 50 || x > CONFIG.map_width - 50 || y > CONFIG.map_height - 50) continue;
+    if (map.obstacles.some(o => x + PAD > o.x && x - PAD < o.x + o.w && y + PAD > o.y && y - PAD < o.y + o.h)) continue;
+    return { x, y };
+  }
+  const fa = ang === null ? 0 : ang;
+  return { x: player.x + Math.cos(fa) * minR, y: player.y + Math.sin(fa) * minR };
+}
+
+function _startStory() {
+  _storyTime = 0;
+  stopTitleMusic();
+  story.start();
+  state = STATES.STORY;
+}
+
+function updateStory(dt) {
+  _storyTime += dt;
+  const skip = input.justPressed.escape || (input.mouseJustClicked && _hitBtn(_storySkipBtn.r));
+  if (skip) { story.skipScene(); return; }
+  story.updateScene(dt, input.justPressed.space || input.mouseJustClicked);
+}
+
+function _drawStorySkip(W, H) {
+  const touch = 'ontouchstart' in window;
+  const w = 84, h = 28;
+  _storySkipBtn.r = drawSlabButton(ctx, W - w - 14, 14, w, h, 'SKIP ›', {
+    accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, depth: 4, lift: !touch && _hitBtn(_storySkipBtn.r) ? 1 : 0,
+  });
+  if (!touch) {
+    ctx.fillStyle = 'rgba(143,168,184,0.6)'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('ESC', W - w - 22, 32);
+    ctx.textAlign = 'left';
+  }
+}
+
+// Prologue complete
+let _storyEndDelay = 0;
+const _storyEndBtns = { arcade: null, title: null };
+function updateStoryEnd(dt) {
+  if (_storyEndDelay > 0) { _storyEndDelay -= dt; return; }
+  if (input.justPressed.escape) { story.reset(); stopAmbient(); state = STATES.TITLE; return; }
+  if (!input.mouseJustClicked && !input.justPressed.space) return;
+  if (input.justPressed.space || _hitBtn(_storyEndBtns.title)) { story.reset(); stopAmbient(); state = STATES.TITLE; return; }
+  if (_hitBtn(_storyEndBtns.arcade)) { story.reset(); hud.minimal = false; _openCharSelect('arcade'); }
+}
+function drawStoryEnd(W, H) {
+  dimBackdrop(ctx, W, H, 0.75);
+  const pW = Math.min(420, W - 32), pH = 210;
+  const pX = (W - pW) / 2, pY = (H - pH) / 2 - 8;
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: '#E8F0FF', depth: 12, screen: 40, glow: 0.3 });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 12; ctx.shadowColor = '#E8F0FF';
+  _fitFont('PROLOGUE COMPLETE', pW - 30, 22, 'bold ');
+  ctx.fillText('PROLOGUE COMPLETE', W / 2, top + 30);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#A9B6C4'; ctx.font = '13px monospace';
+  ctx.fillText('Story Mode continues soon.', W / 2, top + 70);
+  const bw = (pW - 60) / 2;
+  _storyEndBtns.arcade = drawSlabButton(ctx, pX + 20, top + 110, bw, 40, 'ARCADE MODE', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_storyEndBtns.arcade) ? 1 : 0 });
+  _storyEndBtns.title  = drawSlabButton(ctx, pX + 40 + bw, top + 110, bw, 40, 'TITLE',      { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_storyEndBtns.title) ? 1 : 0 });
+  ctx.textAlign = 'left';
+}
+
 // ── Character select ("Who goes in?") ─────────────────────────
 // Picked before every Arcade run. The pick is remembered between visits.
 
@@ -1424,7 +1619,9 @@ let selectedCharacter = (() => {
 const _charBtns = { dex: null, juno: null, back: null };
 let _csDelay = 0, _csPrevA = false, _csPrevD = false, _csTime = 0;
 
-function _openCharSelect() {
+let _csMode = 'arcade';            // 'arcade' starts a run; 'story' hands the pick to the story
+function _openCharSelect(mode = 'arcade') {
+  _csMode  = mode;
   _csDelay = 0.2;                  // ignore the click that opened this screen
   _csPrevA = input.keys.a; _csPrevD = input.keys.d;
   state = STATES.CHAR_SELECT;
@@ -1433,13 +1630,14 @@ function _openCharSelect() {
 function _pickCharacter(id) {
   selectedCharacter = id;
   try { localStorage.setItem('chromatic_decay_character', id); } catch {}
+  if (_csMode === 'story') { story.picked(id); state = STATES.STORY; return; }
   startRun();
 }
 
 function updateCharSelect(dt) {
   _csTime += dt;
   if (_csDelay > 0) { _csDelay -= dt; return; }
-  if (input.justPressed.escape) { state = STATES.TITLE; return; }
+  if (input.justPressed.escape) { story.reset(); state = STATES.TITLE; return; }
 
   // A/D or arrows switch, Space starts with the highlighted one
   const a = input.keys.a, d = input.keys.d;
@@ -1451,7 +1649,7 @@ function updateCharSelect(dt) {
   // Mouse hover highlights; click or tap picks
   for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id]) && !('ontouchstart' in window)) selectedCharacter = c.id;
   if (!input.mouseJustClicked) return;
-  if (_hitBtn(_charBtns.back)) { state = STATES.TITLE; return; }
+  if (_hitBtn(_charBtns.back)) { story.reset(); state = STATES.TITLE; return; }
   for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id])) { _pickCharacter(c.id); return; }
 }
 
@@ -1581,25 +1779,6 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
   ctx.shadowBlur = 0;
 }
 
-// Greyed-out button for a mode that isn't playable yet: no hover, no glow
-function _drawComingSoonBtn(x, y, w, h, label) {
-  ctx.fillStyle = '#070B12';
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.fill();
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.stroke();
-  ctx.setLineDash([]);
-
-  const fontSize = Math.max(13, Math.min(16, Math.floor(w * 0.07)));
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#4A5068';
-  ctx.font      = `bold ${fontSize}px monospace`;
-  ctx.fillText(label, x + w / 2, y + h / 2 - 2);
-  ctx.fillStyle = '#3A3F55';
-  ctx.font      = '10px monospace';
-  ctx.fillText('COMING SOON', x + w / 2, y + h / 2 + 12);
-}
-
 // ── Title screen ──────────────────────────────────────────────
 
 function drawTitle(W, H) {
@@ -1684,7 +1863,7 @@ function drawTitle(W, H) {
     _titleBtns.admin   = { x: playX + smW + 12,  y: smY,   w: smW,   h: smH   };
 
     _drawSciFiBtn(playX,            playY, playW, playH, 'ARCADE MODE', true, pulse, teal);
-    _drawComingSoonBtn(playX,       storyY, playW, storyH, 'STORY MODE');
+    _drawSciFiBtn(playX,            storyY, playW, storyH, 'STORY MODE', false, pulse, tealDim);
     _drawSciFiBtn(playX,            smY,   smW,   smH,   'ARCHIVE',  false, pulse, tealDim);
     _drawSciFiBtn(playX + smW + 12, smY,   smW,   smH,   'SETTINGS', false, pulse, tealDim);
   } else {
@@ -1705,7 +1884,7 @@ function drawTitle(W, H) {
 
     _drawSciFiBtn(_titleBtns.archive.x, _titleBtns.archive.y, sideW, sideH, 'ARCHIVE',  false, pulse, tealDim);
     _drawSciFiBtn(_titleBtns.start.x,   _titleBtns.start.y,   playW, playH, 'ARCADE MODE', true, pulse, teal);
-    _drawComingSoonBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE');
+    _drawSciFiBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE', false, pulse, tealDim);
     _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
 

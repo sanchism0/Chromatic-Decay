@@ -93,6 +93,9 @@ export class HUD {
     }
 
     // ── Score / Wave timer (top right) ───────────────────────
+    // Story tutorial: HP only — no score, wave or timer
+    if (this.minimal) { ctx.textAlign = 'left'; return; }
+
     const score = waveSystem ? waveSystem.killScore : player.frequencyScore(elapsed);
     ctx.textAlign = 'right';
     ctx.fillStyle = '#C4C8D4';
