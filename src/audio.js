@@ -98,24 +98,61 @@ export function stopAmbient() {
   _ambientNodes = null;
 }
 
-// ── Player shoot (positive — 3 randomised variations) ─────────
+// ── Player shoot — the Pulse Emitter (positive) ───────────────
+// Coherent light, so the sound is a clean electronic crack: a very short
+// bright click, then two tones locked an octave apart (waves in step) that
+// drop fast, over a soft body. Each shot picks the next note of a small
+// pentatonic run plus a little random detune, so rapid fire sounds like a
+// shimmer instead of a ticking metronome.
 
-export function sfxShoot() {
-  const ctx = _ac();
-  const t   = ctx.currentTime;
-  const v   = Math.floor(Math.random() * 3);
-  if (v === 0) {
-    // High clean ping descending
-    _osc('sine', 1100, t, 0.06, 0.13, 750);
-  } else if (v === 1) {
-    // Slightly lower, triangle — softer texture
-    _osc('triangle', 900, t, 0.07, 0.12, 620);
-    _osc('sine', 1400, t, 0.025, 0.07, 1400); // short high transient
-  } else {
-    // Double-tap feel — two very quick partials
-    _osc('sine', 1050, t,        0.04, 0.11, 800);
-    _osc('sine', 1300, t + 0.02, 0.04, 0.08, 950);
+const _PULSE_NOTES = [1046, 1175, 1319, 1568, 1760, 1568, 1319, 1175];   // C6 pentatonic, up and back
+let _pulseStep = 0;
+
+export function sfxShoot(overload = false) {
+  const ctx  = _ac();
+  const t    = ctx.currentTime + 0.002;
+  const note = _PULSE_NOTES[_pulseStep++ % _PULSE_NOTES.length] * (overload ? 0.5 : 1);
+  const f    = note * Math.pow(2, (Math.random() - 0.5) * 0.06);           // ±~35 cents
+  const out  = ctx.createGain();
+  out.gain.value = overload ? 0.9 : 0.7;
+  out.connect(ctx.destination);
+
+  // Crack: a 10 ms burst of high, narrow noise
+  const len = Math.ceil(ctx.sampleRate * 0.012);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const hp  = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3800 + Math.random() * 900;
+  const cg  = ctx.createGain(); cg.gain.value = 0.05;
+  src.connect(hp); hp.connect(cg); cg.connect(out);
+  src.start(t); src.stop(t + 0.02);
+
+  // Two phase-locked tones an octave apart, dropping to ~55%
+  for (const [mult, peak] of [[1, 0.075], [2, 0.03]]) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = mult === 1 ? 'triangle' : 'sine';
+    o.frequency.setValueAtTime(f * mult, t);
+    o.frequency.exponentialRampToValueAtTime(f * mult * 0.55, t + 0.07);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (overload ? 0.12 : 0.08));
+    o.connect(g); g.connect(out);
+    o.start(t); o.stop(t + 0.14);
   }
+
+  // Soft body so it lands with a little weight
+  const b = ctx.createOscillator(), bg = ctx.createGain();
+  b.type = 'sine';
+  b.frequency.setValueAtTime(overload ? 140 : 210, t);
+  b.frequency.exponentialRampToValueAtTime(overload ? 70 : 110, t + 0.05);
+  bg.gain.setValueAtTime(0.0001, t);
+  bg.gain.linearRampToValueAtTime(overload ? 0.06 : 0.035, t + 0.004);
+  bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+  b.connect(bg); bg.connect(out);
+  b.start(t); b.stop(t + 0.08);
+
+  setTimeout(() => out.disconnect(), 400);
 }
 
 // ── Enemy kill (positive — ascending 2-note resolve per type) ─

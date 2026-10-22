@@ -437,6 +437,7 @@ export class Player {
     // Overload Burst: next 3 shots deal 3× damage and render golden
     const isOverload = (this.overloadBurst || 0) > 0;
     if (isOverload) this.overloadBurst--;
+    this.lastShotOverload = isOverload;   // audio: overload shots sound deeper
 
     const half   = Math.floor(this.projCount / 2);
     const damage = this.effectiveDamage * flashMultiplier * (isOverload ? 3 : 1);

@@ -392,7 +392,7 @@ function updatePlaying(dt) {
 
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
-  if (player.justFired) sfxShoot();
+  if (player.justFired) sfxShoot(player.lastShotOverload);
   if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; }
 
   // ── Auto-trigger ability when an enemy is within 50px ────
@@ -1216,6 +1216,7 @@ function drawGame(W, H) {
   pixelMap.drawRacks(ctx, camera.x, camera.y, _view, o => o.y + o.h <= _feet, _wallLight);
 
   projectiles.draw(ctx);
+  projectiles.drawFizzles(ctx);
   enemies.draw(ctx);
   player.draw(ctx);
   drain.draw(ctx, player);
