@@ -11,6 +11,7 @@ import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
 import { drawGroundShadow } from './sprites.js';
+import { PixelMap, rackHeight } from './pixelmap.js';
 import { UpgradeScreen }    from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
 import { TrapSystem }       from './traps.js';
@@ -61,8 +62,9 @@ window.addEventListener('resize', resize);
 function vw() { return canvas.width  / ZOOM; }
 function vh() { return canvas.height / ZOOM; }
 
+// Camera offset rounded to whole screen pixels so pixel art stays crisp
 function applyWorldTransform() {
-  ctx.setTransform(ZOOM, 0, 0, ZOOM, -camera.x * ZOOM, -camera.y * ZOOM);
+  ctx.setTransform(ZOOM, 0, 0, ZOOM, Math.round(-camera.x * ZOOM), Math.round(-camera.y * ZOOM));
 }
 function resetTransform() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -106,6 +108,7 @@ const adminPanel  = new AdminPanel();
 const waveSystem  = new WaveSystem();
 
 let map    = null;
+let pixelMap = null;   // pixel-art floor and racks for the current map
 let player = null;
 let elapsed = 0;
 
@@ -221,6 +224,7 @@ function getUnlockedClasses() {
 
 function startRun() {
   map = new GameMap();
+  pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
   player = new Player(spawn.x, spawn.y);
   player.character = selectedCharacter;
@@ -1075,7 +1079,8 @@ function _wallLight(px, py, nx, ny) {
 function drawGame(W, H) {
   applyWorldTransform();
 
-  map.drawFloor(ctx);
+  pixelMap.ensure(ZOOM);
+  pixelMap.drawFloor(ctx, camera.x, camera.y);
 
   // ── Shadow-occluded lighting ──────────────────────────────────
   // Uses a visibility polygon per light source so light is blocked by server walls.
@@ -1108,7 +1113,7 @@ function drawGame(W, H) {
     lctx.fillRect(0, 0, _lightMaskCanvas.width, _lightMaskCanvas.height);
 
     // Apply the same world→screen transform so polygons (world coords) land correctly
-    lctx.setTransform(ZOOM, 0, 0, ZOOM, -camera.x * ZOOM, -camera.y * ZOOM);
+    lctx.setTransform(ZOOM, 0, 0, ZOOM, Math.round(-camera.x * ZOOM), Math.round(-camera.y * ZOOM));
     lctx.globalCompositeOperation = 'destination-out';
 
     // Player — lift most darkness within visibility poly, but not to zero
@@ -1203,6 +1208,13 @@ function drawGame(W, H) {
   drain.drawFloor(ctx);
   traps.draw(ctx);
   echoes.draw(ctx);
+
+  // ── Racks, three-quarter view: those whose front edge is above the
+  // player's feet are behind them; the rest are drawn after, in front ──
+  const _feet = player.y + 4;
+  const _view = { x: camera.x, y: camera.y, w: vw(), h: vh() };
+  pixelMap.drawRacks(ctx, camera.x, camera.y, _view, o => o.y + o.h <= _feet, _wallLight);
+
   projectiles.draw(ctx);
   enemies.draw(ctx);
   player.draw(ctx);
@@ -1210,14 +1222,14 @@ function drawGame(W, H) {
   companions.draw(ctx);
   particles.draw(ctx);
 
-  // ── Racks — drawn over entities so tall tops hide what's behind them ──
-  map.drawWalls(
-    ctx,
-    camera.x + vw() / 2, camera.y + vh() / 2,
-    CONFIG.wall_height_factor,
-    { x: camera.x, y: camera.y, w: vw(), h: vh() },
-    _wallLight,
-  );
+  pixelMap.drawRacks(ctx, camera.x, camera.y, _view, o => o.y + o.h > _feet, _wallLight);
+  // A rack in front hides the player: show a see-through silhouette over it
+  {
+    const b = player.spriteBounds();
+    const hidden = map.obstacles.some(o => o.y + o.h > _feet &&
+      b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y - rackHeight(o));
+    if (hidden) player.drawOccluded(ctx);
+  }
 
   // ── Additive glow pass — halos bloom where they overlap and show through racks ──
   ctx.save();
