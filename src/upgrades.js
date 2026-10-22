@@ -82,7 +82,7 @@ export const GENERIC_UPGRADES = [
   },
   {
     id: 'multicast', name: 'Multicast',
-    desc: '+1 projectile.',
+    desc: p => p.character === 'dex' ? '+1 round per burst.' : p.character === 'juno' ? 'Minigun fires 25% faster.' : '+1 projectile.',
     baseWeight: 3, cap: 3,
     apply: p => { p.projCount += 1; },
   },
@@ -474,6 +474,7 @@ export class UpgradeScreen {
     this._traps      = null;
     this.waveContext    = null;   // { type: 'early'|'timeout', bonusPts, secondsRemaining, bonusLevels }
     this.isBonusUpgrade = false;  // true when this selection was earned via bonus bank
+    this.storyHeader    = null;   // Story levels: { level, color } — Resonance level-up
   }
 
   setSystems(companions, traps) {
@@ -614,7 +615,11 @@ export class UpgradeScreen {
     const big = compact ? 13 : 18, small = compact ? 11 : 14;
     const lines = [];
     const wc = this.waveContext;
-    if (!landscape) {
+    if (!landscape && this.storyHeader) {
+      const sh = this.storyHeader;
+      lines.push([`RESONANCE  LV ${sh.level}`, sh.color, big, true, sh.color]);
+      lines.push(['THE COLOUR YOU DRAINED HAS SETTLED IN', 'rgba(220,228,240,0.75)', small, false, null]);
+    } else if (!landscape) {
       if (this.isBonusUpgrade) {
         lines.push(['★  BONUS UPGRADE  ★', '#E8C86A', big, true, '#fff5c2']);
         lines.push(['EARNED FROM EARLY CLEAR  ·  KEEP CLEARING FAST', '#fff5c2', small, false, null]);
