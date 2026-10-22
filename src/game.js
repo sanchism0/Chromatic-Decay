@@ -402,7 +402,7 @@ function updatePlaying(dt) {
     input.setAutoFire(!input.autoFire);
     story.onToggleFire();
   }
-  if (story.inTutorial && (input.justPressed.enter ||
+  if (story.inTutorial && story.radio.busy && (input.justPressed.enter || input.justPressed.space ||
       (input.mouseJustClicked && story.radio.hit(input.mouseX, input.mouseY)))) story.radio.next();
   const _px = player.x, _py = player.y;
 
@@ -1524,7 +1524,8 @@ const story = new StoryMode({
   touch: () => 'ontouchstart' in window,
   openCharSelect: () => _openCharSelect('story'),
   startTutorialRun: agent => { selectedCharacter = agent; startRun({ tutorial: true }); },
-  spawnNear: (type, n) => { for (let i = 0; i < n; i++) { const p = _freeSpotNear(170, 250); enemies.spawnEnemyAt(type, p.x, p.y); } },
+  // Several at once spread evenly around the player (two = opposite sides)
+  spawnNear: (type, n) => { const a0 = Math.random() * Math.PI * 2; for (let i = 0; i < n; i++) { const p = _freeSpotNear(170, 250, n > 1 ? a0 + i * Math.PI * 2 / n : null); enemies.spawnEnemyAt(type, p.x, p.y); } },
   spawnEchoNear: () => { const p = _freeSpotNear(260, 380); const e = new Echo(p.x, p.y); echoes.echoes.push(e); return e; },
   playerHurt: () => player.hp < player.maxHp * 0.8,
   autoFire: () => input.autoFire,
@@ -1536,16 +1537,17 @@ const story = new StoryMode({
 });
 
 // A clear spot on the floor at a random angle, minR–maxR from the player
-function _freeSpotNear(minR, maxR) {
+function _freeSpotNear(minR, maxR, ang = null) {
   const PAD = 24;
   for (let tries = 0; tries < 80; tries++) {
-    const a = Math.random() * Math.PI * 2, r = minR + Math.random() * (maxR - minR);
+    const a = ang === null ? Math.random() * Math.PI * 2 : ang + (Math.random() - 0.5) * 0.8, r = minR + Math.random() * (maxR - minR);
     const x = player.x + Math.cos(a) * r, y = player.y + Math.sin(a) * r;
     if (x < 50 || y < 50 || x > CONFIG.map_width - 50 || y > CONFIG.map_height - 50) continue;
     if (map.obstacles.some(o => x + PAD > o.x && x - PAD < o.x + o.w && y + PAD > o.y && y - PAD < o.y + o.h)) continue;
     return { x, y };
   }
-  return { x: player.x + minR, y: player.y };
+  const fa = ang === null ? 0 : ang;
+  return { x: player.x + Math.cos(fa) * minR, y: player.y + Math.sin(fa) * minR };
 }
 
 function _startStory() {
