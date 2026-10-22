@@ -392,7 +392,7 @@ function updatePlaying(dt) {
 
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
-  if (player.justFired) sfxShoot(player.lastShotOverload);
+  if (player.justFired) sfxShoot(player.lastShotOverload, player.character);
   if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; }
 
   // ── Auto-trigger ability when an enemy is within 50px ────

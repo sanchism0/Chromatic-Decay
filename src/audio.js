@@ -99,16 +99,89 @@ export function stopAmbient() {
 }
 
 // ── Player shoot — the Pulse Emitter (positive) ───────────────
-// "Glass ping": a short breath of air, then two sines a fifth apart that
-// ring briefly with a small drop, over a light body — like tapping glass.
-// Each shot steps through a small A5 pentatonic run with slight random
-// detune, so steady fire shimmers instead of ticking. Overload shots are an
-// octave lower and ring longer.
+// Each operator's emitter has its own voice: Dex's salvaged magnetron rig
+// goes "PEW" with an electric buzz; Juno's tuned antenna coil rings like glass.
+
+export function sfxShoot(overload = false, character = 'dex') {
+  if (character === 'juno') _shotGlass(overload);
+  else                      _shotPew(overload);
+}
+
+// Dex — "Electric pew": two slightly detuned sawtooths swooping down fast,
+// a fast pitch wobble for the electric buzz, a sizzle on top and a filter
+// that closes as it falls. Each shot starts at a slightly different pitch.
+// Overload shots are lower and longer.
+function _shotPew(overload) {
+  const ctx = _ac();
+  const t   = ctx.currentTime + 0.002;
+  const f0  = (overload ? 1150 : 1900) * (0.95 + Math.random() * 0.1);
+  const f1  = overload ? 160 : 280;
+  const dur = overload ? 0.18 : 0.12;
+  const out = ctx.createGain();
+  out.gain.value = overload ? 0.8 : 0.6;
+  out.connect(ctx.destination);
+
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 4;
+  lp.frequency.setValueAtTime(6500, t); lp.frequency.exponentialRampToValueAtTime(900, t + dur);
+  lp.connect(out);
+
+  // Buzz: a fast square LFO wobbling both oscillators' pitch
+  const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
+  lfo.type = 'square'; lfo.frequency.value = overload ? 55 : 70;
+  lfoGain.gain.value = overload ? 90 : 120;
+  lfo.connect(lfoGain); lfo.start(t); lfo.stop(t + dur + 0.02);
+
+  for (const [det, peak] of [[1, 0.05], [1.012, 0.04]]) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * det, t);
+    o.frequency.exponentialRampToValueAtTime(f1 * det, t + dur * 0.9);
+    lfoGain.connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(lp);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  // Sizzle: a short band of high noise riding the start
+  const len = Math.ceil(ctx.sampleRate * 0.05);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp  = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 5200; bp.Q.value = 2;
+  const sg  = ctx.createGain(); sg.gain.value = 0.045;
+  src.connect(bp); bp.connect(sg); sg.connect(out);
+  src.start(t); src.stop(t + 0.06);
+
+  // A little weight underneath
+  _thump(ctx, out, t, overload ? 150 : 220, overload ? 60 : 90, overload ? 0.05 : 0.03, 0.06);
+  setTimeout(() => out.disconnect(), 500);
+}
+
+function _thump(ctx, out, t, f0, f1, peak, dur) {
+  const b = ctx.createOscillator(), bg = ctx.createGain();
+  b.type = 'sine';
+  b.frequency.setValueAtTime(f0, t);
+  b.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.8);
+  bg.gain.setValueAtTime(0.0001, t);
+  bg.gain.linearRampToValueAtTime(peak, t + 0.004);
+  bg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  b.connect(bg); bg.connect(out);
+  b.start(t); b.stop(t + dur + 0.02);
+}
+
+// Juno — "Glass ping": a short breath of air, then two sines a fifth apart
+// that ring briefly with a small drop, over a light body — like tapping
+// glass. Each shot steps through a small A5 pentatonic run with slight
+// random detune, so steady fire shimmers instead of ticking. Overload shots
+// are an octave lower and ring longer.
 
 const _PULSE_NOTES = [880, 988, 1109, 1319, 1480, 1319, 1109, 988];   // A5 pentatonic, up and back
 let _pulseStep = 0;
 
-export function sfxShoot(overload = false) {
+function _shotGlass(overload) {
   const ctx  = _ac();
   const t    = ctx.currentTime + 0.002;
   const f    = _PULSE_NOTES[_pulseStep++ % _PULSE_NOTES.length] * (overload ? 0.5 : 1)
@@ -144,15 +217,7 @@ export function sfxShoot(overload = false) {
   ring(f * 1.5, t + 0.004, overload ? 0.16 : 0.10, 0.035);
 
   // Light body
-  const b = ctx.createOscillator(), bg = ctx.createGain();
-  b.type = 'sine';
-  b.frequency.setValueAtTime(overload ? 160 : 240, t);
-  b.frequency.exponentialRampToValueAtTime(overload ? 90 : 140, t + 0.04);
-  bg.gain.setValueAtTime(0.0001, t);
-  bg.gain.linearRampToValueAtTime(overload ? 0.04 : 0.02, t + 0.004);
-  bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-  b.connect(bg); bg.connect(out);
-  b.start(t); b.stop(t + 0.07);
+  _thump(ctx, out, t, overload ? 160 : 240, overload ? 90 : 140, overload ? 0.04 : 0.02, 0.05);
 
   setTimeout(() => out.disconnect(), 500);
 }
