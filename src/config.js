@@ -5,10 +5,10 @@ export const CONFIG = {
   // ── Player ──────────────────────────────────────────────────
   player_base_hp:              100,
   player_base_damage:          10,
-  player_base_fire_rate:       2,      // shots per second
+  player_base_fire_rate:       1.5,    // shots per second
   player_move_speed:           240,    // px/sec
   player_fire_slow_multiplier: 0.7,
-  player_projectile_speed:     480,    // px/sec
+  player_projectile_speed:     360,    // px/sec
   player_projectile_range:     650,    // max travel distance px
   player_size:                 14,     // sprite half-width px (total 14×14)
 

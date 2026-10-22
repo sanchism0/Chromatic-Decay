@@ -18,7 +18,7 @@ const FIELD_GROUPS = [
       { key: 'player_base_fire_rate',       label: 'Fire Rate (shots/s)',type: 'number', min: 0.5, max: 10,  step: 0.5 },
       { key: 'player_move_speed',           label: 'Move Speed',        type: 'number', min: 60,  max: 600, step: 20  },
       { key: 'player_fire_slow_multiplier', label: 'Fire Slow Mult',    type: 'number', min: 0.1, max: 1.0, step: 0.05},
-      { key: 'player_projectile_speed',     label: 'Proj Speed',        type: 'number', min: 100, max: 1200,step: 40  },
+      { key: 'player_projectile_speed',     label: 'Proj Speed',        type: 'number', min: 100, max: 1200,step: 20  },
       { key: 'player_projectile_range',     label: 'Proj Range',        type: 'number', min: 100, max: 2000,step: 50  },
     ],
   },
