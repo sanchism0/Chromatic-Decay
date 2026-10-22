@@ -563,7 +563,7 @@ export class Player {
   _useSignature(projectileSystem) {
     const sig = SIGNATURES[this.signature];
     if (!sig) return;
-    this.signatureCooldown = this.signatureCooldownMax = sig.cd;
+    this.signatureCooldown = this.signatureCooldownMax = sig.cd * (this.abilityCooldownMultiplier || 1);
     this.justSignature = this.signature;   // game.js plays the effects
     if (this.signature === 'dex') {
       // A ring of rounds from the body; game.js adds the knockback

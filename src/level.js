@@ -8,7 +8,8 @@
 // The operator (the character who stayed behind) talks over comms between
 // beats; enemies wait for the briefing to finish. Power drawn from the map
 // takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
-// If the agent goes down they're beamed back in and the beat restarts.
+// Kills fill a Resonance meter; each time it fills, the agent levels up and
+// picks an upgrade (game.js shows the cards). Going down fails the level.
 
 import { Radio } from './dialogue.js';
 import { CONFIG } from './config.js';
@@ -17,6 +18,8 @@ import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear } from './audio.js
 
 export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
 const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
+// Kills needed for each Resonance level (a card pick each); Level 1 has ~35-40
+const RESONANCE = [5, 12, 21, 32, 45, 60];
 
 // ── Level data ────────────────────────────────────────────────
 
@@ -105,6 +108,10 @@ export class LevelRun {
     this.t = 0;
     this.idx = -1;
     this.complete = false;
+    this.failed   = false;
+    this.kills    = 0;        // toward Resonance levels
+    this.resLevel = 0;
+    this.pendingPower = 0;    // level-ups waiting for a card pick
     this.charge = 0;          // emitter charge drawn from relays, 0..1
     this.motes  = [];         // essence flowing into the agent
     this._spawnDir = Math.random() * Math.PI * 2;
@@ -159,7 +166,21 @@ export class LevelRun {
     }
   }
 
-  onKill(e) { if (this.chroma[e.type] !== undefined) this.chroma[e.type]++; }
+  onKill(e) {
+    if (this.chroma[e.type] !== undefined) this.chroma[e.type]++;
+    this.kills++;
+    while (this.resLevel < RESONANCE.length && this.kills >= RESONANCE[this.resLevel]) {
+      this.resLevel++;
+      this.pendingPower++;
+    }
+  }
+
+  // Progress toward the next Resonance level, 0..1
+  get resonance() {
+    if (this.resLevel >= RESONANCE.length) return 1;
+    const lo = this.resLevel ? RESONANCE[this.resLevel - 1] : 0, hi = RESONANCE[this.resLevel];
+    return (this.kills - lo) / (hi - lo);
+  }
 
   // Player shots against the lock's nodes (returns nothing; consumes shots)
   checkProjectiles(projectiles) {
@@ -195,25 +216,13 @@ export class LevelRun {
     this._next();
   }
 
-  // Agent went down: beam them back in and restart this beat
-  _down() {
-    const pl = this.api.player();
-    this.api.clearField();
-    pl.hp = pl.maxHp;
-    pl.startBeamIn();
-    this.api.onBeamIn();
-    this.radio.clear();
-    this.radio.say([{ who: this.op, face: this.op === 'dex' ? 'worried' : 'concerned', text: "I've got you. Pulling you back in. Again." }]);
-    this._enter(this.beat);
-  }
-
   update(dt) {
     this.t += dt;
     this.radio.update(dt);
     const pl = this.api.player();
     const b = this.beat;
     if (!b || this.complete) return;
-    if (pl.hp <= 1 && !pl.beaming) { this._down(); return; }
+    if (pl.hp <= 1 && !pl.beaming) { this.failed = true; return; }
     if (!this.ready) { if (!this.radio.busy && !pl.beaming) this.ready = true; else return; }
 
     if (b.type === 'wave') this._updateWave(dt, b);
@@ -497,9 +506,22 @@ export class LevelRun {
     ctx.fillStyle = '#5E8C96';
     ctx.font = `${narrow ? 9 : 10}px monospace`;
     ctx.fillText('CHROMA', W - 14, 40);
-    // Emitter charge, under the health bar, once relays have started
-    if (this.relays) {
+    // Resonance, under the health bar: kills toward the next upgrade
+    {
       const y = narrow ? 76 : 72;
+      const bw = narrow ? 120 : 200;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#8A8E99';
+      ctx.font = `${narrow ? 9 : 11}px monospace`;
+      ctx.fillText(`RESONANCE  LV ${this.resLevel}`, 14, y);
+      ctx.fillStyle = '#1E2130';
+      ctx.fillRect(14, y + 5, bw, 5);
+      ctx.fillStyle = '#E8F0FF';
+      ctx.fillRect(14, y + 5, bw * this.resonance, 5);
+    }
+    // Emitter charge, under that, once relays have started
+    if (this.relays) {
+      const y = narrow ? 100 : 96;
       const bw = narrow ? 120 : 200;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#8A8E99';

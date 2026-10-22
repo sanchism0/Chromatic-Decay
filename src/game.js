@@ -13,7 +13,7 @@ import { StoryMode }        from './story.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
-import { drawGroundShadow } from './sprites.js';
+import { drawGroundShadow, drawGlow } from './sprites.js';
 import { PixelMap, rackHeight } from './pixelmap.js';
 import { UpgradeScreen }    from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
@@ -24,7 +24,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -91,6 +91,8 @@ const STATES = {
   STORY_END:       12,   // prologue complete card
   STORY_MAP:       13,   // story level select
   LEVEL_END:       14,   // story level results
+  DYING:           15,   // death burst, before game over / level failed
+  LEVEL_FAIL:      16,   // story level failed: restart or leave
 };
 let state = STATES.TITLE;
 
@@ -254,6 +256,8 @@ function startRun(opts = {}) {
   upgradeUI.takenIds    = [];
   upgradeUI.takenCounts = {};
   upgradeUI.active      = false;
+  upgradeUI.storyHeader = null;
+  _levelPower           = false;
 
   // Wire back-refs so player can call systems directly in ability
   player.setSystems(companions, traps, particles);
@@ -377,6 +381,8 @@ function update(dt) {
     case STATES.STORY_END:       updateStoryEnd(dt);       break;
     case STATES.STORY_MAP:       updateStoryMap(dt);       break;
     case STATES.LEVEL_END:       updateLevelEnd(dt);       break;
+    case STATES.DYING:           updateDying(dt);          break;
+    case STATES.LEVEL_FAIL:      updateLevelFail(dt);      break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -678,9 +684,11 @@ function updatePlaying(dt) {
   if (level) {
     level.update(dt);
     if (level.complete) _finishLevel();
+    else if (level.failed) { _startDeath(); return; }
+    else if (level.pendingPower > 0 && state === STATES.PLAYING) _showLevelPower();
   }
 
-  if (!player.alive) handleGameOver();
+  if (!player.alive) { _startDeath(); return; }
 
   camera.follow(player.x, player.y, vw(), vh());
 }
@@ -715,6 +723,15 @@ function updatePaused() {
 }
 
 function updateUpgrade() {
+  // Story: Resonance level-up picks
+  if (_levelPower) {
+    if (upgradeUI.handleInput(input, player, canvas)) {
+      level.pendingPower = Math.max(0, level.pendingPower - 1);
+      if (level.pendingPower > 0) _showLevelPower();
+      else { _levelPower = false; upgradeUI.storyHeader = null; state = STATES.PLAYING; }
+    }
+    return;
+  }
   if (upgradeUI.handleInput(input, player, canvas)) {
     _checkClassEmergence();
 
@@ -1121,6 +1138,8 @@ function draw() {
     case STATES.STORY_END:       drawGame(W, H); drawStoryEnd(W, H); break;
     case STATES.STORY_MAP:       drawStoryMap(W, H);       break;
     case STATES.LEVEL_END:       drawGame(W, H); drawLevelEnd(W, H); break;
+    case STATES.DYING:           drawGame(W, H); drawDeath(W, H); break;
+    case STATES.LEVEL_FAIL:      drawGame(W, H); drawLevelFail(W, H); break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1371,6 +1390,7 @@ function drawGame(W, H) {
   if (level) level.drawHud(ctx, W, H, 'ontouchstart' in window, (x, y) => [(x - camera.x) * ZOOM, (y - camera.y) * ZOOM]);
   _drawAutoFireBtn(W, H);
   _drawSignature(W, H);
+  _drawLastEnemyArrow(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
   if (waveSystem && waveSystem.waveTimer > 0 && waveSystem.waveTimer <= 20) {
@@ -1661,7 +1681,6 @@ const levelApi = {
   spawnEnemy: (type, x, y) => enemies.spawnEnemyAt(type, x, y),
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
   clearField: () => { enemies.reset(); projectiles.reset(); },
-  onBeamIn:   () => sfxBeamIn(),
   touch:      () => 'ontouchstart' in window,
 };
 
@@ -1848,6 +1867,143 @@ function drawStoryMap(W, H) {
   const by = Math.min(H - 52, y + 8);
   _mapBtns.back = drawSlabButton(ctx, rowX, by, 110, 36, '‹ BACK', { accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, lift: _hitBtn(_mapBtns.back) ? 1 : 0 });
   ctx.textAlign = 'left';
+}
+
+// Resonance level-up in a Story level: pick one of the general upgrade cards
+let _levelPower = false;
+function _showLevelPower() {
+  upgradeUI.present(player, []);
+  if (!upgradeUI.active) { level.pendingPower = 0; return; }
+  upgradeUI.storyHeader    = { level: level.resLevel - level.pendingPower + 1, color: AGENT_COLOR[level.agent] };
+  upgradeUI.waveContext    = null;
+  upgradeUI.isBonusUpgrade = false;
+  _levelPower = true;
+  sfxWaveClear();
+  state = STATES.UPGRADE;
+}
+
+// ── Death ─────────────────────────────────────────────────────
+// Mega Man X style: the body glows and shrinks, then bursts into two rings of
+// light orbs flying outward (no strobing). Then game over (Arcade) or the
+// level-failed screen (Story).
+let _death = null;
+let _levelFail = null, _levelFailDelay = 0;
+const _failBtns = { restart: null, map: null };
+
+function _startDeath() {
+  _death = { t: 0, x: player.x, y: player.y - 8, color: AGENT_COLOR[player.character] || '#FFFFFF' };
+  player.alive = false;
+  player.firing = false;
+  sfxDeath();
+  state = STATES.DYING;
+}
+
+function updateDying(dt) {
+  _death.t += dt;
+  particles.update(dt);
+  if (_death.t < 2.3) return;
+  if (level) {
+    const kept = bankChroma(level.chroma, 0.5);
+    _levelFail = { id: level.id, name: level.def.name, agent: level.agent, kept };
+    level = null;
+    _levelFailDelay = 0.4;
+    state = STATES.LEVEL_FAIL;
+  } else {
+    handleGameOver();
+  }
+}
+
+function drawDeath(W, H) {
+  const d = _death, t = d.t;
+  const sx = (d.x - camera.x) * ZOOM, sy = (d.y - camera.y) * ZOOM;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  if (t < 0.35) {
+    const k = t / 0.35;
+    drawGlow(ctx, d.color, sx, sy, 44 - 30 * k, 0.7);
+    drawGlow(ctx, '#FFFFFF', sx, sy, 22 - 14 * k, 0.9);
+  }
+  for (const [t0, off] of [[0.35, 0], [0.75, Math.PI / 8]]) {
+    if (t < t0) continue;
+    const u = t - t0;
+    const R = u * 175;
+    const a = Math.max(0, 1 - u / 1.5);
+    for (let k = 0; k < 8; k++) {
+      const ang = off + k * Math.PI / 4;
+      const x = sx + Math.cos(ang) * R, y = sy + Math.sin(ang) * R;
+      const pr = 6 + 1.5 * Math.sin(u * 9 + k);
+      drawGlow(ctx, d.color, x, y, pr * 3.2, 0.55 * a);
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = d.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, pr, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath(); ctx.arc(x, y, pr * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function updateLevelFail(dt) {
+  if (_levelFailDelay > 0) { _levelFailDelay -= dt; return; }
+  const restart = () => startRun({ level: _levelFail.id });
+  const leave   = () => { stopAmbient(); hud.minimal = false; _openStoryMap(); };
+  if (input.justPressed.space || input.justPressed.enter) { restart(); return; }
+  if (input.justPressed.escape) { leave(); return; }
+  if (!input.mouseJustClicked) return;
+  if (_hitBtn(_failBtns.restart)) restart();
+  else if (_hitBtn(_failBtns.map)) leave();
+}
+
+function drawLevelFail(W, H) {
+  const f = _levelFail;
+  if (!f) return;
+  dimBackdrop(ctx, W, H, 0.78);
+  const pW = Math.min(420, W - 28), pH = 236;
+  const pX = (W - pW) / 2, pY = (H - pH) / 2 - 8;
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: '#F85A8A', depth: 12, screen: 40, glow: 0.3 });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 12; ctx.shadowColor = '#F85A8A';
+  ctx.font = 'bold 24px monospace';
+  ctx.fillText('SIGNAL LOST', W / 2, top + 32);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#A9B6C4'; ctx.font = '12px monospace';
+  ctx.fillText(`${f.name}  ·  ${f.agent.toUpperCase()}`, W / 2, top + 54);
+  ctx.fillStyle = '#8A8E99'; ctx.font = '11px monospace';
+  ctx.fillText('CHROMA KEPT (HALF)', W / 2, top + 86);
+  const keys = ['violet', 'yellow', 'green'];
+  const cw = Math.min(100, (pW - 40) / 3);
+  keys.forEach((k, i) => {
+    const cx = W / 2 + (i - 1) * cw;
+    ctx.fillStyle = CHROMA_COLORS[k]; ctx.fillRect(Math.round(cx - 24), top + 99, 8, 8);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 15px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`+${f.kept[k] || 0}`, Math.round(cx - 11), top + 108);
+    ctx.textAlign = 'center';
+  });
+  const bw = (pW - 60) / 2, by = top + 150;
+  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
+  _failBtns.map     = drawSlabButton(ctx, pX + 40 + bw, by, bw, 40, 'STORY MAP', { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_failBtns.map) ? 1 : 0 });
+  ctx.textAlign = 'left';
+}
+
+// One enemy left and it's off screen: an arrow at the edge, in its colour
+function _drawLastEnemyArrow(W, H) {
+  const alive = enemies.enemies.filter(e => e.isAlive);
+  if (alive.length !== 1) return;
+  if (waveSystem.active && waveSystem.waveTimer > 0 && waveSystem.waveTimer <= 20) return;   // already marked
+  const e = alive[0];
+  const sx = (e.x - camera.x) * ZOOM, sy = (e.y - camera.y) * ZOOM;
+  if (sx >= 0 && sx <= W && sy >= 0 && sy <= H) return;
+  const m = 28;
+  const cx = Math.max(m, Math.min(W - m, sx)), cy = Math.max(m + 90, Math.min(H - m - 60, sy));
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = e.cfg.color;
+  ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('LAST', 0, -16);
+  ctx.rotate(Math.atan2(sy - cy, sx - cx));
+  ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
+  ctx.restore();
 }
 
 // Signature effects that touch the world (the shots themselves come from player.js)

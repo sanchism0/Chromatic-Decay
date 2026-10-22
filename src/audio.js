@@ -463,3 +463,19 @@ export function sfxSignature(who) {
     [523.2, 784, 1046.5].forEach((f, i) => _osc('triangle', f, t + i * 0.05, 0.6, 0.08));
   }
 }
+
+// ── Death (Mega Man X style: a falling zap, then the body bursts) ─────
+// Timed to the burst animation in game.js: rings at 0.35s and 0.75s
+export function sfxDeath() {
+  const ctx = _ac();
+  const t   = ctx.currentTime;
+  _osc('square', 880, t, 0.34, 0.07, 110);
+  _osc('sawtooth', 440, t, 0.34, 0.04, 55);
+  for (const at of [0.35, 0.75]) {
+    _noise(t + at, 0.3, 0.16, 1800, 0.7);
+    _osc('triangle', 1400, t + at, 0.32, 0.1, 260);
+    _osc('sine', 150, t + at, 0.4, 0.18, 40);
+    // Sparkle trailing each ring
+    for (let i = 0; i < 5; i++) _osc('square', 1800 + i * 260, t + at + 0.06 + i * 0.05, 0.05, 0.025);
+  }
+}
