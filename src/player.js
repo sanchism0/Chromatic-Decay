@@ -386,6 +386,28 @@ export class Player {
     this._drawAlpha += (targetAlpha - this._drawAlpha) * Math.min(1, dt * 4);
   }
 
+  // Faint copy of the sprite drawn over racks that hide the player, so you
+  // never lose sight of yourself behind a tall rack
+  drawOccluded(ctx, alpha = 0.38) {
+    const d = this._drawnAt;
+    if (!d || !this.alive || !this._cell) return;
+    const [row, col] = this._cell;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(d.sheet, col * CELL_W, row * CELL_H, CELL_W, CELL_H, d.sx, d.sy, CELL_W * d.px, CELL_H * d.px);
+    ctx.restore();
+  }
+
+  // Sprite bounds in world space (feet at the bottom), for occlusion checks
+  spriteBounds() {
+    const k = this._artScale || 0.6;
+    const s = ('ontouchstart' in window ? 1.35 : 1) * this.size / 2;
+    const feet = this.y + s * 0.6;
+    return { x: this.x - 10 * k, y: feet - 40 * k, w: 20 * k, h: 40 * k };
+  }
+
   // World position of the emitter lens on the current frame. Falls back to
   // the body centre before the sprite has drawn, or if the lens would sit
   // inside a rack (hugging a wall) so shots never spawn in a wall.
@@ -721,9 +743,11 @@ export class Player {
       ctx.globalAlpha = alpha;
       ctx.drawImage(sheet, col * CELL_W, row * CELL_H, CELL_W, CELL_H, sx, sy, CELL_W * px, CELL_H * px);
       ctx.restore();
-      // Remember how the sprite maps to the world so shots can leave the lens
+      // Remember how the sprite maps to the world so shots can leave the lens,
+      // and where it was drawn so a see-through copy can be shown behind racks
       this._artScale = px / t.a;
       this._cell     = [row, col];
+      this._drawnAt  = { sx, sy, px, sheet };
     } else {
       // Fallback until the sheet loads: the original light-square body
       ctx.save();
