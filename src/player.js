@@ -4,6 +4,25 @@ import { CONFIG } from './config.js';
 import { clamp, normalize, angle, circleVsRect, dist } from './utils.js';
 import { haloSprite, drawSprite, drawGroundShadow } from './sprites.js';
 
+// ── Character sprite ─────────────────────────────────────────
+// 3 x 4 walk sheet: rows down, left, right, up; columns step A, standing, step B.
+// Drawn pixel-perfect (one art pixel = SPRITE_PX canvas pixels), snapped to
+// whole pixels, with feet on the ground under the player.
+const SHEET     = new Image();
+let   sheetReady = false;
+SHEET.onload = () => { sheetReady = true; };
+SHEET.src = 'assets/characters/dex/sprite/dex-walk.png';
+const CELL_W = 32, CELL_H = 44;
+const WALK_CYCLE = [0, 1, 2, 1];   // step A, stand, step B, stand
+const STRIDE     = 7;              // world px travelled per walk frame
+const ROW_FOR = { down: 0, left: 1, right: 2, up: 3 };
+
+function facingRow(a) {
+  const c = Math.cos(a), sn = Math.sin(a);
+  if (Math.abs(c) >= Math.abs(sn)) return c >= 0 ? ROW_FOR.right : ROW_FOR.left;
+  return sn >= 0 ? ROW_FOR.down : ROW_FOR.up;
+}
+
 // Class emergence thresholds
 const EMERGE_THRESHOLD   = 4;   // traits from one class → full emergence
 const SUBCLASS_THRESHOLD = 3;   // two classes both at 3+ → subclass
@@ -600,14 +619,14 @@ export class Player {
     const shield = inv > 0 ? Math.min(1, inv / 0.15) : 0;   // eases out over the last 0.15s
     const alpha  = this._drawAlpha * (1 - 0.4 * shield);    // see-through while protected
 
-    // Movement trail — fading white smear behind the player
+    // Movement trail — faint footfall glow along the floor behind the player
     const tLen = this._trail.length;
     if (tLen > 1) {
       for (let i = 0; i < tLen - 1; i++) {
-        const pt    = this._trail[i];
+        const pt    = { x: this._trail[i].x, y: this._trail[i].y + s * 0.6 };
         const frac  = (i + 1) / tLen;
-        const r     = s * 0.65 * frac;
-        ctx.globalAlpha  = frac * 0.5 * alpha;
+        const r     = s * 0.35 * frac;
+        ctx.globalAlpha  = frac * 0.18 * alpha;
         ctx.shadowBlur   = 0;
         ctx.fillStyle    = this.glowColor || '#FFFFFF';
         ctx.beginPath();
@@ -617,44 +636,42 @@ export class Player {
       ctx.globalAlpha = 1;
     }
 
-    // Contact shadow, then the body hovering above it
+    // Contact shadow, then the body
     drawGroundShadow(ctx, this.x, this.y + s * 0.6, s * 1.4, s * 0.6, 0.6 * alpha);
     const by = this.y - this.lift;
 
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.translate(this.x, by);
-    ctx.rotate(this.facing);
+    // Walk frame advances with distance moved; standing frame when still
+    const moved = this._lastDrawX === undefined ? 0 : Math.hypot(this.x - this._lastDrawX, this.y - this._lastDrawY);
+    this._lastDrawX = this.x; this._lastDrawY = this.y;
+    if (moved > 0.05) { this._walkDist = (this._walkDist || 0) + moved; this._stillFor = 0; }
+    else this._stillFor = (this._stillFor || 0) + 1;
+    const walking = (this._stillFor || 0) < 4;
+    const col = walking ? WALK_CYCLE[Math.floor((this._walkDist || 0) / STRIDE) % 4] : 1;
+    const row = facingRow(this.facing);
 
-    ctx.shadowBlur  = 14;
-    ctx.shadowColor = this.glowColor;
-
-    // Shaded body — the highlight stays top-left in world space as the body
-    // rotates, so the light source never appears to spin with the player
-    const la = -Math.PI * 0.75 - this.facing;
-    const lx = Math.cos(la) * s * 0.6, ly = Math.sin(la) * s * 0.6;
-    const body = ctx.createRadialGradient(lx, ly, s * 0.1, 0, 0, s * 1.5);
-    body.addColorStop(0,    '#FFFFFF');
-    body.addColorStop(0.5,  '#E4ECF6');
-    body.addColorStop(1,    '#8E9AAE');
-    ctx.fillStyle   = body;
-    ctx.strokeStyle = this.glowColor;
-    ctx.lineWidth   = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(-s, -s, s * 2, s * 2, 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle  = '#CCCCCC';
-    ctx.beginPath();
-    ctx.moveTo(s + 4, 0);
-    ctx.lineTo(s, -3);
-    ctx.lineTo(s, 3);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
+    if (sheetReady) {
+      const t   = ctx.getTransform();
+      // Art pixel size on screen: 2 on desktop-sized canvases, 1 on phones
+      const px  = Math.min(ctx.canvas.width, ctx.canvas.height) >= 560 ? 2 : 1;
+      const gx  = t.a * this.x + t.e;                          // ground point on screen
+      const gy  = t.d * (this.y + s * 0.6) + t.f;
+      const sx  = Math.round(gx - (CELL_W / 2) * px);
+      const sy  = Math.round(gy - (CELL_H - 1) * px);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(SHEET, col * CELL_W, row * CELL_H, CELL_W, CELL_H, sx, sy, CELL_W * px, CELL_H * px);
+      ctx.restore();
+    } else {
+      // Fallback until the sheet loads: the original light-square body
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(this.x, by);
+      ctx.fillStyle = '#E4ECF6';
+      ctx.beginPath(); ctx.roundRect(-s, -s, s * 2, s * 2, 2); ctx.fill();
+      ctx.restore();
+    }
     ctx.shadowBlur  = 0;
     ctx.globalAlpha = 1;
 
