@@ -33,6 +33,7 @@ const ECHO_PAL = { '#': '#FFFFFF', s: '#C9D3E6', o: '#7888A6', '+': '#FF4F9A' };
 const ECHO_W = ECHO_ART[0].length, ECHO_H = ECHO_ART.length;
 const ECHO_PX = 1;   // screen pixels per art pixel, same as the characters
 const ECHO_TAIL = 12; // rows from here down are the wisp
+const ECHO_IN = 0.6;  // seconds to fade in when it appears
 const _echoArt = (() => {
   const c = document.createElement('canvas');
   c.width = ECHO_W; c.height = ECHO_H;
@@ -170,6 +171,17 @@ export class EchoSystem {
   _drawEcho(ctx, sx, sy, pulse, echo) {
     // Soft light behind the figure (smooth, like every other light)
     const t = echo.pulseTimer;
+    // Arriving: it brightens in over ECHO_IN seconds out of rising motes
+    const form = Math.min(1, t / ECHO_IN);
+    if (form < 1) {
+      ctx.fillStyle = '#FFFFFF';
+      for (let i = 0; i < 8; i++) {
+        const k  = (form + i / 8) % 1;
+        ctx.globalAlpha = (1 - form) * Math.sin(k * Math.PI);
+        ctx.fillRect(Math.round(sx + Math.sin(i * 2.4) * 10 * (1 - k)), Math.round(sy + 14 - k * 22), 1, 1);
+      }
+    }
+
     // A little white fog drifting around it
     ctx.globalAlpha = 1;
     for (let k = 0; k < 5; k++) {
@@ -178,14 +190,14 @@ export class EchoSystem {
       const fy = sy + 3 + Math.sin(a * 1.3) * 5;
       const fr = 11 + (k % 2) * 4;
       const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-      fg.addColorStop(0, 'rgba(240,245,255,0.16)');
+      fg.addColorStop(0, `rgba(240,245,255,${0.16 * form})`);
       fg.addColorStop(1, 'rgba(240,245,255,0)');
       ctx.fillStyle = fg;
       ctx.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
     }
     const R = 17 + pulse * 3;
     const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
-    g.addColorStop(0, `rgba(255,255,255,${0.42 + pulse * 0.14})`);
+    g.addColorStop(0, `rgba(255,255,255,${(0.42 + pulse * 0.14) * form})`);
     g.addColorStop(0.45, 'rgba(235,242,255,0.14)');
     g.addColorStop(1, 'rgba(235,242,255,0)');
     ctx.globalAlpha = 1;
@@ -201,6 +213,7 @@ export class EchoSystem {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = form;
     for (let y = 0; y < ECHO_H; y++) {
       const sway = y >= ECHO_TAIL ? Math.round(Math.sin(t * 3 - y * 0.6) * (y - ECHO_TAIL + 2) / 4) * px : 0;
       ctx.drawImage(_echoArt, 0, y, ECHO_W, 1, ox + sway, oy + y * px, ECHO_W * px, px);

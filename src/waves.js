@@ -282,7 +282,10 @@ export class WaveSystem {
       ...enemySystem.enemies.map(e => ({ x: e.x, y: e.y })),
       ...this.pendingSpawns.map(p => ({ x: p.x, y: p.y })),
     ];
-    const pos = map.randomSpawn(player.x, player.y, occupied);
+    // Each spawn comes from a different side: the preferred direction turns
+    // by the golden angle every time, so arrivals are spread all around
+    this._spawnDir = ((this._spawnDir ?? Math.random() * Math.PI * 2) + 2.39996) % (Math.PI * 2);
+    const pos = map.randomSpawn(player.x, player.y, occupied, 300, 110, this._spawnDir);
     this.pendingSpawns.push({ type, x: pos.x, y: pos.y, chargeTimer: CHARGE_TIME });
   }
 
