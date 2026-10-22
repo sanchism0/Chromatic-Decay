@@ -99,60 +99,62 @@ export function stopAmbient() {
 }
 
 // ── Player shoot — the Pulse Emitter (positive) ───────────────
-// Coherent light, so the sound is a clean electronic crack: a very short
-// bright click, then two tones locked an octave apart (waves in step) that
-// drop fast, over a soft body. Each shot picks the next note of a small
-// pentatonic run plus a little random detune, so rapid fire sounds like a
-// shimmer instead of a ticking metronome.
+// "Glass ping": a short breath of air, then two sines a fifth apart that
+// ring briefly with a small drop, over a light body — like tapping glass.
+// Each shot steps through a small A5 pentatonic run with slight random
+// detune, so steady fire shimmers instead of ticking. Overload shots are an
+// octave lower and ring longer.
 
-const _PULSE_NOTES = [1046, 1175, 1319, 1568, 1760, 1568, 1319, 1175];   // C6 pentatonic, up and back
+const _PULSE_NOTES = [880, 988, 1109, 1319, 1480, 1319, 1109, 988];   // A5 pentatonic, up and back
 let _pulseStep = 0;
 
 export function sfxShoot(overload = false) {
   const ctx  = _ac();
   const t    = ctx.currentTime + 0.002;
-  const note = _PULSE_NOTES[_pulseStep++ % _PULSE_NOTES.length] * (overload ? 0.5 : 1);
-  const f    = note * Math.pow(2, (Math.random() - 0.5) * 0.06);           // ±~35 cents
+  const f    = _PULSE_NOTES[_pulseStep++ % _PULSE_NOTES.length] * (overload ? 0.5 : 1)
+             * Math.pow(2, (Math.random() - 0.5) * 0.06);              // ±~35 cents
   const out  = ctx.createGain();
-  out.gain.value = overload ? 0.9 : 0.7;
+  out.gain.value = overload ? 0.95 : 0.75;
   out.connect(ctx.destination);
 
-  // Crack: a 10 ms burst of high, narrow noise
-  const len = Math.ceil(ctx.sampleRate * 0.012);
+  // Breath: 18 ms of soft high noise, swelling and fading
+  const len = Math.ceil(ctx.sampleRate * 0.018);
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
   const d   = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
   const src = ctx.createBufferSource(); src.buffer = buf;
-  const hp  = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3800 + Math.random() * 900;
-  const cg  = ctx.createGain(); cg.gain.value = 0.05;
-  src.connect(hp); hp.connect(cg); cg.connect(out);
-  src.start(t); src.stop(t + 0.02);
+  const bp  = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 6000; bp.Q.value = 0.7;
+  const ng  = ctx.createGain(); ng.gain.value = 0.035;
+  src.connect(bp); bp.connect(ng); ng.connect(out);
+  src.start(t); src.stop(t + 0.03);
 
-  // Two phase-locked tones an octave apart, dropping to ~55%
-  for (const [mult, peak] of [[1, 0.075], [2, 0.03]]) {
+  // Two sines a fifth apart, dropping slightly, ringing out
+  const ring = (freq, start, dur, peak) => {
     const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = mult === 1 ? 'triangle' : 'sine';
-    o.frequency.setValueAtTime(f * mult, t);
-    o.frequency.exponentialRampToValueAtTime(f * mult * 0.55, t + 0.07);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(peak, t + 0.003);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + (overload ? 0.12 : 0.08));
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq, start);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.85, start + 0.05);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.linearRampToValueAtTime(peak, start + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
     o.connect(g); g.connect(out);
-    o.start(t); o.stop(t + 0.14);
-  }
+    o.start(start); o.stop(start + dur + 0.02);
+  };
+  ring(f,       t,         overload ? 0.20 : 0.14, 0.07);
+  ring(f * 1.5, t + 0.004, overload ? 0.16 : 0.10, 0.035);
 
-  // Soft body so it lands with a little weight
+  // Light body
   const b = ctx.createOscillator(), bg = ctx.createGain();
   b.type = 'sine';
-  b.frequency.setValueAtTime(overload ? 140 : 210, t);
-  b.frequency.exponentialRampToValueAtTime(overload ? 70 : 110, t + 0.05);
+  b.frequency.setValueAtTime(overload ? 160 : 240, t);
+  b.frequency.exponentialRampToValueAtTime(overload ? 90 : 140, t + 0.04);
   bg.gain.setValueAtTime(0.0001, t);
-  bg.gain.linearRampToValueAtTime(overload ? 0.06 : 0.035, t + 0.004);
-  bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+  bg.gain.linearRampToValueAtTime(overload ? 0.04 : 0.02, t + 0.004);
+  bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   b.connect(bg); bg.connect(out);
-  b.start(t); b.stop(t + 0.08);
+  b.start(t); b.stop(t + 0.07);
 
-  setTimeout(() => out.disconnect(), 400);
+  setTimeout(() => out.disconnect(), 500);
 }
 
 // ── Enemy kill (positive — ascending 2-note resolve per type) ─
