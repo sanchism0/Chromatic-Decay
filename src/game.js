@@ -116,8 +116,8 @@ let razeRescuedThisRun  = false;
 let pendingEmergence    = null;  // { classId, color, label, abilityName, abilityDesc, cooldown }
 
 // ── Archive lore card state ───────────────────────────────────
-let archiveLoreCard = null; // null | 'world' | 'raze' | 'violet' | 'yellow' | 'green' | 'orange' | 'pink'
-const _archiveLoreBtns = { world: null, raze: null, violet: null, yellow: null, green: null, orange: null, pink: null, close: null };
+let archiveLoreCard = null; // null | 'world' | 'emitter' | 'raze' | 'violet' | 'yellow' | 'green' | 'orange' | 'pink'
+const _archiveLoreBtns = { world: null, emitter: null, raze: null, violet: null, yellow: null, green: null, orange: null, pink: null, close: null };
 
 // ── Pause menu state ──────────────────────────────────────────
 let pauseQuitConfirm = false;
@@ -957,6 +957,7 @@ function updateArchive() {
   // ── Check lore entry buttons before falling through to exit ──
   if (input.mouseJustClicked) {
     if (_hitBtn(_archiveLoreBtns.world))   { archiveLoreCard = 'world';  return; }
+    if (_hitBtn(_archiveLoreBtns.emitter)) { archiveLoreCard = 'emitter'; return; }
     if (_hitBtn(_archiveLoreBtns.raze))    { archiveLoreCard = 'raze';   return; }
     if (_hitBtn(_archiveLoreBtns.violet))  { archiveLoreCard = 'violet'; return; }
     if (_hitBtn(_archiveLoreBtns.yellow))  { archiveLoreCard = 'yellow'; return; }
@@ -1760,7 +1761,7 @@ function drawArchive(W, H) {
   const pageX      = W / 2 - pageW / 2;
   // Density by screen height: normal → compact → short (phone landscape)
   const short   = H < 450;
-  const compact = !short && H < 620;
+  const compact = !short && H < 680;
   const narrow  = pageW < 560;
 
   ctx.fillStyle = 'rgba(13,14,18,0.97)';
@@ -1840,22 +1841,25 @@ function drawArchive(W, H) {
   }
 
   const _loreDefs = [
-    { key: 'world', label: 'THE CHROMATIC DECAY', sub: 'Incident Report  //  World History', color: '#8ab4d4', num: '001' },
-    { key: 'raze',  label: 'RAZE',                sub: 'Breaker Fragment  //  Class Origin', color: '#fff5c2', num: '002' },
+    { key: 'world',   label: 'THE CHROMATIC DECAY', sub: 'Incident Report  //  World History', color: '#8ab4d4', num: '001' },
+    { key: 'emitter', label: 'THE PULSE EMITTER',   sub: 'Field Equipment  //  Warden Tech',   color: '#E8F0FF', num: '008' },
+    { key: 'raze',    label: 'RAZE',                sub: 'Breaker Fragment  //  Class Origin', color: '#fff5c2', num: '002' },
   ];
+  const alwaysOpen = { world: true, emitter: true };
 
   // Short screens put the two entries side by side; narrow ones stack the
   // subtitle under the title instead of beside it
   const sideBySide = short;
-  const entryGap = 10;
-  const entryW   = sideBySide ? (pageW - entryGap) / 2 : pageW;
+  const entryGap = short ? 8 : compact ? 8 : 10;
+  const nEntries = _loreDefs.length;
+  const entryW   = sideBySide ? (pageW - entryGap * (nEntries - 1)) / nEntries : pageW;
   ctx.font = 'bold 15px monospace';
   const subBelow = sideBySide || narrow ||
     _loreDefs.some(d => { ctx.font = 'bold 15px monospace'; const lw = ctx.measureText(d.label).width; ctx.font = '11px monospace'; return lw + ctx.measureText(d.sub).width + 60 > entryW; });
-  const entryH   = short ? 46 : subBelow ? 62 : compact ? 48 : 56;
+  const entryH   = short ? 46 : subBelow ? (compact ? 54 : 62) : compact ? 42 : 56;
 
   _loreDefs.forEach((def, i) => {
-    const isUnlocked = def.key === 'world' || !!archive[def.key];
+    const isUnlocked = !!alwaysOpen[def.key] || !!archive[def.key];
     const pulse      = (Math.sin(Date.now() * 0.002 + i) * 0.5 + 0.5) * 0.25;
     const ex = sideBySide ? pageX + i * (entryW + entryGap) : pageX;
     const ey = sideBySide ? entryY : entryY + i * (entryH + entryGap);
@@ -1877,10 +1881,12 @@ function drawArchive(W, H) {
       ctx.fillStyle = def.color + 'AA'; ctx.font = '14px monospace'; ctx.textAlign = 'right';
       ctx.fillText('›', ex + entryW - 12, ey + 16);
       ctx.fillStyle = def.color; ctx.font = `bold ${short ? 13 : 15}px monospace`; ctx.textAlign = 'left';
-      ctx.fillText(def.label, ex + 14, ey + (short ? 30 : subBelow ? 32 : 34));
+      if (short) _fitFont(def.label, entryW - 34, 13, 'bold ');
+      ctx.fillText(def.label, ex + 14, ey + (short ? 30 : subBelow ? (compact ? 30 : 32) : compact ? 30 : 34));
       ctx.fillStyle = '#C4C8D4'; ctx.font = `${short ? 9 : 11}px monospace`;
-      if (subBelow) ctx.fillText(def.sub, ex + 14, ey + (short ? 42 : 50));
-      else { ctx.textAlign = 'right'; ctx.fillText(def.sub, ex + entryW - 14, ey + 34); }
+      if (short) _fitFont(def.sub, entryW - 24, 9, '');
+      if (subBelow) ctx.fillText(def.sub, ex + 14, ey + (short ? 42 : compact ? 46 : 50));
+      else { ctx.textAlign = 'right'; ctx.fillText(def.sub, ex + entryW - 14, ey + (compact ? 30 : 34)); }
     } else {
       ctx.fillStyle = '#3A3E52'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
       ctx.fillText(`ENTRY ${def.num}  —  ${def.label}`, ex + 14, ey + 24);
@@ -1888,7 +1894,7 @@ function drawArchive(W, H) {
       ctx.fillText('Find the fragment to unlock this entry.', ex + 14, ey + 40);
     }
   });
-  entryY += sideBySide ? entryH + entryGap : 2 * (entryH + entryGap);
+  entryY += sideBySide ? entryH + entryGap : nEntries * (entryH + entryGap);
 
   // ── Corrupted Processes — compact 5-across grid ───────────────
   if (!short) {
@@ -1907,7 +1913,7 @@ function drawArchive(W, H) {
   ];
   const eGap   = narrow ? 6 : 10;
   const eSlotW = Math.floor((pageW - eGap * 4) / 5);
-  const eSlotH = short ? 52 : 72;
+  const eSlotH = short ? 52 : compact ? 62 : 72;
 
   for (let i = 0; i < _enemies.length; i++) {
     const e  = _enemies[i];
@@ -1937,7 +1943,7 @@ function drawArchive(W, H) {
     ctx.fillText(e.label, mid, ey + (short ? 32 : 36));
     ctx.fillStyle = '#8A8E99'; ctx.font = '9px monospace';
     ctx.fillText(e.sub, mid, ey + (short ? 44 : 49));
-    if (!short) {
+    if (!short && !compact) {
       ctx.fillStyle = e.color + '66'; ctx.font = '8px monospace';
       ctx.fillText(`${e.num}  ›`, mid, ey + 62);
     }
@@ -1969,6 +1975,19 @@ function _drawLoreCard(W, H, type) {
         'On March 3rd, designated Day Zero, an unidentified self-replicating process began converting coherent data into hostile signal noise. Within 72 hours, 94% of networked systems had been consumed.',
         'What remained: The Basement. A hardened sector running on isolated hardware, cut off from everything.',
         'You are process ID unknown. One of the last coherent entities left in the sector.',
+      ],
+    },
+    emitter: {
+      accent: '#E8F0FF', border: '#6E7F99',
+      title: 'THE PULSE EMITTER', sub: 'FIELD EQUIPMENT  //  HAND-BUILT',
+      badge: '▸ WARDEN TECH  //  COHERENT LIGHT  //  POST-COLLAPSE',
+      foot: 'WARDEN ARCHIVE  //  ENTRY 008',
+      illus: _drawEmitterIllustration,
+      paras: [
+        'Coherent light is the one signal the Chromatics cannot swallow. They are stolen frequency, scattered and hungry. A beam where every wave moves in step hits them like a wrong note, and the lock that holds them together breaks.',
+        'Nobody manufactures Pulse Emitters. The first was built in the Basement from decommissioned hardware. Its schematic has been copied by hand ever since, and every Warden builds their own.',
+        'No two match. Dex\'s runs hot around a magnetron pulled from a microwave. Juno\'s is a tight coil of tuned antenna. Both fire the same clean white.',
+        'When a Fragment is pulled back, its signal doesn\'t leave. It settles into the emitter\'s resonance and stays. The device remembers everyone it has saved.',
       ],
     },
     raze: {
@@ -2280,6 +2299,68 @@ function _drawWorldIllustration(ctx, x, y, w, h) {
 }
 
 // ── Illustration: RAZE ────────────────────────────────────────
+
+// Schematic of a forearm emitter firing a beam of in-step waves
+function _drawEmitterIllustration(ctx, x, y, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.fillStyle = '#05070b';
+  ctx.fillRect(x, y, w, h);
+
+  // Blueprint grid
+  ctx.strokeStyle = 'rgba(110,127,153,0.16)'; ctx.lineWidth = 0.5;
+  const gs = 16;
+  for (let gx = x; gx < x + w; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke(); }
+  for (let gy = y; gy < y + h; gy += gs) { ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke(); }
+
+  const cy = y + h * 0.55;
+  const s  = Math.min(w / 360, h / 130);
+  const dx = x + w * 0.08;
+
+  // Forearm + housing, drawn as a line schematic
+  ctx.strokeStyle = 'rgba(200,215,235,0.75)'; ctx.lineWidth = 1.2;
+  ctx.strokeRect(dx, cy - 14 * s, 70 * s, 28 * s);                       // forearm
+  ctx.strokeRect(dx + 60 * s, cy - 22 * s, 64 * s, 44 * s);              // housing
+  for (let i = 0; i < 4; i++) {                                          // coil rings
+    const rx = dx + 70 * s + i * 13 * s;
+    ctx.beginPath(); ctx.ellipse(rx, cy, 4 * s, 18 * s, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(dx + 124 * s, cy - 10 * s); ctx.lineTo(dx + 140 * s, cy - 6 * s);
+  ctx.lineTo(dx + 140 * s, cy + 6 * s); ctx.lineTo(dx + 124 * s, cy + 10 * s); ctx.stroke();   // lens
+
+  // Five Fragment sockets along the top — two lit, as recovered
+  for (let i = 0; i < 5; i++) {
+    const sx = dx + 68 * s + i * 11 * s, sy = cy - 28 * s;
+    ctx.fillStyle = i < 2 ? '#E8F0FF' : 'rgba(110,127,153,0.35)';
+    ctx.fillRect(sx, sy, 6 * s, 4 * s);
+  }
+
+  // Beam — several waves locked in phase, travelling outward
+  const bx0 = dx + 142 * s, bx1 = x + w - 6;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const core = ctx.createLinearGradient(bx0, 0, bx1, 0);
+  core.addColorStop(0, 'rgba(232,240,255,0.55)');
+  core.addColorStop(1, 'rgba(232,240,255,0.08)');
+  ctx.fillStyle = core;
+  ctx.fillRect(bx0, cy - 3 * s, bx1 - bx0, 6 * s);
+  for (let k = 0; k < 3; k++) {
+    ctx.strokeStyle = `rgba(232,240,255,${0.35 - k * 0.08})`; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let px = bx0; px <= bx1; px += 2) {
+      const yy = cy + Math.sin((px - bx0) * 0.12 - t * 6) * (5 + k * 3) * s;
+      px === bx0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Labels
+  ctx.fillStyle = 'rgba(200,215,235,0.55)'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('SCHEMATIC  //  REV. HAND-COPIED', x + 8, y + 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('λ LOCKED', x + w - 8, y + h - 8);
+  ctx.textAlign = 'left';
+}
 
 function _drawRazeIllustration(ctx, x, y, w, h) {
   const t = Date.now() * 0.001;

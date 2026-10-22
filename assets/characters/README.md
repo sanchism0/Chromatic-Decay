@@ -51,3 +51,16 @@ python tools/cutout_sheet.py assets/characters/source/juno-turnaround.jpg  asset
 ```
 
 Names are listed in reading order of each sheet (top row left to right, then bottom row).
+
+## In-game sprite (Dex)
+
+`dex/sprite/dex-walk.png` is a 96 × 176 sheet of 32 × 44 cells. Rows: down, left, right, up. Columns: step A, standing, step B. Feet sit on the bottom row of each cell. The game draws it pixel-perfect: one art pixel is 2 screen pixels on desktop and 1 on phones. Walking advances the step frames, and the facing follows the aim.
+
+It's a stand-in built from `source/dex-sprite-sheet-v1.jpg`:
+
+```
+python tools/clean_sprite_sheet.py assets/characters/source/dex-sprite-sheet-v1.jpg <frames_dir>
+python tools/build_dex_sprite.py <frames_dir> assets/characters/dex/sprite/dex-walk.png
+```
+
+The first step snaps the frames to the pixel grid and locks the palette. The second restores the headband stripe, paints the Pulse Emitter bracer on his right forearm, mirrors the right-facing row to make the left-facing one, and packs the sheet. Replace it once final art from `docs/art/sprite-prompts.md` is ready.
