@@ -10,26 +10,29 @@ let _echoId = 0;
 // A small faceless person made of white light, a pink health cross on the
 // chest, fading into a wisp instead of legs.
 const ECHO_ART = [
-  '....ooo....',
-  '...o###o...',
-  '...o###o...',
-  '....o#o....',
-  '..ooo#ooo..',
-  '.o#######o.',
-  'o#o##+##o#o',
-  'o.o#+++#o.o',
-  '...o#+#o...',
-  '...os#so...',
-  '....s#s....',
-  '....s#s....',
-  '.....#.....',
-  '.....s.....',
-  '.....s.....',
+  '.....ooo.....',
+  '....o###o....',
+  '....o###o....',
+  '....o###o....',
+  '.....o#o.....',
+  '...ooo#ooo...',
+  '..o#######o..',
+  '.o#o#####o#o.',
+  'o#.o##+##o.#o',
+  'o..o#+++#o..o',
+  '...o##+##o...',
+  '....o###o....',
+  '....os#so....',
+  '.....s#s.....',
+  '.....s#s.....',
+  '......#......',
+  '......s......',
+  '......s......',
 ];
 const ECHO_PAL = { '#': '#FFFFFF', s: '#C9D3E6', o: '#7888A6', '+': '#FF4F9A' };
 const ECHO_W = ECHO_ART[0].length, ECHO_H = ECHO_ART.length;
 const ECHO_PX = 1;   // screen pixels per art pixel, same as the characters
-const ECHO_TAIL = 9; // rows from here down are the wisp
+const ECHO_TAIL = 12; // rows from here down are the wisp
 const _echoArt = (() => {
   const c = document.createElement('canvas');
   c.width = ECHO_W; c.height = ECHO_H;
@@ -90,7 +93,7 @@ export class EchoSystem {
       // Only fragments can be consumed by enemies — health pickups are ignored
 
       // Player rescue — fragments need to be close, regular echoes too
-      const rescueRange = echo.isFragment ? 28 : 22;
+      const rescueRange = echo.isFragment ? 28 : 32;
       const d = dist(echo.x, echo.y, player.x, player.y);
       if (d < rescueRange) {
         echo.channeling = true;
@@ -167,7 +170,20 @@ export class EchoSystem {
   _drawEcho(ctx, sx, sy, pulse, echo) {
     // Soft light behind the figure (smooth, like every other light)
     const t = echo.pulseTimer;
-    const R = 15 + pulse * 3;
+    // A little white fog drifting around it
+    ctx.globalAlpha = 1;
+    for (let k = 0; k < 5; k++) {
+      const a  = t * (0.5 + k * 0.13) + k * 1.26;
+      const fx = sx + Math.cos(a) * (7 + (k % 3) * 3);
+      const fy = sy + 3 + Math.sin(a * 1.3) * 5;
+      const fr = 11 + (k % 2) * 4;
+      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+      fg.addColorStop(0, 'rgba(240,245,255,0.16)');
+      fg.addColorStop(1, 'rgba(240,245,255,0)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
+    }
+    const R = 17 + pulse * 3;
     const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
     g.addColorStop(0, `rgba(255,255,255,${0.42 + pulse * 0.14})`);
     g.addColorStop(0.45, 'rgba(235,242,255,0.14)');

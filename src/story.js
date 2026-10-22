@@ -93,10 +93,10 @@ function tutorialSteps(agent, touch, api) {
     { echo: true, highlight: 'echo',
       lines: () => [L(f('neutral', 'concerned'), api.playerHurt() ? 'You took some hits. Check the bar, top left. That\'s your health.'
                                                                  : 'Not a scratch. Still, the bar top left is your health. Watch it.'),
-                    L(f('shocked', 'alarmed'), "There's an Echo nearby. Someone's still in there. I've marked it for you."),
+                    L(f('shocked', 'alarmed'), "There's an Echo nearby. A little bit of signal, still holding on. I've marked it for you."),
                     L(f('determined', 'focused'), 'Echoes heal you. Walk into it to pull them back.')],
       objective: 'Find the Echo and walk into it', until: (s, b) => s.echoes > b.echoes },
-    { lines: [L(f('laughing', 'soft-smile'), "Got them. That's health back, and one more person out of the dark."),
+    { lines: [L(f('laughing', 'soft-smile'), "Got it. That's health back, and one more Echo out of the dark."),
               L(f('neutral', 'focused'), "Sable's signal is deeper in. That's the real job."),
               L(f('worried', 'concerned'), '...Be careful in there.')],
       until: () => true, end: true },
