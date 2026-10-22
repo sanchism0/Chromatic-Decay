@@ -372,3 +372,55 @@ export function sfxCountdownTick(n) {
 export function resumeAudio() {
   if (_ctx && _ctx.state === 'suspended') _ctx.resume();
 }
+
+// ── Text blip (Mega Man style — a tiny square-wave tick per letter) ─
+// Each speaker gets their own pitch; narration cards a softer, lower tick.
+const _BLIP = {
+  dex:  { type: 'square', f: 880,  peak: 0.035 },
+  juno: { type: 'square', f: 1175, peak: 0.032 },
+  null: { type: 'sine',   f: 620,  peak: 0.06  },
+  card: { type: 'triangle', f: 520, peak: 0.05 },
+};
+
+export function sfxTextBlip(who = 'card') {
+  const b = _BLIP[who] || _BLIP.card;
+  const t = _ac().currentTime;
+  _osc(b.type, b.f * (1 + (Math.random() - 0.5) * 0.03), t, 0.028, b.peak);
+}
+
+// ── Beam-in (a laser that drops to the floor, then the body forms) ─
+// Plays the whole sequence; timed to match the beam-in animation in game.js
+export function sfxBeamIn() {
+  const ctx = _ac();
+  const t   = ctx.currentTime;
+  // The drop: a bright zap falling in pitch, with a fizz of noise
+  _osc('square',   2600, t, 0.30, 0.07, 420);
+  _osc('sawtooth', 1300, t, 0.30, 0.04, 210);
+  _noise(t, 0.30, 0.08, 3200, 0.9);
+  // Landing thump
+  _osc('sine', 190, t + 0.30, 0.22, 0.22, 55);
+  // Materialising: a shimmer that climbs as the body fills in
+  _osc('triangle', 330, t + 0.38, 0.55, 0.09, 1760);
+  _osc('square',   660, t + 0.38, 0.55, 0.025, 3520);
+  // Lock-in chirp
+  _osc('square', 1568, t + 0.92, 0.07, 0.05);
+  _osc('square', 2093, t + 0.99, 0.12, 0.05);
+}
+
+// ── Echo pickup (jewels clinking — bright inharmonic pings) ────
+export function sfxEchoPickup() {
+  const ctx = _ac();
+  const t   = ctx.currentTime;
+  const n   = 6;
+  for (let i = 0; i < n; i++) {
+    const at = t + i * 0.045 + Math.random() * 0.03;
+    const f  = 2200 + Math.random() * 2200;
+    const pk = 0.07 * (1 - i / (n + 2));
+    // Glass/crystal partials are inharmonic: 1, 2.76, 5.4
+    _osc('sine', f,        at, 0.22 + Math.random() * 0.12, pk);
+    _osc('sine', f * 2.76, at, 0.09, pk * 0.45);
+    _osc('sine', f * 5.4,  at, 0.05, pk * 0.25);
+  }
+  // A soft warm tone underneath — health coming back
+  _osc('sine', 523.2, t, 0.45, 0.07, 784);
+}

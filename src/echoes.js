@@ -6,6 +6,57 @@ import { drawGroundShadow } from './sprites.js';
 
 let _echoId = 0;
 
+// ── Echo figure ───────────────────────────────────────────────
+// A small faceless person made of white light, a pink health cross on the
+// chest, fading into a wisp instead of legs.
+const ECHO_ART = [
+  '........ooooo........',
+  '.......o#####o.......',
+  '......o#######o......',
+  '......o#######o......',
+  '......o#######o......',
+  '......o######so......',
+  '.......os###so.......',
+  '........os#so........',
+  '.....oooo###oooo.....',
+  '....o###########o....',
+  '...o#############o...',
+  '..o##s###+++###s##o..',
+  '..o#so###+++###os#o..',
+  '..o#so#+++++++#os#o..',
+  '..o#so#+++++++#os#o..',
+  '..o#so#+++++++#os#o..',
+  '.o##so###+++###os##o.',
+  '.o#o.o###+++###o.o#o.',
+  '..o..os#######so..o..',
+  '.....os#######so.....',
+  '......os#####so......',
+  '......os#####so......',
+  '.......os###so.......',
+  '.......os###so.......',
+  '........os#so........',
+  '........os#so........',
+  '.........o#o.........',
+  '.........o#o.........',
+  '..........o..........',
+];
+const ECHO_PAL = { '#': '#FFFFFF', s: '#C9D3E6', o: '#7888A6', '+': '#FF4F9A' };
+const ECHO_W = ECHO_ART[0].length, ECHO_H = ECHO_ART.length;
+const ECHO_PX = 2;   // screen pixels per art pixel
+const _echoArt = (() => {
+  const c = document.createElement('canvas');
+  c.width = ECHO_W; c.height = ECHO_H;
+  const x = c.getContext('2d');
+  ECHO_ART.forEach((row, j) => [...row].forEach((ch, i) => {
+    if (!ECHO_PAL[ch]) return;
+    // The wisp thins out toward the tip
+    x.globalAlpha = j > 20 ? Math.max(0.35, 1 - (j - 20) * 0.08) : 1;
+    x.fillStyle = ECHO_PAL[ch];
+    x.fillRect(i, j, 1, 1);
+  }));
+  return c;
+})();
+
 export class Echo {
   constructor(x, y, isFragment = false, fragmentId = null) {
     this.id           = _echoId++;
@@ -52,7 +103,7 @@ export class EchoSystem {
       // Only fragments can be consumed by enemies — health pickups are ignored
 
       // Player rescue — fragments need to be close, regular echoes too
-      const rescueRange = echo.isFragment ? 28 : 20;
+      const rescueRange = echo.isFragment ? 28 : 26;
       const d = dist(echo.x, echo.y, player.x, player.y);
       if (d < rescueRange) {
         echo.channeling = true;
@@ -113,7 +164,7 @@ export class EchoSystem {
       const bob   = Math.sin(echo.bobTimer * 2.2) * 3;
 
       // Contact shadow stays on the floor while the pickup bobs above it
-      const shR = echo.isFragment ? 14 : 9;
+      const shR = echo.isFragment ? 14 : 12;
       drawGroundShadow(ctx, echo.x, echo.y + shR, shR * 1.2, shR * 0.45, 0.55);
 
       if (echo.isFragment) {
@@ -127,55 +178,30 @@ export class EchoSystem {
   }
 
   _drawEcho(ctx, sx, sy, pulse, echo) {
-    const outerR = 13 + pulse * 6;
-    const alpha  = 0.55 + pulse * 0.35;
+    // Soft light behind the figure (smooth, like every other light)
+    const t = echo.pulseTimer;
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, 34 + pulse * 6);
+    g.addColorStop(0, `rgba(255,228,240,${0.32 + pulse * 0.12})`);
+    g.addColorStop(0.5, 'rgba(255,128,187,0.10)');
+    g.addColorStop(1, 'rgba(255,128,187,0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - 44, sy - 44, 88, 88);
 
-    // Outer expanding ring
-    ctx.globalAlpha = alpha * 0.5;
-    ctx.strokeStyle = '#C4C8D4';
-    ctx.lineWidth   = 1.5;
-    ctx.shadowBlur  = 8;
-    ctx.shadowColor = '#C4C8D4';
-    ctx.beginPath();
-    ctx.arc(sx, sy, outerR, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Core circle
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle   = '#8A9AB0';
-    ctx.shadowBlur  = 12;
-    ctx.shadowColor = '#C4C8D4';
-    ctx.beginPath();
-    ctx.arc(sx, sy, 8, 0, Math.PI * 2);
-    ctx.fill();
-
-    // White center dot
-    ctx.fillStyle  = '#FFFFFF';
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Pink plus / health cross (small, on top of white dot)
-    const arm = 4, thick = 1.5;
-    ctx.fillStyle   = '#FFB3D4';
-    ctx.shadowBlur  = 14;
-    ctx.shadowColor = '#FF80BB';
-    ctx.fillRect(sx - thick, sy - arm, thick * 2, arm * 2);
-    ctx.fillRect(sx - arm,   sy - thick, arm * 2, thick * 2);
-    ctx.shadowBlur = 0;
-
-    // Channel progress
-    if (echo.channeling) {
-      const prog = echo.channelTimer / CONFIG.echo_channel_time;
-      const bw   = 36;
-      ctx.globalAlpha = 1;
-      ctx.fillStyle   = '#1E2130';
-      ctx.fillRect(sx - bw / 2, sy - 22, bw, 4);
-      ctx.fillStyle = '#C4C8D4';
-      ctx.fillRect(sx - bw / 2, sy - 22, bw * prog, 4);
+    // The figure: pixel art, ECHO_PX screen pixels per art pixel, snapped to
+    // whole pixels. The wispy tail sways a pixel side to side.
+    const m  = ctx.getTransform();
+    const px = ECHO_PX;
+    const ox = Math.round(m.a * sx + m.e - (ECHO_W * px) / 2);
+    const oy = Math.round(m.d * sy + m.f - (ECHO_H * px) * 0.55);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    for (let y = 0; y < ECHO_H; y++) {
+      const sway = y >= 18 ? Math.round(Math.sin(t * 3 - y * 0.45) * (y - 16) / 8) * px : 0;
+      ctx.drawImage(_echoArt, 0, y, ECHO_W, 1, ox + sway, oy + y * px, ECHO_W * px, px);
     }
+    ctx.restore();
   }
 
   _drawFragment(ctx, sx, sy, pulse, echo) {

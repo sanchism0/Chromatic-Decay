@@ -12,6 +12,7 @@
 // small location tag that sets the scene without a box.
 
 import { drawSlab } from './ui3d.js';
+import { sfxTextBlip } from './audio.js';
 
 export const SPEAKERS = {
   dex:  { name: 'DEX',  color: '#B6FF2E', faces: ['neutral', 'determined', 'cocky-grin', 'laughing', 'worried', 'shocked', 'angry', 'hurt'] },
@@ -86,7 +87,14 @@ function drawPortrait(ctx, who, face, x, y, w, h, flip, t) {
   ctx.restore();
 }
 
-const CPS = 46;   // characters typed per second
+const CPS = 72;   // characters typed per second
+
+// One blip for every other letter newly typed this frame (spaces are silent)
+function blip(text, from, to, who) {
+  for (let k = Math.floor(from); k < Math.floor(to); k++) {
+    if (k % 2 === 0 && text[k] && text[k] !== ' ') { sfxTextBlip(who); return; }
+  }
+}
 
 export class Dialogue {
   // sides: which side each speaker's portrait sits on, e.g. { juno: 'left', dex: 'right', null: 'left' }
@@ -117,8 +125,10 @@ export class Dialogue {
       this.i++; this.shown = 0;
       if (this.i >= this.lines.length) { this.done = true; return; }
     }
-    const len = this._text(this.line).length;
+    const txt = this._text(this.line), len = txt.length;
+    const was = this.shown;
     this.shown = Math.min(len, this.shown + dt * CPS * (this.line.card ? 0.7 : 1));
+    blip(txt, was, this.shown, this.line.card ? 'card' : this.line.who);
     if (this._delay > 0) { this._delay -= dt; return; }
     if (!pressed) return;
     if (this.shown < len) { this.shown = len; return; }   // first press finishes the line
@@ -217,7 +227,12 @@ export class Radio {
       this.hold = this.holdMax = 2.16 + this.cur.text.length * 0.054;   // reading time after it's typed
     }
     const len = this.cur.text.length;
-    if (this.shown < len) { this.shown = Math.min(len, this.shown + dt * CPS); return; }
+    if (this.shown < len) {
+      const was = this.shown;
+      this.shown = Math.min(len, this.shown + dt * CPS);
+      blip(this.cur.text, was, this.shown, this.cur.who);
+      return;
+    }
     this.hold -= dt;
     if (this.hold <= 0) this.cur = null;
   }
