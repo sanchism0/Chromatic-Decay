@@ -376,8 +376,8 @@ export function resumeAudio() {
 // ── Text blip (Mega Man style — a tiny square-wave tick per letter) ─
 // Each speaker gets their own pitch; narration cards a softer, lower tick.
 const _BLIP = {
-  dex:  { type: 'square', f: 880,  peak: 0.035 },
-  juno: { type: 'square', f: 1175, peak: 0.032 },
+  dex:  { type: 'square', f: 940,  peak: 0.035 },
+  juno: { type: 'square', f: 1050, peak: 0.033 },
   null: { type: 'sine',   f: 620,  peak: 0.06  },
   card: { type: 'triangle', f: 520, peak: 0.05 },
 };

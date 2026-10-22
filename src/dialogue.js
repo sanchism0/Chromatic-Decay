@@ -89,10 +89,10 @@ function drawPortrait(ctx, who, face, x, y, w, h, flip, t) {
 
 const CPS = 72;   // characters typed per second
 
-// One blip for every other letter newly typed this frame (spaces are silent)
+// Two blips per five letters newly typed (spaces are silent)
 function blip(text, from, to, who) {
   for (let k = Math.floor(from); k < Math.floor(to); k++) {
-    if (k % 2 === 0 && text[k] && text[k] !== ' ') { sfxTextBlip(who); return; }
+    if ((k % 5 === 0 || k % 5 === 2) && text[k] && text[k] !== ' ') { sfxTextBlip(who); return; }
   }
 }
 

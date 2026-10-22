@@ -80,7 +80,7 @@ function tutorialSteps(agent, touch, api) {
                     L(f('determined', 'smirk'), "It's the one signal a Chromatic can't swallow.")],
       until: () => true },
     { lines: [L(f('worried', 'alarmed'), 'Signal ahead. Violet. A young one.'),
-              L(f('determined', 'focused'), "It won't come after you. Take it down.")],
+              L(f('determined', 'focused'), 'Take it out before it gets to you.')],
       spawnAfter: [['violet', 1]],
       objective: 'Destroy the violet Chromatic', until: (s, b) => s.kills - b.kills >= 1 },
     { lines: [L(f('neutral', 'soft-smile'), 'See that? Its colour came loose, and it came to you.'),
