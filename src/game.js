@@ -3,13 +3,14 @@
 import { CONFIG }           from './config.js';
 import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
-import { Player }           from './player.js';
+import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H } from './player.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem }       from './echoes.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
+import { drawGroundShadow } from './sprites.js';
 import { UpgradeScreen }    from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
 import { TrapSystem }       from './traps.js';
@@ -80,6 +81,7 @@ const STATES = {
   ADMIN:            7,
   WIN:              8,
   CLASS_EMERGENCE:  9,
+  CHAR_SELECT:     10,
 };
 let state = STATES.TITLE;
 
@@ -221,6 +223,7 @@ function startRun() {
   map = new GameMap();
   const spawn = map.playerSpawn();
   player = new Player(spawn.x, spawn.y);
+  player.character = selectedCharacter;
 
   companions.reset();
   traps.reset();
@@ -334,6 +337,7 @@ function update(dt) {
 
   switch (state) {
     case STATES.TITLE:           updateTitle();            break;
+    case STATES.CHAR_SELECT:     updateCharSelect(dt);     break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -359,10 +363,10 @@ function _hitBtn(btn) {
 function updateTitle() {
   resumeAudio();
   startTitleMusic();
-  if (input.justPressed.space) { startRun(); return; }
+  if (input.justPressed.space) { _openCharSelect(); return; }
   if (!input.mouseJustClicked)  return;
 
-  if (_hitBtn(_titleBtns.start))   { startRun();                              return; }
+  if (_hitBtn(_titleBtns.start))   { _openCharSelect();                       return; }
   if (_hitBtn(_titleBtns.archive)) { state = STATES.ARCHIVE;                  return; }
   if (_hitBtn(_titleBtns.admin))   { adminPanel.open(); state = STATES.ADMIN; return; }
 }
@@ -1032,6 +1036,7 @@ function draw() {
 
   switch (state) {
     case STATES.TITLE:           drawTitle(W, H);          break;
+    case STATES.CHAR_SELECT:     drawCharSelect(W, H);     break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1391,6 +1396,122 @@ function drawMobileControls(W, H) {
 const _ENEMY_COLORS = ['#7B3FFF', '#FFEE22', '#55FF11', '#FF5500', '#FF0066'];
 
 let _titleParts = [];
+
+// ── Character select ("Who goes in?") ─────────────────────────
+// Picked before every Arcade run. The pick is remembered between visits.
+
+const CHARACTERS = [
+  { id: 'dex',  name: 'DEX',  color: '#B6FF2E', second: '#2DE2F0', line: 'Hits it until it works.',  emitter: 'Magnetron rig' },
+  { id: 'juno', name: 'JUNO', color: '#C79BFF', second: '#7A3DFF', line: 'Reads the signal first.',  emitter: 'Antenna coil' },
+];
+let selectedCharacter = (() => {
+  try { const c = localStorage.getItem('chromatic_decay_character'); return c === 'juno' ? 'juno' : 'dex'; }
+  catch { return 'dex'; }
+})();
+const _charBtns = { dex: null, juno: null, back: null };
+let _csDelay = 0, _csPrevA = false, _csPrevD = false, _csTime = 0;
+
+function _openCharSelect() {
+  _csDelay = 0.2;                  // ignore the click that opened this screen
+  _csPrevA = input.keys.a; _csPrevD = input.keys.d;
+  state = STATES.CHAR_SELECT;
+}
+
+function _pickCharacter(id) {
+  selectedCharacter = id;
+  try { localStorage.setItem('chromatic_decay_character', id); } catch {}
+  startRun();
+}
+
+function updateCharSelect(dt) {
+  _csTime += dt;
+  if (_csDelay > 0) { _csDelay -= dt; return; }
+  if (input.justPressed.escape) { state = STATES.TITLE; return; }
+
+  // A/D or arrows switch, Space starts with the highlighted one
+  const a = input.keys.a, d = input.keys.d;
+  if (a && !_csPrevA) selectedCharacter = 'dex';
+  if (d && !_csPrevD) selectedCharacter = 'juno';
+  _csPrevA = a; _csPrevD = d;
+  if (input.justPressed.space) { _pickCharacter(selectedCharacter); return; }
+
+  // Mouse hover highlights; click or tap picks
+  for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id]) && !('ontouchstart' in window)) selectedCharacter = c.id;
+  if (!input.mouseJustClicked) return;
+  if (_hitBtn(_charBtns.back)) { state = STATES.TITLE; return; }
+  for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id])) { _pickCharacter(c.id); return; }
+}
+
+function drawCharSelect(W, H) {
+  const touch = 'ontouchstart' in window;
+  ctx.fillStyle = '#0D0E12'; ctx.fillRect(0, 0, W, H);
+  dimBackdrop(ctx, W, H, 0);
+
+  // Header
+  const short = H < 480;
+  const headY = short ? 34 : Math.max(48, H * 0.12);
+  ctx.textAlign = 'center';
+  ctx.shadowBlur = 18; ctx.shadowColor = '#00E5CC';
+  ctx.fillStyle = '#FFFFFF';
+  _fitFont('WHO GOES IN?', W - 32, short ? 24 : 34, 'bold ');
+  ctx.fillText('WHO GOES IN?', W / 2, headY);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#7ADDD4'; ctx.font = `${short ? 11 : 13}px monospace`;
+  ctx.fillText('The other one stays on the radio.', W / 2, headY + (short ? 18 : 26));
+
+  // Two cards side by side, sized to the screen
+  const gap   = W < 500 ? 12 : 28;
+  const cardW = Math.min(260, (W - 32 - gap) / 2);
+  const top   = headY + (short ? 32 : 50);
+  const foot  = short ? 30 : 56;
+  const cardH = Math.min(short ? 260 : 340, H - top - foot - 16);
+  const x0    = W / 2 - cardW - gap / 2;
+  const px    = cardH >= 300 && cardW >= 200 ? 4 : cardH >= 200 ? 3 : 2;   // sprite pixel size
+
+  CHARACTERS.forEach((c, i) => {
+    const x   = x0 + i * (cardW + gap);
+    const sel = selectedCharacter === c.id;
+    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent: c.color, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : 0.1, screen: 6 });
+    _charBtns[c.id] = { x, y: top - 4, w: cardW, h: cardH + 16 };
+
+    // Walking toward the camera on a loop (selected walks, the other stands)
+    const col = sel ? WALK_CYCLE[Math.floor(_csTime * 6) % 4] : 1;
+    const spriteH = CELL_H * px;
+    const nameFs = cardW < 170 ? 18 : 24;
+    const textH  = nameFs + 44;
+    const sy = y + Math.max(10, (cardH - spriteH - textH) / 2);
+    ctx.save();
+    ctx.globalAlpha = sel ? 1 : 0.55;
+    drawGroundShadow(ctx, x + cardW / 2, sy + spriteH - 2 * px, 12 * px, 3 * px, 0.6);
+    drawCharacterFrame(ctx, c.id, 0, col, x + cardW / 2 - (CELL_W / 2) * px, sy, px);
+    ctx.restore();
+
+    // Name, one-liner, emitter
+    const ty = sy + spriteH + nameFs + 4;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = c.color;
+    if (sel) { ctx.shadowBlur = 12; ctx.shadowColor = c.color; }
+    ctx.font = `bold ${nameFs}px monospace`;
+    ctx.fillText(c.name, x + cardW / 2, ty);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#C4C8D4';
+    _fitFont(c.line, cardW - 20, 12, '');
+    ctx.fillText(c.line, x + cardW / 2, ty + 20);
+    ctx.fillStyle = c.second;
+    _fitFont(c.emitter.toUpperCase(), cardW - 20, 10, '');
+    ctx.fillText(c.emitter.toUpperCase(), x + cardW / 2, ty + 36);
+  });
+
+  // Footer: hint + back button
+  const fy = top + cardH + 12 + (short ? 16 : 26);
+  ctx.fillStyle = 'rgba(180,190,210,0.6)'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(touch ? 'tap a character to go in' : 'A / D to choose  ·  SPACE or click to go in  ·  ESC back', W / 2, fy);
+  const bw = 90, bh = 30;
+  _charBtns.back = drawSlabButton(ctx, 16, H - bh - 18, bw, bh, '‹ BACK', {
+    accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 12, lift: _hitBtn(_charBtns.back) && !touch ? 1 : 0,
+  });
+  ctx.textAlign = 'left';
+}
 
 // ── Sci-fi button helpers ─────────────────────────────────────
 

@@ -8,22 +8,46 @@ import { haloSprite, drawSprite, drawGroundShadow } from './sprites.js';
 // 3 x 4 walk sheet: rows down, left, right, up; columns step A, standing, step B.
 // Drawn pixel-perfect (one art pixel = SPRITE_PX canvas pixels), snapped to
 // whole pixels, with feet on the ground under the player.
-const SHEET     = new Image();
-let   sheetReady = false;
-SHEET.onload = () => { sheetReady = true; };
-SHEET.src = 'assets/characters/dex/sprite/dex-walk.png';
+const SHEETS = {};
+for (const who of ['dex', 'juno']) {
+  const img = new Image();
+  img.onload = () => { img._ready = true; };
+  img.src = `assets/characters/${who}/sprite/${who}-walk.png`;
+  SHEETS[who] = img;
+}
 const CELL_W = 32, CELL_H = 44;
 const WALK_CYCLE = [0, 1, 2, 1];   // step A, stand, step B, stand
 const STRIDE     = 32;             // world px travelled per walk frame (~7 frames/s at base speed)
 const ROW_FOR = { down: 0, left: 1, right: 2, up: 3 };
 // Centre of the emitter's lens in each cell (art px, from the cell's top-left);
 // shots leave from here. [row][col] — rows down, left, right, up.
-const LENS = [
-  [[5, 29.5],  [5, 31.5],  [5, 30.5]],
-  [[16, 30.5], [20, 31.5], [20, 31.5]],
-  [[15, 30.5], [12, 31.5], [12, 31.5]],
-  [[26, 28.5], [25, 28.5], [25, 28.5]],
-];
+// Printed by tools/build_sprite.py.
+const LENS = {
+  dex: [
+    [[5, 29.5],  [5, 31.5],  [5, 30.5]],
+    [[16, 30.5], [20, 31.5], [20, 31.5]],
+    [[15, 30.5], [12, 31.5], [12, 31.5]],
+    [[26, 28.5], [25, 28.5], [25, 28.5]],
+  ],
+  juno: [
+    [[3.5, 30.5],  [4.5, 31.5],  [4.5, 31.5]],
+    [[20.5, 30.5], [20.5, 31.5], [20.5, 31.5]],
+    [[10.5, 30.5], [11.5, 31.5], [11.5, 31.5]],
+    [[25.5, 29.5], [23.5, 28.5], [23.5, 28.5]],
+  ],
+};
+
+// Draw one frame of a character's sheet at canvas pixel (sx, sy), px canvas
+// pixels per art pixel. Used by the character select screen. Returns false
+// if the sheet hasn't loaded yet.
+export function drawCharacterFrame(ctx, who, row, col, sx, sy, px) {
+  const img = SHEETS[who];
+  if (!img || !img._ready) return false;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, col * CELL_W, row * CELL_H, CELL_W, CELL_H, Math.round(sx), Math.round(sy), CELL_W * px, CELL_H * px);
+  return true;
+}
+export { WALK_CYCLE, CELL_W, CELL_H };
 
 function facingRow(a) {
   const c = Math.cos(a), sn = Math.sin(a);
@@ -66,6 +90,7 @@ export class Player {
     this.x = x;
     this.y = y;
     this.facing = 0;
+    this.character = 'dex';   // which operator's sprite and emitter to use
 
     // ── Base stats ───────────────────────────────────────────
     this.maxHp        = CONFIG.player_base_hp;
@@ -367,7 +392,7 @@ export class Player {
   emitterPos() {
     if (!this._artScale || !this._cell) return { x: this.x, y: this.y };
     const s = ('ontouchstart' in window ? 1.35 : 1) * this.size / 2;
-    const [lx, ly] = LENS[this._cell[0]][this._cell[1]];
+    const [lx, ly] = (LENS[this.character] || LENS.dex)[this._cell[0]][this._cell[1]];
     const x = this.x + (lx - CELL_W / 2) * this._artScale;
     const y = this.y + s * 0.6 + (ly - (CELL_H - 1)) * this._artScale;
     for (const o of this._map?.obstacles || []) {
@@ -680,10 +705,12 @@ export class Player {
     const col = walking ? WALK_CYCLE[Math.floor((this._walkDist || 0) / STRIDE) % 4] : 1;
     const row = facingRow(this.facing);
 
-    if (sheetReady) {
+    const sheet = SHEETS[this.character] || SHEETS.dex;
+    if (sheet._ready) {
       const t   = ctx.getTransform();
-      // Art pixel size on screen: 2 on desktop-sized canvases, 1 on phones
-      const px  = Math.min(ctx.canvas.width, ctx.canvas.height) >= 560 ? 2 : 1;
+      // One art pixel per screen pixel: about 24 world px tall at desktop zoom,
+      // in scale with the racks and Chromatics
+      const px  = 1;
       const gx  = t.a * this.x + t.e;                          // ground point on screen
       const gy  = t.d * (this.y + s * 0.6) + t.f;
       const sx  = Math.round(gx - (CELL_W / 2) * px);
@@ -692,7 +719,7 @@ export class Player {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = false;
       ctx.globalAlpha = alpha;
-      ctx.drawImage(SHEET, col * CELL_W, row * CELL_H, CELL_W, CELL_H, sx, sy, CELL_W * px, CELL_H * px);
+      ctx.drawImage(sheet, col * CELL_W, row * CELL_H, CELL_W, CELL_H, sx, sy, CELL_W * px, CELL_H * px);
       ctx.restore();
       // Remember how the sprite maps to the world so shots can leave the lens
       this._artScale = px / t.a;

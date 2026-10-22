@@ -52,15 +52,28 @@ python tools/cutout_sheet.py assets/characters/source/juno-turnaround.jpg  asset
 
 Names are listed in reading order of each sheet (top row left to right, then bottom row).
 
-## In-game sprite (Dex)
+## In-game sprites
 
-`dex/sprite/dex-walk.png` is a 96 × 176 sheet of 32 × 44 cells. Rows: down, left, right, up. Columns: step A, standing, step B. Feet sit on the bottom row of each cell. The game draws it pixel-perfect: one art pixel is 2 screen pixels on desktop and 1 on phones. Walking advances the step frames, and the facing follows the aim.
+`dex/sprite/dex-walk.png` and `juno/sprite/juno-walk.png` are 96 × 176 sheets of 32 × 44 cells. Rows: down, left, right, up. Columns: step A, standing, step B. Feet sit on the bottom row of each cell.
 
-It's a stand-in built from `source/dex-sprite-sheet-v1.jpg`:
+The game draws them pixel-perfect: one art pixel is 2 screen pixels on desktop and 1 on phones. Walking advances the step frames, the facing follows the aim, and shots leave from the emitter lens. The player picks Dex or Juno on the "Who goes in?" screen before each Arcade run.
+
+Both are stand-ins built from the generated sheets in `source/`:
 
 ```
-python tools/clean_sprite_sheet.py assets/characters/source/dex-sprite-sheet-v1.jpg <frames_dir>
-python tools/build_dex_sprite.py <frames_dir> assets/characters/dex/sprite/dex-walk.png
+python tools/clean_sprite_sheet.py assets/characters/source/dex-sprite-sheet-v1.jpg  <dex_frames>
+python tools/build_sprite.py dex  <dex_frames>  assets/characters/dex/sprite/dex-walk.png
+
+python tools/clean_sprite_sheet.py assets/characters/source/juno-sprite-sheet-v1.jpg <juno_frames>
+python tools/build_sprite.py juno <juno_frames> assets/characters/juno/sprite/juno-walk.png
 ```
 
-The first step snaps the frames to the pixel grid and locks the palette. The second restores the headband stripe, paints the Pulse Emitter bracer on his right forearm, mirrors the right-facing row to make the left-facing one, and packs the sheet. Replace it once final art from `docs/art/sprite-prompts.md` is ready.
+**What each step does:**
+- `clean_sprite_sheet.py` snaps the frames to the pixel grid and locks the palette.
+- `build_sprite.py`:
+  - paints that character's Pulse Emitter bracer on the right forearm (Dex: chunky with lime tape; Juno: slim with a violet accent)
+  - applies any per-character fixes (Dex's headband stripe)
+  - mirrors the right-facing row to make the left-facing one
+  - packs the sheet and prints the lens positions used by `LENS` in `src/player.js`
+
+Replace them once final art from `docs/art/sprite-prompts.md` is ready.

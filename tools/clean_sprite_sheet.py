@@ -64,10 +64,13 @@ for b in boxes:
             if mb.mean() > 0.5:
                 rgba[j, i, :3] = np.median(blk[mb], axis=0)
                 rgba[j, i, 3] = 255
+    # Drop stray specks, but keep real parts that the outline doesn't join
+    # (e.g. a head drawn separate from the body): anything ≥ 10% of the largest
     l2, n2 = ndimage.label(rgba[..., 3] > 0)
     if n2 > 1:
         s2 = ndimage.sum(np.ones(l2.shape), l2, range(1, n2 + 1))
-        rgba[l2 != np.argmax(s2) + 1] = 0
+        small = [i + 1 for i in range(n2) if s2[i] < 0.10 * s2.max()]
+        rgba[np.isin(l2, small)] = 0
     ys, xs = np.where(rgba[..., 3] > 0)
     frames.append(rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1].copy())
 
