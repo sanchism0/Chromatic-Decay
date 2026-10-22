@@ -1,0 +1,515 @@
+// CHROMATIC DECAY — Story levels
+//
+// A level is a list of beats played in order, each one a checkpoint:
+//   wave      clear groups of Chromatics (groups arrive from different sides)
+//   relays    power up relays while Chromatics keep coming to drain them
+//   sequence  watch nodes light up, then hit them with the emitter in order
+//   exit      walk back to the beam-out point
+// The operator (the character who stayed behind) talks over comms between
+// beats; enemies wait for the briefing to finish. Power drawn from the map
+// takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
+// If the agent goes down they're beamed back in and the beat restarts.
+
+import { Radio } from './dialogue.js';
+import { CONFIG } from './config.js';
+import { drawGlow } from './sprites.js';
+import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear } from './audio.js';
+
+export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
+const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
+
+// ── Level data ────────────────────────────────────────────────
+
+export const LEVELS = {
+  1: {
+    id: 1,
+    name: 'SERVER FLOOR',
+    blurb: 'Clear the floor, pull the power out of three relays, open the lock.',
+    beats: (op, agent) => {
+      const L = (face, text) => ({ who: op, face, text });
+      const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
+      const col = COLOR_NAME[agent];
+      return [
+        { type: 'wave',
+          lines: [L(f('neutral', 'focused'), "Server Floor. The Chromatics moved back in after you left."),
+                  L(f('determined', 'neutral'), 'Clear them out. Then we get the power back on.')],
+          groups: [[['violet', 3]], [['violet', 3]], [['violet', 2], ['yellow', 1]]],
+          objective: s => `Clear the floor (${s.left} left)`,
+          done: [L(f('cocky-grin', 'smirk'), 'Clean.')] },
+
+        { type: 'relays', count: 3,
+          lines: [L(f('neutral', 'focused'), 'Three relays down here still hold charge. Get close and pull it into your emitter.'),
+                  L(f('worried', 'concerned'), "Chromatics feed on signal. Anything touching a relay drains it, so keep them off.")],
+          firstCharge: [L(f('shocked', 'alarmed'), `Wait... it's coming through ${col}. The charge is matching your signal.`)],
+          eachDone: [
+            [L(f('determined', 'focused'), "One. Your emitter's holding more than it should.")],
+            [L(f('laughing', 'soft-smile'), "Two. I can see it from here. You're brighter.")],
+            [L(f('neutral', 'focused'), "That's all three. Whatever was in those relays is in you now.")],
+          ],
+          objective: s => `Power the relays (${s.done}/3)`,
+          done: [] },
+
+        { type: 'wave',
+          lines: [L(f('worried', 'concerned'), "That woke the rest of them up. Yellows in the mix."),
+                  L(f('cocky-grin', 'smirk'), "Let's see what that charge does.")],
+          groups: [[['violet', 3], ['yellow', 1]], [['yellow', 2]], [['violet', 2], ['yellow', 2]]],
+          objective: s => `Hold them off (${s.left} left)`,
+          done: [L(f('neutral', 'soft-smile'), "That's the last of them. The way out is sealed, though.")] },
+
+        { type: 'sequence', nodes: 4, length: 4,
+          lines: [L(f('neutral', 'focused'), "There's a lock panel ahead. Four nodes."),
+                  L(f('determined', 'neutral'), 'Watch the order they light up, then hit them with your emitter in the same order.')],
+          wrong: [L(f('worried', 'annoyed'), "Not that one. Watch again.")],
+          objective: () => 'Hit the nodes in order',
+          done: [L(f('laughing', 'soft-smile'), "That's it. The way out is open, back where you came in.")] },
+
+        { type: 'exit',
+          lines: [],
+          objective: () => 'Return to the beam-out point',
+          done: [] },
+      ];
+    },
+  },
+};
+
+// ── Helpers ───────────────────────────────────────────────────
+
+function freeSpot(map, x, y, pad = 46) {
+  const clear = (px, py) => px > 60 && py > 60 && px < CONFIG.map_width - 60 && py < CONFIG.map_height - 60 &&
+    !map.obstacles.some(o => px + pad > o.x && px - pad < o.x + o.w && py + pad > o.y && py - pad < o.y + o.h);
+  if (clear(x, y)) return { x, y };
+  for (let r = 12; r < 400; r += 12) {
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+      if (clear(px, py)) return { x: px, y: py };
+    }
+  }
+  return { x, y };
+}
+
+// ── Runner ────────────────────────────────────────────────────
+
+export class LevelRun {
+  // api: { player(), enemies, map(), spawnEnemy(type, x, y), spawnEcho(x, y), clearField(), touch() }
+  constructor(id, agent, api) {
+    this.def   = LEVELS[id];
+    this.id    = id;
+    this.agent = agent;
+    this.op    = agent === 'dex' ? 'juno' : 'dex';
+    this.api   = api;
+    this.color = AGENT_COLOR[agent] || '#FFFFFF';
+    this.beats = this.def.beats(this.op, agent);
+    this.radio = new Radio();
+    this.chroma = { violet: 0, yellow: 0, green: 0 };
+    this.t = 0;
+    this.idx = -1;
+    this.complete = false;
+    this.charge = 0;          // emitter charge drawn from relays, 0..1
+    this.motes  = [];         // essence flowing into the agent
+    this._spawnDir = Math.random() * Math.PI * 2;
+    this._layout();
+    this._next();
+  }
+
+  // Where things are on the map
+  _layout() {
+    const map = this.api.map();
+    const W = CONFIG.map_width, H = CONFIG.map_height;
+    this.relayPos = [freeSpot(map, W * 0.2, H * 0.24), freeSpot(map, W * 0.8, H * 0.26), freeSpot(map, W * 0.5, H * 0.5)];
+    const c = freeSpot(map, W * 0.5, H * 0.33, 110);
+    this.lockCenter = c;
+    this.nodePos = [[0, -62], [62, 0], [0, 62], [-62, 0]].map(([dx, dy]) => freeSpot(map, c.x + dx, c.y + dy, 20));
+    this.exitPos = map.playerSpawn();
+  }
+
+  get beat() { return this.beats[this.idx]; }
+
+  _next() {
+    this.idx++;
+    const b = this.beat;
+    if (!b) return;
+    this._enter(b);
+    this.radio.say(b.lines);
+  }
+
+  // (Re)start a beat's state — also used when restarting from a checkpoint
+  _enter(b) {
+    this.ready = false;   // waits for the briefing
+    if (b.type === 'wave') {
+      this.gi = 0; this.groupT = 0; this.spawnedAll = false;
+    } else if (b.type === 'relays') {
+      if (!this.relays) this.relays = this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 }));
+      for (const r of this.relays) if (!r.done) r.charge = 0;
+      this.spawnT = 1.5;
+      this._saidFirst = this._saidFirst || false;
+    } else if (b.type === 'sequence') {
+      if (!this.seq) {
+        const order = [];
+        while (order.length < b.length) {
+          const n = Math.floor(Math.random() * b.nodes);
+          if (order[order.length - 1] !== n) order.push(n);
+        }
+        this.seq = order;
+      }
+      this.lit = new Array(b.nodes).fill(0);   // glow per node, eases back down
+      this.seqStep = 0;
+      this.showT = 0; this.showing = false;
+      this.wrongT = 0;
+    }
+  }
+
+  onKill(e) { if (this.chroma[e.type] !== undefined) this.chroma[e.type]++; }
+
+  // Player shots against the lock's nodes (returns nothing; consumes shots)
+  checkProjectiles(projectiles) {
+    const b = this.beat;
+    if (!b || b.type !== 'sequence' || !this.ready || this.showing || this.wrongT > 0) return;
+    for (const p of projectiles.playerProjectiles) {
+      if (!p.active) continue;
+      for (let i = 0; i < this.nodePos.length; i++) {
+        const n = this.nodePos[i];
+        if (Math.hypot(p.x - n.x, p.y - n.y) > 15) continue;
+        p.active = false;
+        if (i === this.seq[this.seqStep]) {
+          this.lit[i] = 1;
+          sfxNode(i);
+          this.seqStep++;
+          if (this.seqStep >= this.seq.length) this._finishBeat();
+        } else {
+          sfxNodeWrong();
+          this.wrongT = 1.1;
+          this.seqStep = 0;
+          this.radio.say(b.wrong);
+        }
+        return;
+      }
+    }
+  }
+
+  _finishBeat() {
+    const b = this.beat;
+    if (b.done && b.done.length) this.radio.say(b.done);
+    if (b.type === 'wave' || b.type === 'relays') sfxWaveClear();
+    if (b.type === 'exit') { this.complete = true; return; }
+    this._next();
+  }
+
+  // Agent went down: beam them back in and restart this beat
+  _down() {
+    const pl = this.api.player();
+    this.api.clearField();
+    pl.hp = pl.maxHp;
+    pl.startBeamIn();
+    this.api.onBeamIn();
+    this.radio.clear();
+    this.radio.say([{ who: this.op, face: this.op === 'dex' ? 'worried' : 'concerned', text: "I've got you. Pulling you back in. Again." }]);
+    this._enter(this.beat);
+  }
+
+  update(dt) {
+    this.t += dt;
+    this.radio.update(dt);
+    const pl = this.api.player();
+    const b = this.beat;
+    if (!b || this.complete) return;
+    if (pl.hp <= 1 && !pl.beaming) { this._down(); return; }
+    if (!this.ready) { if (!this.radio.busy && !pl.beaming) this.ready = true; else return; }
+
+    if (b.type === 'wave') this._updateWave(dt, b);
+    else if (b.type === 'relays') this._updateRelays(dt, b, pl);
+    else if (b.type === 'sequence') this._updateSequence(dt, b);
+    else if (b.type === 'exit') {
+      if (Math.hypot(pl.x - this.exitPos.x, pl.y - this.exitPos.y) < 34) this._finishBeat();
+    }
+    this._updateMotes(dt, pl);
+  }
+
+  // Groups arrive from different sides; the next comes when this one thins out
+  _updateWave(dt, b) {
+    const alive = this.api.enemies.enemies.filter(e => e.isAlive).length;
+    this.groupT += dt;
+    if (this.gi < b.groups.length && (this.gi === 0 || alive <= 2 || this.groupT > 8)) {
+      this._spawnGroup(b.groups[this.gi]);
+      this.gi++; this.groupT = 0;
+    }
+    if (this.gi >= b.groups.length && alive === 0) this._finishBeat();
+  }
+
+  _spawnGroup(group, near = null) {
+    const pl = this.api.player();
+    const map = this.api.map();
+    this._spawnDir = (this._spawnDir + 2.39996) % (Math.PI * 2);
+    const o = near || pl;
+    const d = 330 + Math.random() * 90;
+    const c = freeSpot(map, o.x + Math.cos(this._spawnDir) * d, o.y + Math.sin(this._spawnDir) * d, 30);
+    for (const [type, n] of group) {
+      for (let i = 0; i < n; i++) {
+        const p = freeSpot(map, c.x + (Math.random() - 0.5) * 90, c.y + (Math.random() - 0.5) * 90, 22);
+        this.api.spawnEnemy(type, p.x, p.y);
+      }
+    }
+  }
+
+  // Charging: stand in a relay's ring. Any Chromatic inside stops the charge
+  // and drains it. Chromatics keep arriving while there's work left.
+  _updateRelays(dt, b, pl) {
+    const R = 64;
+    const es = this.api.enemies.enemies.filter(e => e.isAlive && !e.forming);
+    let charging = null;
+    for (const r of this.relays) {
+      if (r.done) continue;
+      const crowd = es.filter(e => Math.hypot(e.x - r.x, e.y - r.y) < R).length;
+      r.drain = crowd;
+      const inside = Math.hypot(pl.x - r.x, pl.y - r.y) < R;
+      if (crowd > 0) r.charge = Math.max(0, r.charge - 0.07 * crowd * dt);
+      else if (inside) {
+        r.charge = Math.min(1, r.charge + dt / 7);
+        charging = r;
+        if (!this._saidFirst && r.charge > 0.08) { this._saidFirst = true; this.radio.say(b.firstCharge); }
+      }
+      if (r.charge >= 1) {
+        r.done = true;
+        const n = this.relays.filter(x => x.done).length;
+        sfxRelayCharged();
+        this.radio.say(b.eachDone[n - 1] || []);
+        // An Echo drifts out of the spent relay — health for the next push
+        if (n < b.count) this.api.spawnEcho(r.x + 56, r.y + 24);
+      }
+    }
+    this.charging = charging;
+    this.charge = this.relays.reduce((s, r) => s + (r.done ? 1 : r.charge), 0) / b.count;
+    if (charging && Math.random() < dt * 22) this.motes.push({ x: charging.x, y: charging.y - 18, t: 0, s: Math.random() });
+
+    // Interrupters: keep a few Chromatics coming, more as the work goes on
+    const done = this.relays.filter(r => r.done).length;
+    const cap = 3 + done;
+    this.spawnT -= dt;
+    if (this.spawnT <= 0 && es.length < cap) {
+      const target = charging || this.relays.find(r => !r.done) || pl;
+      const type = done > 0 && Math.random() < 0.35 ? 'yellow' : 'violet';
+      this._spawnGroup([[type, Math.random() < 0.4 ? 2 : 1]], target);
+      this.spawnT = 2.6 - done * 0.3;
+    }
+    if (done >= b.count) { this.charging = null; this._finishBeat(); }
+  }
+
+  _updateSequence(dt, b) {
+    for (let i = 0; i < this.lit.length; i++) if (this.showing || this.seqStep === 0) this.lit[i] = Math.max(0, this.lit[i] - dt * 2.2);
+    if (this.wrongT > 0) {
+      this.wrongT -= dt;
+      for (let i = 0; i < this.lit.length; i++) this.lit[i] = Math.max(0, this.lit[i] - dt * 4);
+      if (this.wrongT <= 0) { this.showing = true; this.showT = 0; this._shown = -1; }
+      return;
+    }
+    if (this.seqStep === 0 && !this.showing && !this._everShown) { this.showing = true; this.showT = 0; this._shown = -1; this._everShown = true; }
+    if (this.showing) {
+      this.showT += dt;
+      const STEP = 0.8;
+      const k = Math.floor((this.showT - 0.4) / STEP);
+      if (k >= 0 && k < this.seq.length && k !== this._shown) {
+        this._shown = k;
+        this.lit[this.seq[k]] = 1;
+        sfxNode(this.seq[k]);
+      }
+      if (this.showT > 0.4 + this.seq.length * STEP + 0.3) this.showing = false;
+    }
+  }
+
+  _updateMotes(dt, pl) {
+    for (const m of this.motes) m.t += dt / 0.55;
+    this.motes = this.motes.filter(m => m.t < 1);
+  }
+
+  get objective() {
+    const b = this.beat;
+    if (!b || !b.objective) return null;
+    if (b.type === 'sequence' && this.showing) return 'Watch the order';
+    const left = this.api.enemies.enemies.filter(e => e.isAlive).length;
+    const done = this.relays ? this.relays.filter(r => r.done).length : 0;
+    return b.objective({ left, done });
+  }
+
+  // ── Drawing ─────────────────────────────────────────────────
+
+  drawWorld(ctx) {
+    const b = this.beat;
+    const t = this.t;
+    if (this.relays || (b && b.type === 'relays')) {
+      for (const r of (this.relays || this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 })))) this._drawRelay(ctx, r, t);
+    }
+    if (b && (b.type === 'sequence' || b.type === 'exit') || this.seq) this._drawLock(ctx, t);
+    if (b && b.type === 'exit') this._drawExit(ctx, t);
+    // Essence flowing from the relay into the agent
+    const pl = this.api.player();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = this.color;
+    for (const m of this.motes) {
+      const from = this.charging || m;
+      const k = m.t * m.t;
+      const x = from.x + (pl.x - from.x) * k + Math.sin(m.t * 6 + m.s * 9) * 8 * (1 - m.t);
+      const y = (from.y - 18) + (pl.y - 8 - (from.y - 18)) * k - Math.sin(m.t * Math.PI) * 18;
+      ctx.globalAlpha = Math.sin(m.t * Math.PI);
+      ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2);
+    }
+    ctx.restore();
+  }
+
+  _drawRelay(ctx, r, t) {
+    const R = 64;
+    const live = this.beat && this.beat.type === 'relays' && this.ready;
+    ctx.save();
+    // Ring on the floor
+    ctx.globalAlpha = r.done ? 0.25 : (live ? 0.55 : 0.3);
+    ctx.strokeStyle = r.drain > 0 ? '#F85A8A' : '#5E8C96';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(r.x, r.y + 6, R, R * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    // Charge arc in the agent's colour
+    if (r.charge > 0 || r.done) {
+      ctx.globalAlpha = r.done ? 0.3 : 0.9;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(r.x, r.y + 6, R, R * 0.55, 0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (r.done ? 1 : r.charge)); ctx.stroke();
+    }
+    // The pylon (pixel blocks)
+    ctx.globalAlpha = 1;
+    const x = Math.round(r.x), y = Math.round(r.y);
+    ctx.fillStyle = '#1B2430'; ctx.fillRect(x - 9, y - 4, 18, 8);
+    ctx.fillStyle = '#2C3A48'; ctx.fillRect(x - 6, y - 30, 12, 28);
+    ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 6, y - 30, 12, 3);
+    ctx.fillStyle = '#121820'; ctx.fillRect(x - 3, y - 24, 6, 18);
+    // Core: dim teal when full of old charge, the agent's colour once drawn
+    const core = r.done ? '#2A3440' : (r.charge > 0 ? this.color : '#00E5CC');
+    ctx.fillStyle = core;
+    const h = r.done ? 2 : Math.max(2, Math.round(18 * (1 - r.charge * 0.85)));
+    ctx.fillRect(x - 2, y - 6 - h, 4, h);
+    ctx.globalCompositeOperation = 'lighter';
+    if (!r.done) drawGlow(ctx, r.charge > 0 ? this.color : '#00E5CC', r.x, r.y - 16, 26 + Math.sin(t * 3) * 2, 0.35);
+    ctx.restore();
+  }
+
+  _drawLock(ctx, t) {
+    const solved = this.beat && this.beat.type === 'exit';
+    ctx.save();
+    // Wires from the nodes to the centre
+    ctx.strokeStyle = solved ? this.color : '#2F4250';
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 2;
+    for (const n of this.nodePos) { ctx.beginPath(); ctx.moveTo(this.lockCenter.x, this.lockCenter.y); ctx.lineTo(n.x, n.y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#1B2430'; ctx.fillRect(Math.round(this.lockCenter.x) - 8, Math.round(this.lockCenter.y) - 8, 16, 16);
+    ctx.fillStyle = solved ? this.color : '#3E5163'; ctx.fillRect(Math.round(this.lockCenter.x) - 4, Math.round(this.lockCenter.y) - 4, 8, 8);
+    for (let i = 0; i < this.nodePos.length; i++) {
+      const n = this.nodePos[i];
+      const x = Math.round(n.x), y = Math.round(n.y);
+      const lit = solved ? 1 : (this.lit ? this.lit[i] : 0);
+      const done = !solved && this.beat && this.beat.type === 'sequence' && !this.showing && i !== undefined &&
+                   this.seq && this.seq.slice(0, this.seqStep).includes(i);
+      ctx.fillStyle = '#1B2430'; ctx.fillRect(x - 8, y - 8, 16, 16);
+      ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 6, y - 6, 12, 12);
+      const k = done ? 1 : lit;
+      if (k > 0.02) {
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = 0.4 + 0.6 * k;
+        ctx.fillRect(x - 4, y - 4, 8, 8);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'lighter';
+        drawGlow(ctx, this.color, n.x, n.y, 22, 0.5 * k);
+        ctx.globalCompositeOperation = 'source-over';
+      } else {
+        ctx.fillStyle = '#26323E'; ctx.fillRect(x - 4, y - 4, 8, 8);
+      }
+    }
+    ctx.restore();
+  }
+
+  _drawExit(ctx, t) {
+    const e = this.exitPos;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 2;
+    for (let k = 0; k < 2; k++) {
+      const p = (t * 0.6 + k * 0.5) % 1;
+      ctx.globalAlpha = (1 - p) * 0.6;
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + 8, 14 + p * 22, 6 + p * 9, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = this.color;
+    ctx.fillRect(Math.round(e.x) - 5, Math.round(e.y) - 140, 10, 148);
+    drawGlow(ctx, this.color, e.x, e.y, 30, 0.4);
+    ctx.restore();
+  }
+
+  // Where the player should head next, if anywhere
+  get target() {
+    const b = this.beat;
+    if (!b || !this.ready) return null;
+    const pl = this.api.player();
+    if (b.type === 'relays' && this.relays) {
+      const open = this.relays.filter(r => !r.done);
+      if (!open.length) return null;
+      return open.reduce((a, r) => Math.hypot(r.x - pl.x, r.y - pl.y) < Math.hypot(a.x - pl.x, a.y - pl.y) ? r : a);
+    }
+    if (b.type === 'sequence') return this.lockCenter;
+    if (b.type === 'exit') return this.exitPos;
+    return null;
+  }
+
+  // HUD: comms + objective, Chroma collected, emitter charge, and an arrow at
+  // the screen edge toward the next place to go when it's out of view.
+  // toScreen maps world → screen coordinates.
+  drawHud(ctx, W, H, touch, toScreen) {
+    this.radio.draw(ctx, W, H, this.objective, touch);
+    const tg = this.target;
+    if (tg && toScreen) {
+      const [sx, sy] = toScreen(tg.x, tg.y);
+      if (sx < 0 || sx > W || sy < 0 || sy > H) {
+        const m = 30;
+        const cx = Math.max(m, Math.min(W - m, sx)), cy = Math.max(m + 90, Math.min(H - m - 60, sy));
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.atan2(sy - cy, sx - cx));
+        ctx.globalAlpha = 0.75 + 0.25 * Math.sin(this.t * 5);
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }
+    const narrow = W < 600;
+    // Chroma, top right
+    const cols = { violet: '#8B5CFF', yellow: '#E9FF6A', green: '#8DFF6A' };
+    ctx.save();
+    ctx.font = `bold ${narrow ? 11 : 13}px monospace`;
+    ctx.textAlign = 'right';
+    let x = W - 14;
+    for (const c of ['green', 'yellow', 'violet']) {
+      const label = String(this.chroma[c]);
+      ctx.fillStyle = '#C4C8D4';
+      ctx.fillText(label, x, 26);
+      const w = ctx.measureText(label).width;
+      ctx.fillStyle = cols[c];
+      ctx.fillRect(Math.round(x - w - 12), 17, 7, 7);
+      x -= w + 26;
+    }
+    ctx.fillStyle = '#5E8C96';
+    ctx.font = `${narrow ? 9 : 10}px monospace`;
+    ctx.fillText('CHROMA', W - 14, 40);
+    // Emitter charge, under the health bar, once relays have started
+    if (this.relays) {
+      const y = narrow ? 76 : 72;
+      const bw = narrow ? 120 : 200;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#8A8E99';
+      ctx.font = `${narrow ? 9 : 11}px monospace`;
+      ctx.fillText('EMITTER CHARGE', 14, y);
+      ctx.fillStyle = '#1E2130';
+      ctx.fillRect(14, y + 5, bw, 5);
+      ctx.fillStyle = this.color;
+      ctx.fillRect(14, y + 5, bw * this.charge, 5);
+    }
+    ctx.restore();
+  }
+}

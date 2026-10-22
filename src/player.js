@@ -49,6 +49,28 @@ export function drawCharacterFrame(ctx, who, row, col, sx, sy, px) {
 }
 export { WALK_CYCLE, CELL_W, CELL_H };
 
+// ── Weapons ───────────────────────────────────────────────────
+// Everyone carries an emitter; each character's handles differently. Rates
+// are trigger pulls per second at base fire rate (fire-rate upgrades scale
+// them); dmg multiplies base damage. Damage per second comes out about even
+// (~1.7× the old single shot) — the difference is how it's delivered.
+//   Juno — minigun: a stream of light, low-damage rounds with a little spray
+//   Dex  — burst: three quick rounds per pull
+//   Raze — heavy: slow, strong, gold rounds
+export const WEAPONS = {
+  juno: { name: 'Minigun', rate: 5.0,  burst: 1, gap: 0,     dmg: 0.34, spread: 0.07 },
+  dex:  { name: 'Burst',   rate: 0.85, burst: 3, gap: 0.075, dmg: 0.66, spread: 0.025 },
+  raze: { name: 'Heavy',   rate: 0.55, burst: 1, gap: 0,     dmg: 3.2,  spread: 0 },
+};
+
+// Signature abilities — earned by clearing Story Level 1 with that character.
+// Space / F, on a cooldown.
+export const SIGNATURES = {
+  dex:  { name: 'ARC DISCHARGE', cd: 9,  desc: 'Release stored charge as a ring of shots that knocks enemies back.' },
+  juno: { name: 'SPIN UP',       cd: 11, desc: 'For 4 seconds, fire more than twice as fast with a tighter stream.' },
+  raze: { name: 'GOLD STANDARD', cd: 10, desc: 'Your next 3 rounds pierce everything and hit twice as hard.' },
+};
+
 // ── Beam-in (Mega Man X style arrival) ────────────────────────
 // A streak of light in the character's colour drops to the floor, then the
 // body unfolds out of it: white silhouette → colour → the real sprite.
@@ -399,15 +421,30 @@ export class Player {
     this.fireTimer -= dt;
     if (!this.firing) this.fireTimer = Math.max(0, this.fireTimer);   // first press fires at once
 
-    if (this.firing && this.fireTimer <= 0) {
+    const W = this.weapon;
+    const spin = this.spinUpTimer > 0 ? 2.2 : 1;
+    if (this._burstLeft > 0) {
+      // Rest of a burst: fires on its own once the trigger is pulled
+      this._burstT -= dt;
+      if (this._burstT <= 0) {
+        this._shoot(projectileSystem);
+        this._burstLeft--;
+        this._burstT = W.gap;
+        this.justFired = true;
+      }
+    } else if (this.firing && this.fireTimer <= 0) {
       this._shoot(projectileSystem);
-      this.fireTimer = 1 / this.effectiveFireRate;
+      this.fireTimer = 1 / (W.rate * spin * this.effectiveFireRate / CONFIG.player_base_fire_rate);
+      if (W.burst > 1) { this._burstLeft = W.burst - 1; this._burstT = W.gap; }
       this.justFired = true;
     }
 
-    // ── Ability ──────────────────────────────────────────────
-    if (input.abilityJustPressed && this.abilityCooldown <= 0 && this.classId) {
-      this._useAbility();
+    // ── Signature (Space / F) — falls back to the class ability ─
+    this.signatureCooldown = Math.max(0, (this.signatureCooldown || 0) - dt);
+    this.spinUpTimer       = Math.max(0, (this.spinUpTimer || 0) - dt);
+    if (input.abilityJustPressed && !this.suppressAbility) {
+      if (this.signature && this.signatureCooldown <= 0) this._useSignature(projectileSystem);
+      else if (!this.signature && this.abilityCooldown <= 0 && this.classId) this._useAbility();
     }
 
     // ── Invincibility window ─────────────────────────────────
@@ -521,6 +558,26 @@ export class Player {
     return { x, y };
   }
 
+  get weapon() { return WEAPONS[this.character] || WEAPONS.dex; }
+
+  _useSignature(projectileSystem) {
+    const sig = SIGNATURES[this.signature];
+    if (!sig) return;
+    this.signatureCooldown = this.signatureCooldownMax = sig.cd;
+    this.justSignature = this.signature;   // game.js plays the effects
+    if (this.signature === 'dex') {
+      // A ring of rounds from the body; game.js adds the knockback
+      const n = 16, dmg = this.effectiveDamage * 1.2;
+      for (let i = 0; i < n; i++) {
+        projectileSystem.spawnPlayer(this.x, this.y - 6, (i / n) * Math.PI * 2, dmg, this.projSpeed * 1.1, this.projRange * 0.55, 0, false, false);
+      }
+    } else if (this.signature === 'juno') {
+      this.spinUpTimer = 4;
+    } else if (this.signature === 'raze') {
+      this.goldRounds = 3;
+    }
+  }
+
   _shoot(projectileSystem) {
     // Flash Crash: every 10th shot deals 400% damage
     let flashMultiplier = 1;
@@ -537,13 +594,17 @@ export class Player {
     if (isOverload) this.overloadBurst--;
     this.lastShotOverload = isOverload;   // audio: overload shots sound deeper
 
+    const W      = this.weapon;
+    const gold   = (this.goldRounds || 0) > 0;
+    if (gold) this.goldRounds--;
     const half   = Math.floor(this.projCount / 2);
-    const damage = this.effectiveDamage * flashMultiplier * (isOverload ? 3 : 1);
+    const damage = this.effectiveDamage * W.dmg * flashMultiplier * (isOverload ? 3 : 1) * (gold ? 2 : 1);
+    const spray  = (Math.random() - 0.5) * 2 * W.spread * (this.spinUpTimer > 0 ? 0.5 : 1);
     const from   = this.emitterPos();
     // Aim from the lens itself at the cursor, so shots still land where you
     // point even though they leave from his arm (stick aim keeps its angle)
     const ap     = this._aimPoint;
-    const aim    = ap && Math.hypot(ap.x - from.x, ap.y - from.y) > 24 ? angle(from.x, from.y, ap.x, ap.y) : this.facing;
+    const aim    = (ap && Math.hypot(ap.x - from.x, ap.y - from.y) > 24 ? angle(from.x, from.y, ap.x, ap.y) : this.facing) + spray;
 
     for (let i = 0; i < this.projCount; i++) {
       const offset = this.projCount === 1 ? 0 : (i - half) * this.projSpread;
@@ -553,9 +614,9 @@ export class Player {
         damage,
         this.projSpeed,
         this.projRange,
-        this.piercingShots,
+        gold ? 99 : this.piercingShots,
         this.projectileBounce,
-        isOverload,
+        isOverload || gold,
       );
     }
   }

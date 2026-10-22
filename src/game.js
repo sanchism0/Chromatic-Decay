@@ -3,7 +3,9 @@
 import { CONFIG }           from './config.js';
 import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
-import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H } from './player.js';
+import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS } from './player.js';
+import { LevelRun, LEVELS, AGENT_COLOR } from './level.js';
+import { profile, bankChroma, recordClear, hasSignature, levelUnlocked, timesCleared } from './profile.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
@@ -22,7 +24,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -87,6 +89,8 @@ const STATES = {
   CHAR_SELECT:     10,
   STORY:           11,   // story scenes (dialogue)
   STORY_END:       12,   // prologue complete card
+  STORY_MAP:       13,   // story level select
+  LEVEL_END:       14,   // story level results
 };
 let state = STATES.TITLE;
 
@@ -225,13 +229,17 @@ function getUnlockedClasses() {
 
 // ── Run setup ─────────────────────────────────────────────────
 
+let level = null;   // the Story level being played, if any
+
 function startRun(opts = {}) {
   const tutorial = !!opts.tutorial;
+  const levelId  = opts.level || null;
   map = new GameMap();
   pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
   player = new Player(spawn.x, spawn.y);
   player.character = selectedCharacter;
+  player.signature = hasSignature(selectedCharacter) ? selectedCharacter : null;
   player.startBeamIn();
   sfxBeamIn();
 
@@ -242,7 +250,7 @@ function startRun(opts = {}) {
   echoes.reset();
   projectiles.reset();
   lore.reset();
-  lore.enabled = !tutorial;   // the operator does the talking in the tutorial
+  lore.enabled = !tutorial && !levelId;   // the operator does the talking in Story
   upgradeUI.takenIds    = [];
   upgradeUI.takenCounts = {};
   upgradeUI.active      = false;
@@ -277,8 +285,15 @@ function startRun(opts = {}) {
 
   camera.follow(spawn.x, spawn.y, vw(), vh());
 
-  hud.minimal = tutorial;
-  if (tutorial) {
+  hud.minimal = tutorial || !!levelId;
+  level = null;
+  if (levelId) {
+    // Story level: the level runs the beats; going down restarts the beat
+    waveSystem.active = false;
+    echoes.spawnTimer = Infinity;
+    player.cannotDie  = true;
+    level = new LevelRun(levelId, selectedCharacter, levelApi);
+  } else if (tutorial) {
     // Story tutorial: no waves, no fragment, no random Echoes, and the
     // player can't die — the story director spawns everything
     waveSystem.active = false;
@@ -360,6 +375,8 @@ function update(dt) {
     case STATES.CHAR_SELECT:     updateCharSelect(dt);     break;
     case STATES.STORY:           updateStory(dt);          break;
     case STATES.STORY_END:       updateStoryEnd(dt);       break;
+    case STATES.STORY_MAP:       updateStoryMap(dt);       break;
+    case STATES.LEVEL_END:       updateLevelEnd(dt);       break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -391,7 +408,7 @@ function updateTitle() {
   if (!input.mouseJustClicked)  return;
 
   if (_hitBtn(_titleBtns.start))   { _openCharSelect();                       return; }
-  if (_hitBtn(_titleBtns.story))   { _startStory();                           return; }
+  if (_hitBtn(_titleBtns.story))   { _prologueDone() ? _openStoryMap() : _startStory(); return; }
   if (_hitBtn(_titleBtns.archive)) { state = STATES.ARCHIVE;                  return; }
   if (_hitBtn(_titleBtns.admin))   { adminPanel.open(); state = STATES.ADMIN; return; }
 }
@@ -404,8 +421,16 @@ function updatePlaying(dt) {
     input.setAutoFire(!input.autoFire);
     story.onToggleFire();
   }
-  if (story.inTutorial && story.radio.busy && (input.justPressed.enter || input.justPressed.space ||
-      (input.mouseJustClicked && story.radio.hit(input.mouseX, input.mouseY)))) story.radio.next();
+  const _radio = level ? level.radio : (story.inTutorial ? story.radio : null);
+  player.suppressAbility = false;
+  if (_radio && _radio.busy && (input.justPressed.enter || input.justPressed.space ||
+      (input.mouseJustClicked && _radio.hit(input.mouseX, input.mouseY)))) {
+    _radio.next();
+    player.suppressAbility = input.justPressed.space;   // Space skipped a line; don't also fire the signature
+  }
+  if (input.mouseJustClicked && _hitBtn(_sigBtn.r) && player.signature && player.signatureCooldown <= 0 && !player.beaming) {
+    player._useSignature(projectiles);
+  }
   const _px = player.x, _py = player.y;
 
   elapsed += dt;
@@ -424,6 +449,7 @@ function updatePlaying(dt) {
   player.update(dt, input, map, camera, ZOOM, projectiles);
   if (player.justFired) sfxShoot(player.lastShotOverload, player.character);
   if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; story.onHit(); }
+  if (player.justSignature) _signatureEffects(player.justSignature);
 
   // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
@@ -457,6 +483,7 @@ function updatePlaying(dt) {
   // Process enemy deaths
   for (const e of dead) {
     if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
+    if (level && !e._levelCounted) { e._levelCounted = true; level.onKill(e); }
     drain.spawn(e);
     hud.flashKill();
     sfxEnemyKill(e.type);
@@ -495,6 +522,7 @@ function updatePlaying(dt) {
 
   // Projectiles
   projectiles.update(dt, map, player);
+  if (level) level.checkProjectiles(projectiles);
   projectiles.checkBulletCollisions(particles);
   projectiles.checkPlayerHits(player, particles);
 
@@ -508,6 +536,7 @@ function updatePlaying(dt) {
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
   for (const e of projKilled) {
     if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
+    if (level && !e._levelCounted) { e._levelCounted = true; level.onKill(e); }
     drain.spawn(e);
     hud.flashKill();
 
@@ -646,6 +675,11 @@ function updatePlaying(dt) {
     story.updateTutorial(dt);
   }
 
+  if (level) {
+    level.update(dt);
+    if (level.complete) _finishLevel();
+  }
+
   if (!player.alive) handleGameOver();
 
   camera.follow(player.x, player.y, vw(), vh());
@@ -666,6 +700,7 @@ function updatePaused() {
       pauseQuitConfirm = false;
       stopAmbient();
       story.reset();
+      if (level) { bankChroma(level.chroma, 0.5); level = null; hud.minimal = false; state = STATES.STORY_MAP; return; }
       state = STATES.TITLE;
     } else if (hit(_pauseBtns.confirmNo)) {
       pauseQuitConfirm = false;
@@ -1084,6 +1119,8 @@ function draw() {
     case STATES.CHAR_SELECT:     drawCharSelect(W, H);     break;
     case STATES.STORY:           story.drawScene(ctx, W, H, _storyTime); _drawStorySkip(W, H); break;
     case STATES.STORY_END:       drawGame(W, H); drawStoryEnd(W, H); break;
+    case STATES.STORY_MAP:       drawStoryMap(W, H);       break;
+    case STATES.LEVEL_END:       drawGame(W, H); drawLevelEnd(W, H); break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1251,6 +1288,7 @@ function drawGame(W, H) {
   drain.drawFloor(ctx);
   traps.draw(ctx);
   echoes.draw(ctx);
+  if (level) level.drawWorld(ctx);
 
   // ── Racks, three-quarter view: those whose front edge is above the
   // player's feet are behind them; the rest are drawn after, in front ──
@@ -1330,7 +1368,9 @@ function drawGame(W, H) {
   lore.draw(ctx, W, H);
   _drawEchoBeacon(W, H);
   story.drawTutorialHud(ctx, W, H);
+  if (level) level.drawHud(ctx, W, H, 'ontouchstart' in window, (x, y) => [(x - camera.x) * ZOOM, (y - camera.y) * ZOOM]);
   _drawAutoFireBtn(W, H);
+  _drawSignature(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
   if (waveSystem && waveSystem.waveTimer > 0 && waveSystem.waveTimer <= 20) {
@@ -1444,7 +1484,9 @@ function _drawEchoBeacon(W, H) {
 const _autoBtn = { r: null };
 input.uiHit = (x, y) => state === STATES.PLAYING &&
   ((_autoBtn.r && x >= _autoBtn.r.x && x <= _autoBtn.r.x + _autoBtn.r.w &&
-    y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y));
+    y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y) ||
+   (level && level.radio.hit(x, y)) ||
+   (_sigBtn.r && x >= _sigBtn.r.x && x <= _sigBtn.r.x + _sigBtn.r.w && y >= _sigBtn.r.y && y <= _sigBtn.r.y + _sigBtn.r.h));
 
 function _drawAutoFireBtn(W, H) {
   const touch = 'ontouchstart' in window;
@@ -1588,7 +1630,7 @@ function updateStoryEnd(dt) {
   if (input.justPressed.escape) { story.reset(); stopAmbient(); state = STATES.TITLE; return; }
   if (!input.mouseJustClicked && !input.justPressed.space) return;
   if (input.justPressed.space || _hitBtn(_storyEndBtns.title)) { story.reset(); stopAmbient(); state = STATES.TITLE; return; }
-  if (_hitBtn(_storyEndBtns.arcade)) { story.reset(); hud.minimal = false; _openCharSelect('arcade'); }
+  if (_hitBtn(_storyEndBtns.arcade)) { story.reset(); hud.minimal = false; stopAmbient(); _openStoryMap(); }
 }
 function drawStoryEnd(W, H) {
   dimBackdrop(ctx, W, H, 0.75);
@@ -1601,19 +1643,268 @@ function drawStoryEnd(W, H) {
   ctx.fillText('PROLOGUE COMPLETE', W / 2, top + 30);
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#A9B6C4'; ctx.font = '13px monospace';
-  ctx.fillText('Story Mode continues soon.', W / 2, top + 70);
+  ctx.fillText('Level 1 is open: the Server Floor.', W / 2, top + 70);
   const bw = (pW - 60) / 2;
-  _storyEndBtns.arcade = drawSlabButton(ctx, pX + 20, top + 110, bw, 40, 'ARCADE MODE', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_storyEndBtns.arcade) ? 1 : 0 });
+  _storyEndBtns.arcade = drawSlabButton(ctx, pX + 20, top + 110, bw, 40, 'CONTINUE', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_storyEndBtns.arcade) ? 1 : 0 });
   _storyEndBtns.title  = drawSlabButton(ctx, pX + 40 + bw, top + 110, bw, 40, 'TITLE',      { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_storyEndBtns.title) ? 1 : 0 });
   ctx.textAlign = 'left';
+}
+
+// ── Story levels ──────────────────────────────────────────────
+// The level (level.js) runs the beats; these are the hooks into the world,
+// the Story map (level select) and the results screen.
+
+const levelApi = {
+  player:     () => player,
+  enemies,
+  map:        () => map,
+  spawnEnemy: (type, x, y) => enemies.spawnEnemyAt(type, x, y),
+  spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
+  clearField: () => { enemies.reset(); projectiles.reset(); },
+  onBeamIn:   () => sfxBeamIn(),
+  touch:      () => 'ontouchstart' in window,
+};
+
+const STORY_LEVELS = [
+  { id: 1, name: 'SERVER FLOOR' },
+  { id: 2, name: 'COLD STORAGE' },
+  { id: 3, name: 'THE STACKS' },
+  { id: 4, name: 'WIRE ROOM' },
+  { id: 5, name: "SABLE'S ROOM" },
+];
+const CHROMA_COLORS = { violet: '#8B5CFF', yellow: '#E9FF6A', green: '#8DFF6A' };
+
+let _pendingLevel = 1;
+let _levelResult = null, _levelEndDelay = 0;
+let _mapDelay = 0;
+const _mapBtns = { rows: [], back: null };
+const _levelEndBtns = { cont: null, replay: null };
+
+function _prologueDone() {
+  try { return localStorage.getItem('chromatic_decay_prologue_done') === '1'; } catch { return false; }
+}
+
+function _openStoryMap() {
+  _mapDelay = 0.2;
+  state = STATES.STORY_MAP;
+}
+
+function _finishLevel() {
+  const counts = { ...level.chroma };
+  bankChroma(counts, 1);
+  const rec = recordClear(level.id, level.agent);
+  _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks };
+  if (rec.unlocks.some(u => u.kind === 'signature')) player.signature = level.agent;
+  level = null;
+  _levelEndDelay = 0.6;
+  sfxWaveClear();
+  state = STATES.LEVEL_END;
+}
+
+function updateLevelEnd(dt) {
+  if (_levelEndDelay > 0) { _levelEndDelay -= dt; return; }
+  const go = () => { stopAmbient(); hud.minimal = false; _openStoryMap(); };
+  if (input.justPressed.escape || input.justPressed.space) { go(); return; }
+  if (!input.mouseJustClicked) return;
+  if (_hitBtn(_levelEndBtns.cont)) { go(); return; }
+  if (_hitBtn(_levelEndBtns.replay)) { _pendingLevel = _levelResult.id; startRun({ level: _levelResult.id }); }
+}
+
+function drawLevelEnd(W, H) {
+  const r = _levelResult;
+  if (!r) return;
+  dimBackdrop(ctx, W, H, 0.78);
+  const sig = r.unlocks.find(u => u.kind === 'signature');
+  const pW = Math.min(460, W - 28), pH = sig ? 330 : 236;
+  const pX = (W - pW) / 2, pY = Math.max(16, (H - pH) / 2 - 8);
+  const col = AGENT_COLOR[r.agent];
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: col, depth: 12, screen: 40, glow: 0.35 });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 12; ctx.shadowColor = col;
+  _fitFont(`${r.name} CLEARED`, pW - 30, 22, 'bold ');
+  ctx.fillText(`${r.name} CLEARED`, W / 2, top + 30);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = col; ctx.font = '12px monospace';
+  ctx.fillText(`as ${r.agent.toUpperCase()}${r.first ? '  ·  first clear' : ''}`, W / 2, top + 52);
+
+  // Chroma collected, by colour, and the wallet after banking
+  ctx.fillStyle = '#8A8E99'; ctx.font = '11px monospace';
+  ctx.fillText('CHROMA COLLECTED', W / 2, top + 82);
+  const keys = ['violet', 'yellow', 'green'];
+  const cw = Math.min(110, (pW - 40) / 3);
+  keys.forEach((k, i) => {
+    const cx = W / 2 + (i - 1) * cw;
+    ctx.fillStyle = CHROMA_COLORS[k];
+    ctx.fillRect(Math.round(cx - 30), top + 96, 8, 8);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`+${r.chroma[k] || 0}`, Math.round(cx - 16), top + 105);
+    ctx.fillStyle = '#6E7A88'; ctx.font = '10px monospace';
+    ctx.fillText(`${profile().chroma[k]} total`, Math.round(cx - 16), top + 120);
+    ctx.textAlign = 'center';
+  });
+
+  let by = top + 150;
+  if (sig) {
+    const s2 = SIGNATURES[sig.who];
+    const touch = 'ontouchstart' in window;
+    drawSlab(ctx, pX + 18, by, pW - 36, 88, { accent: col, depth: 4, glow: 0.4 });
+    ctx.fillStyle = col; ctx.font = 'bold 11px monospace';
+    ctx.fillText('SIGNATURE UNLOCKED', W / 2, by + 18);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 17px monospace';
+    ctx.fillText(s2.name, W / 2, by + 40);
+    ctx.fillStyle = '#C4C8D4';
+    _fitFont(s2.desc, pW - 60, 12, '');
+    ctx.fillText(s2.desc, W / 2, by + 60);
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '10px monospace';
+    ctx.fillText(touch ? 'Tap its button. Works in Story and Arcade.' : 'SPACE or F. Works in Story and Arcade.', W / 2, by + 78);
+    by += 104;
+  }
+  const bw = (pW - 60) / 2;
+  _levelEndBtns.cont   = drawSlabButton(ctx, pX + 20, by, bw, 40, 'CONTINUE', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_levelEndBtns.cont) ? 1 : 0 });
+  _levelEndBtns.replay = drawSlabButton(ctx, pX + 40 + bw, by, bw, 40, 'REPLAY', { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_levelEndBtns.replay) ? 1 : 0 });
+  ctx.textAlign = 'left';
+}
+
+function updateStoryMap(dt) {
+  if (_mapDelay > 0) { _mapDelay -= dt; return; }
+  if (input.justPressed.escape) { state = STATES.TITLE; return; }
+  if (input.justPressed.space) { _pendingLevel = 1; _openCharSelect('level'); return; }
+  if (!input.mouseJustClicked) return;
+  if (_hitBtn(_mapBtns.back)) { state = STATES.TITLE; return; }
+  for (const row of _mapBtns.rows) {
+    if (!_hitBtn(row.r)) continue;
+    if (row.id === 0) { _startStory(); return; }
+    if (LEVELS[row.id] && levelUnlocked(row.id)) { _pendingLevel = row.id; _openCharSelect('level'); }
+    return;
+  }
+}
+
+function drawStoryMap(W, H) {
+  ctx.fillStyle = '#0D0E12'; ctx.fillRect(0, 0, W, H);
+  dimBackdrop(ctx, W, H, 0);
+  const narrow = W < 600, short = H < 560;
+  const headY = short ? 34 : 54;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 18; ctx.shadowColor = '#00E5CC';
+  _fitFont('STORY', W - 32, short ? 24 : 32, 'bold ');
+  ctx.fillText('STORY', W / 2, headY);
+  ctx.shadowBlur = 0;
+
+  // Chroma wallet
+  const wallet = profile().chroma;
+  ctx.font = 'bold 13px monospace';
+  const items = ['violet', 'yellow', 'green'].map(k => ({ k, t: String(wallet[k] || 0) }));
+  const widths = items.map(it => ctx.measureText(it.t).width + 26);
+  let wx = W / 2 - widths.reduce((a, b) => a + b, 0) / 2;
+  items.forEach((it, i) => {
+    ctx.fillStyle = CHROMA_COLORS[it.k]; ctx.fillRect(Math.round(wx), headY + 16, 8, 8);
+    ctx.fillStyle = '#C4C8D4'; ctx.textAlign = 'left'; ctx.fillText(it.t, Math.round(wx + 13), headY + 25);
+    wx += widths[i];
+  });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#5E8C96'; ctx.font = '10px monospace';
+  ctx.fillText('CHROMA', W / 2, headY + 40);
+
+  // Rows: the prologue, then the levels
+  const rowW = Math.min(560, W - 28), rowX = (W - rowW) / 2;
+  const rowH = short ? 46 : 58, gap = short ? 6 : 10;
+  let y = headY + (short ? 54 : 66);
+  _mapBtns.rows = [];
+  const rows = [{ id: 0, name: 'PROLOGUE · THE CALL' }, ...STORY_LEVELS];
+  for (const row of rows) {
+    const playable = row.id === 0 || (LEVELS[row.id] && levelUnlocked(row.id));
+    const built = row.id === 0 || !!LEVELS[row.id];
+    const hover = playable && _hitBtn(_mapBtns.rows.find(x => x.id === row.id)?.r);
+    const accent = playable ? (row.id === 0 ? '#8FA8B8' : '#00E5CC') : '#3A4450';
+    const top = drawSlab(ctx, rowX, y, rowW, rowH, { accent, depth: 5, lift: hover ? 1 : 0, glow: playable ? 0.2 : 0 });
+    _mapBtns.rows.push({ id: row.id, r: { x: rowX, y: y - 4, w: rowW, h: rowH + 8 } });
+    ctx.textAlign = 'left';
+    ctx.fillStyle = playable ? '#FFFFFF' : '#5A6470';
+    ctx.font = `bold ${narrow ? 13 : 15}px monospace`;
+    ctx.fillText(row.id === 0 ? row.name : `${row.id} · ${row.name}`, rowX + 14, top + (short ? 20 : 24));
+    ctx.font = `${narrow ? 10 : 11}px monospace`;
+    if (row.id === 0) {
+      ctx.fillStyle = '#8A8E99'; ctx.fillText('Replay the introduction and tutorial.', rowX + 14, top + (short ? 36 : 44));
+    } else if (!built) {
+      ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + 14, top + (short ? 36 : 44));
+    } else {
+      // A tick per character who has cleared it; signatures come from these
+      ctx.fillStyle = '#8A8E99';
+      ctx.fillText(row.id === 1 ? 'Clear it as each character to unlock their signature.' : LEVELS[row.id].blurb, rowX + 14, top + (short ? 36 : 44));
+      ctx.textAlign = 'right';
+      ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
+      let rx = rowX + rowW - 14;
+      for (const who of ['juno', 'dex']) {
+        const n = timesCleared(row.id, who);
+        const label = `${who.toUpperCase()} ${n ? '✓' : '·'}`;
+        ctx.fillStyle = n ? AGENT_COLOR[who] : '#4A5560';
+        ctx.fillText(label, rx, top + (short ? 20 : 24));
+        rx -= ctx.measureText(label).width + 14;
+      }
+    }
+    y += rowH + gap;
+  }
+
+  const by = Math.min(H - 52, y + 8);
+  _mapBtns.back = drawSlabButton(ctx, rowX, by, 110, 36, '‹ BACK', { accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, lift: _hitBtn(_mapBtns.back) ? 1 : 0 });
+  ctx.textAlign = 'left';
+}
+
+// Signature effects that touch the world (the shots themselves come from player.js)
+function _signatureEffects(who) {
+  player.justSignature = null;
+  sfxSignature(who);
+  const col = AGENT_COLOR[who];
+  particles.classEmergence(player.x, player.y, col);
+  if (who === 'dex') {
+    // Knock nearby Chromatics back and stun them briefly
+    for (const e of enemies.enemies) {
+      const dx = e.x - player.x, dy = e.y - player.y, d = Math.hypot(dx, dy) || 1;
+      if (d > 120) continue;
+      const push = 36 * (1 - d / 120);
+      e.x += dx / d * push; e.y += dy / d * push;
+      e.stunTimer = Math.max(e.stunTimer || 0, 0.8);
+    }
+  }
+}
+
+// Signature HUD: name, cooldown and key (desktop), or a button (touch)
+const _sigBtn = { r: null };
+function _drawSignature(W, H) {
+  _sigBtn.r = null;
+  if (!player || !player.signature) return;
+  const sig = SIGNATURES[player.signature];
+  const col = AGENT_COLOR[player.signature];
+  const touch = 'ontouchstart' in window;
+  const cd = player.signatureCooldown || 0, max = player.signatureCooldownMax || sig.cd;
+  const ready = cd <= 0;
+  if (touch) {
+    const w = 100, h = 34, x = (W - w) / 2, y = H - 34 - 34 - h - 12;
+    _sigBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? sig.name.split(' ')[0] : `${Math.ceil(cd)}s`, {
+      accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
+    });
+    return;
+  }
+  // Bottom centre, clear of the class readout (bottom left) and AUTO (bottom right)
+  const bw = 150, x = Math.round(W / 2 - bw / 2 - 30), y = H - 30;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = ready ? col : '#6E7A88';
+  ctx.font = 'bold 13px monospace';
+  ctx.fillText(sig.name, x, y);
+  ctx.fillStyle = '#1E2130'; ctx.fillRect(x, y + 6, bw, 4);
+  ctx.fillStyle = ready ? col : '#4A5070';
+  ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / max), 4);
+  ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
+  ctx.font = '11px monospace';
+  ctx.fillText(ready ? 'SPACE / F' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
 }
 
 // ── Character select ("Who goes in?") ─────────────────────────
 // Picked before every Arcade run. The pick is remembered between visits.
 
 const CHARACTERS = [
-  { id: 'dex',  name: 'DEX',  color: '#B6FF2E', second: '#2DE2F0', line: 'Hits it until it works.',  emitter: 'Magnetron rig' },
-  { id: 'juno', name: 'JUNO', color: '#C79BFF', second: '#7A3DFF', line: 'Reads the signal first.',  emitter: 'Antenna coil' },
+  { id: 'dex',  name: 'DEX',  color: '#B6FF2E', second: '#2DE2F0', line: 'Hits it until it works.',  emitter: 'Magnetron rig · burst' },
+  { id: 'juno', name: 'JUNO', color: '#C79BFF', second: '#7A3DFF', line: 'Reads the signal first.',  emitter: 'Antenna coil · minigun' },
 ];
 let selectedCharacter = (() => {
   try { const c = localStorage.getItem('chromatic_decay_character'); return c === 'juno' ? 'juno' : 'dex'; }
@@ -1634,6 +1925,7 @@ function _pickCharacter(id) {
   selectedCharacter = id;
   try { localStorage.setItem('chromatic_decay_character', id); } catch {}
   if (_csMode === 'story') { story.picked(id); state = STATES.STORY; return; }
+  if (_csMode === 'level') { startRun({ level: _pendingLevel }); return; }
   startRun();
 }
 

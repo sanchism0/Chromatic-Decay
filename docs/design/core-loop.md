@@ -49,46 +49,31 @@ more Chroma → buy the rest of each tree in the Workshop.**
 
 ## Characters
 
-Each has their own **playstyle**, a **signature ability** (Space / F, with a
-cooldown) and a **skill tree** of 3 branches × 3 tiers.
+Everyone keeps the emitter (a gun). What sets each character apart is **how
+their gun fires**, plus a **signature ability** (Space / F, with a cooldown)
+and, later, their skill tree. Damage per second is about even; the delivery
+is different.
 
-### Dex: brawler ("Hits it until it works")
-Gets close and stays there. Short range, high impact, hard to knock down.
-- **Signature, unlocked by beating L1 as Dex: Arc Slam.** A short-range
-  shockwave that knocks enemies back and stuns them briefly.
-- Branches:
-  - **Brawl**: knockback, less contact damage, heal on close kills.
-  - **Overload**: charged shots and bigger bursts.
-  - **Junkyard**: kills drop scrap that briefly shields you.
+| Character | Gun | Feel | Signature (beat L1 as them) |
+|---|---|---|---|
+| **Juno** | **Minigun**: about 5 rounds/s at low damage, with a little spray | Hose the crowd, keep moving | **Spin Up**: fires over twice as fast with a tighter stream for 4 s |
+| **Dex** | **Burst**: three quick rounds per trigger pull | Pick a target, punch it | **Arc Discharge**: a ring of shots that knocks nearby enemies back and stuns them |
+| **Raze** (gold) | **Heavy**: slow, very strong gold rounds | Every shot counts | **Gold Standard**: the next 3 rounds pierce everything and hit twice as hard |
 
-### Juno: control ("Reads the signal first")
-Stays at range, picks targets, controls space.
-- **Signature, unlocked by beating L1 as Juno: Signal Read.** A ping that marks
-  every enemy on screen (marked enemies take extra damage) and reveals hidden
-  Echoes and secrets for a few seconds.
-- Branches:
-  - **Precision**: piercing shots, and crits on marked enemies.
-  - **Resonance**: shots jump between nearby enemies.
-  - **Tuning**: slow fields, and seeing puzzle solutions sooner.
-
-### Raze: chaos (unlocked by clearing L5)
-The market-crash Echo ("Caused three flash crashes before breakfast"). High
-risk, high reward: volatility, crits, streaks.
-- Arcade's **Breaker** class traits already fit him: Short Squeeze, Margin Call,
-  Leveraged Position, Flash Crash, Algorithmic Aggression, Circuit Breaker.
-  They become the core of his tree.
-- **Signature, unlocked by beating L1 as Raze: Flash Crash.** Damage builds up
-  on enemies, then is all dealt at once.
+- **Raze** is the market-crash Echo from the lore, now a **playable gold
+  character**, unlocked by clearing L5. You then clear L1 as him for his
+  signature. His tree can reuse Arcade's Breaker traits (Short Squeeze,
+  Margin Call, Flash Crash…). He needs a sprite before he's playable.
+- **Power takes your colour.** Any power you draw from the map (relays now,
+  more later) flows into you in your character's colour: green for Dex, pink
+  for Juno, gold for Raze. Lock nodes and the exit light up in it too. The
+  story beat: you're gaining powers.
 
 ### How trees feed Arcade
-- Every unlocked node is a **card** added to that character's Arcade pool,
-  alongside the generic cards (Pulse Amplifier, Multicast…).
-- Some nodes can only be unlocked by **Story milestones** with that character
-  (beat L1, beat L3, beat L5). The rest can be bought in the Workshop with
-  Chroma.
-- The existing Arcade classes map onto the Echoes in the lore: Warden is
-  Sable, Breaker is Raze, Ghost is Lumen, Weaver is Cord, Herald is Voss. That
-  makes them natural future characters, or shared trees, as they're rescued.
+- Every unlocked node becomes a **card** in that character's Arcade pool,
+  alongside the generic cards.
+- Some nodes unlock only through **Story milestones** with that character;
+  the rest are bought in the Workshop with Chroma.
 
 ## Story level structure
 
@@ -103,6 +88,10 @@ From L3 on, some levels end with a **boss**. Each beat is a checkpoint: if you
 die, you restart that beat, not the level.
 
 **Levels 1–5 use only violet, yellow and green.**
+
+Tasks are never "stand here for 20 seconds" on their own. Chromatics keep
+arriving to interrupt, and anything touching the objective drains it, so a
+task is a fight with a goal.
 
 ### Task ideas
 - **Hold the line**: stand in a zone while it uploads, as enemies come.
@@ -147,12 +136,12 @@ Reset option in settings.
 
 ## Build order
 
-1. **Foundation**: save data, the level runner (wave → task → wave → puzzle,
-   with checkpoints) built on the tutorial's script system, Chroma banking and
-   a results screen, and **Level 1** fully built (Relays task, Sequence
-   puzzle).
-2. **Signatures**: Dex's Arc Slam and Juno's Signal Read, unlocked by clearing
-   L1, and used in Arcade.
+1. **Foundation (built)**: save data; the level runner with checkpoints;
+   Chroma banking and a results screen; the Story map; **Level 1** (wave →
+   relays with interrupters → wave → sequence lock → exit).
+2. **Guns and signatures (built)**: Juno's minigun, Dex's burst, Raze's heavy
+   rounds (data only); Spin Up and Arc Discharge, unlocked by clearing L1, and
+   usable in Arcade too.
 3. **Workshop**: skill-tree data and UI, and the Arcade card pool per
    character.
 4. **Levels 2–5**: the Queue and Signal Hoarder bosses, and Raze.

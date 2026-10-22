@@ -187,7 +187,7 @@ function _shotGlass(overload) {
   const f    = _PULSE_NOTES[_pulseStep++ % _PULSE_NOTES.length] * (overload ? 0.5 : 1)
              * Math.pow(2, (Math.random() - 0.5) * 0.06);              // ±~35 cents
   const out  = ctx.createGain();
-  out.gain.value = overload ? 0.95 : 0.75;
+  out.gain.value = overload ? 0.95 : 0.42;   // quiet: the minigun fires five a second
   out.connect(ctx.destination);
 
   // Breath: 18 ms of soft high noise, swelling and fading
@@ -423,4 +423,43 @@ export function sfxEchoPickup() {
   }
   // A soft warm tone underneath — health coming back
   _osc('sine', 523.2, t, 0.45, 0.07, 784);
+}
+
+// ── Story level cues ──────────────────────────────────────────
+
+// Relay fully drawn: a rising, resolving triad
+export function sfxRelayCharged() {
+  const t = _ac().currentTime;
+  [392, 494, 587, 784].forEach((f, i) => _osc('triangle', f, t + i * 0.07, 0.4, 0.1));
+  _osc('sine', 196, t, 0.6, 0.08, 392);
+}
+
+// Lock nodes: each node has its own note, so the sequence is a little tune
+const _NODE_NOTES = [523.2, 659.3, 784, 987.8];
+export function sfxNode(i) {
+  const t = _ac().currentTime;
+  const f = _NODE_NOTES[i % _NODE_NOTES.length];
+  _osc('square', f, t, 0.18, 0.05);
+  _osc('sine', f * 2, t, 0.25, 0.04);
+}
+
+export function sfxNodeWrong() {
+  const t = _ac().currentTime;
+  _osc('sawtooth', 160, t, 0.28, 0.08, 110);
+  _osc('square', 170, t, 0.28, 0.03, 115);
+}
+
+// Signature abilities
+export function sfxSignature(who) {
+  const t = _ac().currentTime;
+  if (who === 'dex') {          // Arc Discharge: a crack and a falling zap
+    _noise(t, 0.18, 0.2, 2400, 0.8);
+    _osc('sawtooth', 1400, t, 0.3, 0.08, 120);
+    _osc('sine', 120, t, 0.35, 0.2, 45);
+  } else if (who === 'juno') {  // Spin Up: a motor winding up
+    _osc('sawtooth', 120, t, 0.6, 0.05, 900);
+    _osc('triangle', 240, t, 0.6, 0.06, 1800);
+  } else {                      // Gold Standard: a heavy chime
+    [523.2, 784, 1046.5].forEach((f, i) => _osc('triangle', f, t + i * 0.05, 0.6, 0.08));
+  }
 }
