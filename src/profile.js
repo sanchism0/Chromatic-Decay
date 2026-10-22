@@ -66,6 +66,11 @@ export function recordClear(levelId, who) {
 
 export function hasSignature(who) { return !!profile().signatures[who]; }
 
+export function unlockSignature(who) {
+  profile().signatures[who] = true;
+  save();
+}
+
 export function levelUnlocked(levelId) {
   if (levelId === 1) return true;
   const prev = profile().clears[levelId - 1] || {};

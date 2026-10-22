@@ -3,8 +3,8 @@
 // A level is a list of beats played in order, each one a checkpoint:
 //   wave      clear groups of Chromatics (groups arrive from different sides)
 //   relays    power up relays while Chromatics keep coming to drain them
-//   sequence  watch nodes light up, then hit them with the emitter in order
-//   exit      walk back to the beam-out point
+//   sequence  watch floor pads light up, then walk over them in the same order
+//   exit      open the door — the first time, it unlocks the agent's signature
 // The operator (the character who stayed behind) talks over comms between
 // beats; enemies wait for the briefing to finish. Power drawn from the map
 // takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
@@ -60,15 +60,15 @@ export const LEVELS = {
           done: [L(f('neutral', 'soft-smile'), "That's the last of them. The way out is sealed, though.")] },
 
         { type: 'sequence', nodes: 4, length: 4,
-          lines: [L(f('neutral', 'focused'), "There's a lock panel ahead. Four nodes."),
-                  L(f('determined', 'neutral'), 'Watch the order they light up, then hit them with your emitter in the same order.')],
+          lines: [L(f('neutral', 'focused'), "There's a lock set into the floor ahead. Four pads."),
+                  L(f('determined', 'neutral'), 'Watch the order they light up, then walk over them in the same order.')],
           wrong: [L(f('worried', 'annoyed'), "Not that one. Watch again.")],
-          objective: () => 'Hit the nodes in order',
-          done: [L(f('laughing', 'soft-smile'), "That's it. The way out is open, back where you came in.")] },
+          objective: () => 'Walk over the pads in order',
+          done: [L(f('laughing', 'soft-smile'), "Great. Now get out of there. You'll need to open the door, back where you came in.")] },
 
         { type: 'exit',
           lines: [],
-          objective: () => 'Return to the beam-out point',
+          objective: () => 'Open the door',
           done: [] },
       ];
     },
@@ -126,7 +126,7 @@ export class LevelRun {
     this.relayPos = [freeSpot(map, W * 0.2, H * 0.24), freeSpot(map, W * 0.8, H * 0.26), freeSpot(map, W * 0.5, H * 0.5)];
     const c = freeSpot(map, W * 0.5, H * 0.33, 110);
     this.lockCenter = c;
-    this.nodePos = [[0, -62], [62, 0], [0, 62], [-62, 0]].map(([dx, dy]) => freeSpot(map, c.x + dx, c.y + dy, 20));
+    this.nodePos = [[0, -84], [84, 0], [0, 84], [-84, 0]].map(([dx, dy]) => freeSpot(map, c.x + dx, c.y + dy, 26));
     this.exitPos = map.playerSpawn();
   }
 
@@ -163,6 +163,7 @@ export class LevelRun {
       this.seqStep = 0;
       this.showT = 0; this.showing = false;
       this.wrongT = 0;
+      this._onPad = -1;
     }
   }
 
@@ -182,31 +183,27 @@ export class LevelRun {
     return (this.kills - lo) / (hi - lo);
   }
 
-  // Player shots against the lock's nodes (returns nothing; consumes shots)
-  checkProjectiles(projectiles) {
-    const b = this.beat;
-    if (!b || b.type !== 'sequence' || !this.ready || this.showing || this.wrongT > 0) return;
-    for (const p of projectiles.playerProjectiles) {
-      if (!p.active) continue;
-      for (let i = 0; i < this.nodePos.length; i++) {
-        const n = this.nodePos[i];
-        if (Math.hypot(p.x - n.x, p.y - n.y) > 15) continue;
-        p.active = false;
-        if (i === this.seq[this.seqStep]) {
-          this.lit[i] = 1;
-          sfxNode(i);
-          this.seqStep++;
-          if (this.seqStep >= this.seq.length) this._finishBeat();
-        } else {
-          sfxNodeWrong();
-          this.wrongT = 1.1;
-          this.seqStep = 0;
-          this.radio.say(b.wrong);
-        }
-        return;
-      }
+  // Stepping onto a pad (counts once until you step off)
+  _stepPads(pl, b) {
+    const on = this.nodePos.findIndex(n => Math.abs(pl.x - n.x) < 16 && Math.abs(pl.y - n.y) < 16);
+    if (on === this._onPad) return;
+    this._onPad = on;
+    if (on < 0 || this.showing || this.wrongT > 0) return;
+    if (on === this.seq[this.seqStep]) {
+      this.lit[on] = 1;
+      sfxNode(on);
+      this.seqStep++;
+      if (this.seqStep >= this.seq.length) this._finishBeat();
+    } else {
+      sfxNodeWrong();
+      this.wrongT = 1.1;
+      this.seqStep = 0;
+      this.radio.say(b.wrong);
     }
   }
+
+  // The game calls this once the door is opened (after any unlock screen)
+  openDoor() { this.awaitUnlock = false; this.complete = true; }
 
   _finishBeat() {
     const b = this.beat;
@@ -227,9 +224,13 @@ export class LevelRun {
 
     if (b.type === 'wave') this._updateWave(dt, b);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
-    else if (b.type === 'sequence') this._updateSequence(dt, b);
+    else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
     else if (b.type === 'exit') {
-      if (Math.hypot(pl.x - this.exitPos.x, pl.y - this.exitPos.y) < 34) this._finishBeat();
+      // At the door: the first clear unlocks the signature (game.js shows it)
+      if (!this.awaitUnlock && Math.hypot(pl.x - this.exitPos.x, pl.y - this.exitPos.y) < 34) {
+        if (this.api.needsUnlock()) this.awaitUnlock = true;
+        else this.openDoor();
+      }
     }
     this._updateMotes(dt, pl);
   }
@@ -401,7 +402,7 @@ export class LevelRun {
   _drawLock(ctx, t) {
     const solved = this.beat && this.beat.type === 'exit';
     ctx.save();
-    // Wires from the nodes to the centre
+    // Conduits from the pads to the centre
     ctx.strokeStyle = solved ? this.color : '#2F4250';
     ctx.globalAlpha = 0.7;
     ctx.lineWidth = 2;
@@ -409,46 +410,49 @@ export class LevelRun {
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#1B2430'; ctx.fillRect(Math.round(this.lockCenter.x) - 8, Math.round(this.lockCenter.y) - 8, 16, 16);
     ctx.fillStyle = solved ? this.color : '#3E5163'; ctx.fillRect(Math.round(this.lockCenter.x) - 4, Math.round(this.lockCenter.y) - 4, 8, 8);
+    // Floor pads: step on them in order
     for (let i = 0; i < this.nodePos.length; i++) {
       const n = this.nodePos[i];
       const x = Math.round(n.x), y = Math.round(n.y);
       const lit = solved ? 1 : (this.lit ? this.lit[i] : 0);
-      const done = !solved && this.beat && this.beat.type === 'sequence' && !this.showing && i !== undefined &&
+      const done = !solved && this.beat && this.beat.type === 'sequence' && !this.showing &&
                    this.seq && this.seq.slice(0, this.seqStep).includes(i);
-      ctx.fillStyle = '#1B2430'; ctx.fillRect(x - 8, y - 8, 16, 16);
-      ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 6, y - 6, 12, 12);
+      ctx.fillStyle = '#141B24'; ctx.fillRect(x - 16, y - 13, 32, 26);
+      ctx.fillStyle = '#2C3A48'; ctx.fillRect(x - 14, y - 11, 28, 22);
+      ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 14, y - 11, 28, 2);
       const k = done ? 1 : lit;
       if (k > 0.02) {
         ctx.fillStyle = this.color;
-        ctx.globalAlpha = 0.4 + 0.6 * k;
-        ctx.fillRect(x - 4, y - 4, 8, 8);
+        ctx.globalAlpha = 0.35 + 0.65 * k;
+        ctx.fillRect(x - 10, y - 7, 20, 14);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'lighter';
-        drawGlow(ctx, this.color, n.x, n.y, 22, 0.5 * k);
+        drawGlow(ctx, this.color, n.x, n.y, 30, 0.5 * k);
         ctx.globalCompositeOperation = 'source-over';
       } else {
-        ctx.fillStyle = '#26323E'; ctx.fillRect(x - 4, y - 4, 8, 8);
+        ctx.fillStyle = '#1E2833'; ctx.fillRect(x - 10, y - 7, 20, 14);
       }
     }
     ctx.restore();
   }
 
+  // The door out: a sealed slab whose seams glow in the agent's colour
   _drawExit(ctx, t) {
     const e = this.exitPos;
+    const x = Math.round(e.x), y = Math.round(e.y);
+    const pulse = 0.6 + 0.4 * Math.sin(t * 3);
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.55;
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = 2;
-    for (let k = 0; k < 2; k++) {
-      const p = (t * 0.6 + k * 0.5) % 1;
-      ctx.globalAlpha = (1 - p) * 0.6;
-      ctx.beginPath(); ctx.ellipse(e.x, e.y + 8, 14 + p * 22, 6 + p * 9, 0, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#141B24'; ctx.fillRect(x - 20, y - 40, 40, 46);       // frame
+    ctx.fillStyle = '#2C3A48'; ctx.fillRect(x - 17, y - 37, 34, 42);       // door
+    ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 17, y - 37, 34, 3);
+    ctx.fillStyle = '#1E2833'; ctx.fillRect(x - 13, y - 30, 11, 30); ctx.fillRect(x + 2, y - 30, 11, 30);
     ctx.fillStyle = this.color;
-    ctx.fillRect(Math.round(e.x) - 5, Math.round(e.y) - 140, 10, 148);
-    drawGlow(ctx, this.color, e.x, e.y, 30, 0.4);
+    ctx.globalAlpha = pulse;
+    ctx.fillRect(x - 1, y - 37, 2, 42);                                     // centre seam
+    ctx.fillRect(x - 17, y + 4, 34, 2);                                     // threshold
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(ctx, this.color, e.x, e.y - 14, 34, 0.35 * pulse);
     ctx.restore();
   }
 

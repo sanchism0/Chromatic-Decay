@@ -5,7 +5,7 @@ import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR } from './level.js';
-import { profile, bankChroma, recordClear, hasSignature, levelUnlocked, timesCleared } from './profile.js';
+import { profile, bankChroma, recordClear, hasSignature, unlockSignature, levelUnlocked, timesCleared } from './profile.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
@@ -93,6 +93,7 @@ const STATES = {
   LEVEL_END:       14,   // story level results
   DYING:           15,   // death burst, before game over / level failed
   LEVEL_FAIL:      16,   // story level failed: restart or leave
+  ABILITY_UNLOCK:  17,   // the door in a Story level: new signature ability
 };
 let state = STATES.TITLE;
 
@@ -383,6 +384,7 @@ function update(dt) {
     case STATES.LEVEL_END:       updateLevelEnd(dt);       break;
     case STATES.DYING:           updateDying(dt);          break;
     case STATES.LEVEL_FAIL:      updateLevelFail(dt);      break;
+    case STATES.ABILITY_UNLOCK:  updateAbilityUnlock(dt);  break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -528,7 +530,6 @@ function updatePlaying(dt) {
 
   // Projectiles
   projectiles.update(dt, map, player);
-  if (level) level.checkProjectiles(projectiles);
   projectiles.checkBulletCollisions(particles);
   projectiles.checkPlayerHits(player, particles);
 
@@ -685,6 +686,7 @@ function updatePlaying(dt) {
     level.update(dt);
     if (level.complete) _finishLevel();
     else if (level.failed) { _startDeath(); return; }
+    else if (level.awaitUnlock && state === STATES.PLAYING) { _unlockT = 0; state = STATES.ABILITY_UNLOCK; return; }
     else if (level.pendingPower > 0 && state === STATES.PLAYING) _showLevelPower();
   }
 
@@ -1140,6 +1142,7 @@ function draw() {
     case STATES.LEVEL_END:       drawGame(W, H); drawLevelEnd(W, H); break;
     case STATES.DYING:           drawGame(W, H); drawDeath(W, H); break;
     case STATES.LEVEL_FAIL:      drawGame(W, H); drawLevelFail(W, H); break;
+    case STATES.ABILITY_UNLOCK:  drawGame(W, H); drawAbilityUnlock(W, H); break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1682,6 +1685,7 @@ const levelApi = {
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
   clearField: () => { enemies.reset(); projectiles.reset(); },
   touch:      () => 'ontouchstart' in window,
+  needsUnlock: () => !hasSignature(selectedCharacter),
 };
 
 const STORY_LEVELS = [
@@ -1866,6 +1870,55 @@ function drawStoryMap(W, H) {
 
   const by = Math.min(H - 52, y + 8);
   _mapBtns.back = drawSlabButton(ctx, rowX, by, 110, 36, '‹ BACK', { accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, lift: _hitBtn(_mapBtns.back) ? 1 : 0 });
+  ctx.textAlign = 'left';
+}
+
+// Opening the door for the first time as this character: the charge drawn
+// from the relays becomes their signature ability
+let _unlockT = 0;
+const _unlockBtn = { r: null };
+function updateAbilityUnlock(dt) {
+  _unlockT += dt;
+  if (_unlockT < 0.8) return;
+  const take = input.justPressed.space || input.justPressed.enter || (input.mouseJustClicked && _hitBtn(_unlockBtn.r));
+  if (!take) return;
+  const who = level.agent;
+  unlockSignature(who);
+  player.signature = who;
+  sfxSignature(who);
+  level.openDoor();
+  state = STATES.PLAYING;
+}
+
+function drawAbilityUnlock(W, H) {
+  const who = level.agent, sig = SIGNATURES[who], col = AGENT_COLOR[who];
+  const k = Math.min(1, _unlockT / 0.6);
+  dimBackdrop(ctx, W, H, 0.8 * k);
+  ctx.save();
+  ctx.globalAlpha = k;
+  const pW = Math.min(440, W - 28), pH = 250;
+  const pX = (W - pW) / 2, pY = (H - pH) / 2 - 10;
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: col, depth: 12, screen: 40, glow: 0.5 });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#A9B6C4'; ctx.font = '11px monospace';
+  ctx.fillText('THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.', W / 2, top + 26, pW - 30);
+  ctx.fillStyle = col; ctx.font = 'bold 12px monospace';
+  ctx.fillText('NEW ABILITY', W / 2, top + 58);
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 16; ctx.shadowColor = col;
+  _fitFont(sig.name, pW - 40, 28, 'bold ');
+  ctx.fillText(sig.name, W / 2, top + 92);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#C4C8D4';
+  _fitFont(sig.desc, pW - 40, 13, '');
+  ctx.fillText(sig.desc, W / 2, top + 122);
+  const touch = 'ontouchstart' in window;
+  ctx.fillStyle = '#7ADDD4'; ctx.font = '11px monospace';
+  ctx.fillText(touch ? 'Tap its button to use it. Works in Story and Arcade.' : 'SPACE or F to use it. Works in Story and Arcade.', W / 2, top + 146);
+  const bw = 170;
+  _unlockBtn.r = drawSlabButton(ctx, W / 2 - bw / 2, top + 170, bw, 42, _unlockT < 0.8 ? '…' : 'TAKE IT', {
+    accent: col, fontSize: 14, glow: 0.4, lift: _hitBtn(_unlockBtn.r) ? 1 : 0,
+  });
+  ctx.restore();
   ctx.textAlign = 'left';
 }
 

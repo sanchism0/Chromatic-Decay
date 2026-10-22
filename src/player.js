@@ -57,6 +57,9 @@ export { WALK_CYCLE, CELL_W, CELL_H };
 //   Juno — minigun: a stream of light, low-damage rounds with a little spray
 //   Dex  — burst: three quick rounds per pull
 //   Raze — heavy: slow, strong, gold rounds
+// Extra projectiles (Multicast) never double up the stream: for Dex each adds
+// a round to the burst, for Juno each makes the minigun 25% faster. Raze's
+// heavy rounds still fan out.
 export const WEAPONS = {
   juno: { name: 'Minigun', rate: 5.0,  burst: 1, gap: 0,     dmg: 0.34, spread: 0.07 },
   dex:  { name: 'Burst',   rate: 0.85, burst: 3, gap: 0.075, dmg: 0.66, spread: 0.025 },
@@ -434,8 +437,11 @@ export class Player {
       }
     } else if (this.firing && this.fireTimer <= 0) {
       this._shoot(projectileSystem);
-      this.fireTimer = 1 / (W.rate * spin * this.effectiveFireRate / CONFIG.player_base_fire_rate);
-      if (W.burst > 1) { this._burstLeft = W.burst - 1; this._burstT = W.gap; }
+      const extra = this.projCount - 1;
+      const rate  = W.rate * (this.character === 'juno' ? 1 + 0.25 * extra : 1);
+      this.fireTimer = 1 / (rate * spin * this.effectiveFireRate / CONFIG.player_base_fire_rate);
+      const burst = W.burst + (this.character === 'dex' ? extra : 0);
+      if (burst > 1) { this._burstLeft = burst - 1; this._burstT = W.gap; }
       this.justFired = true;
     }
 
@@ -597,7 +603,8 @@ export class Player {
     const W      = this.weapon;
     const gold   = (this.goldRounds || 0) > 0;
     if (gold) this.goldRounds--;
-    const half   = Math.floor(this.projCount / 2);
+    const count  = this.character === 'dex' || this.character === 'juno' ? 1 : this.projCount;
+    const half   = Math.floor(count / 2);
     const damage = this.effectiveDamage * W.dmg * flashMultiplier * (isOverload ? 3 : 1) * (gold ? 2 : 1);
     const spray  = (Math.random() - 0.5) * 2 * W.spread * (this.spinUpTimer > 0 ? 0.5 : 1);
     const from   = this.emitterPos();
@@ -606,8 +613,8 @@ export class Player {
     const ap     = this._aimPoint;
     const aim    = (ap && Math.hypot(ap.x - from.x, ap.y - from.y) > 24 ? angle(from.x, from.y, ap.x, ap.y) : this.facing) + spray;
 
-    for (let i = 0; i < this.projCount; i++) {
-      const offset = this.projCount === 1 ? 0 : (i - half) * this.projSpread;
+    for (let i = 0; i < count; i++) {
+      const offset = count === 1 ? 0 : (i - half) * this.projSpread;
       const a = aim + offset;
       projectileSystem.spawnPlayer(
         from.x, from.y, a,

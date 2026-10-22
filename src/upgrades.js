@@ -82,7 +82,7 @@ export const GENERIC_UPGRADES = [
   },
   {
     id: 'multicast', name: 'Multicast',
-    desc: '+1 projectile.',
+    desc: p => p.character === 'dex' ? '+1 round per burst.' : p.character === 'juno' ? 'Minigun fires 25% faster.' : '+1 projectile.',
     baseWeight: 3, cap: 3,
     apply: p => { p.projCount += 1; },
   },
