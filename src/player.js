@@ -49,6 +49,31 @@ export function drawCharacterFrame(ctx, who, row, col, sx, sy, px) {
 }
 export { WALK_CYCLE, CELL_W, CELL_H };
 
+// ── Beam-in (Mega Man X style arrival) ────────────────────────
+// A streak of light in the character's colour drops to the floor, then the
+// body unfolds out of it: white silhouette → colour → the real sprite.
+// Smooth fades only, no flicker. Timed to sfxBeamIn() in audio.js.
+export const BEAM_DUR = 1.05;
+const BEAM_DROP = 0.30;                                   // streak reaches the floor
+const BEAM_COLOR = { dex: '#B6FF2E', juno: '#E58CFF' };
+const _silhouettes = {};
+function silhouette(who, color) {
+  const key = who + color;
+  if (_silhouettes[key]) return _silhouettes[key];
+  const img = SHEETS[who];
+  if (!img || !img._ready) return null;
+  const c = document.createElement('canvas');
+  c.width = CELL_W; c.height = CELL_H;
+  const x = c.getContext('2d');
+  x.drawImage(img, 1 * CELL_W, 0, CELL_W, CELL_H, 0, 0, CELL_W, CELL_H);   // standing, facing down
+  x.globalCompositeOperation = 'source-atop';
+  x.fillStyle = color;
+  x.fillRect(0, 0, CELL_W, CELL_H);
+  return (_silhouettes[key] = c);
+}
+const easeOut = k => 1 - (1 - k) * (1 - k);
+const ramp = (v, a, b) => Math.max(0, Math.min(1, (v - a) / (b - a)));
+
 function facingRow(a) {
   const c = Math.cos(a), sn = Math.sin(a);
   if (Math.abs(c) >= Math.abs(sn)) return c >= 0 ? ROW_FOR.right : ROW_FOR.left;
@@ -286,9 +311,15 @@ export class Player {
     return d;
   }
 
+  startBeamIn() { this.beamT = 0; this._drawnAt = null; }
+  get beaming() { return this.beamT < BEAM_DUR; }
+
   update(dt, input, map, camera, zoom, projectileSystem) {
     this._map = map;
     if (!this.alive) return;
+
+    // Arriving: no moving or firing until the body has formed
+    if (this.beaming) { this.beamT += dt; this.firing = false; this.justFired = false; return; }
 
     // ── Timers ───────────────────────────────────────────────
     this.abilityCooldown = Math.max(0, this.abilityCooldown - dt);
@@ -389,6 +420,72 @@ export class Player {
 
   // Faint copy of the sprite drawn over racks that hide the player, so you
   // never lose sight of yourself behind a tall rack
+  _drawBeamIn(ctx, s) {
+    const T   = this.beamT;
+    const col = BEAM_COLOR[this.character] || '#FFFFFF';
+    const m   = ctx.getTransform();
+    const gx  = Math.round(m.a * this.x + m.e);
+    const gy  = Math.round(m.d * (this.y + s * 0.6) + m.f);   // feet, on screen
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 1. The streak falls (speeding up), then fades into the body
+    const fall = Math.min(1, T / BEAM_DROP);
+    const beamA = T < BEAM_DROP ? 1 : 1 - ramp(T, BEAM_DROP, BEAM_DROP + 0.22);
+    if (beamA > 0) {
+      const headY = Math.round(-30 + (gy + 30) * fall * fall);
+      const len = T < BEAM_DROP ? 120 : 120 + (T - BEAM_DROP) * 300;   // the tail catches up into a column
+      const top = Math.max(0, headY - len);
+      const halo = ctx.createLinearGradient(gx - 16, 0, gx + 16, 0);
+      halo.addColorStop(0, 'rgba(0,0,0,0)'); halo.addColorStop(0.5, col); halo.addColorStop(1, 'rgba(0,0,0,0)');
+      const fadeUp = ctx.createLinearGradient(0, top, 0, headY);
+      fadeUp.addColorStop(0, 'rgba(255,255,255,0)'); fadeUp.addColorStop(1, 'rgba(255,255,255,1)');
+      ctx.globalAlpha = 0.45 * beamA;
+      ctx.fillStyle = halo; ctx.fillRect(gx - 16, top, 32, headY - top);
+      ctx.globalAlpha = beamA;
+      ctx.fillStyle = col;  ctx.fillRect(gx - 3, top, 6, headY - top);
+      ctx.fillStyle = fadeUp; ctx.fillRect(gx - 1, top, 2, headY - top);
+    }
+
+    // 2. Impact: a ring of light spreads across the floor
+    if (T >= BEAM_DROP) {
+      const k = ramp(T, BEAM_DROP, BEAM_DROP + 0.4);
+      ctx.globalAlpha = (1 - k) * 0.8;
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(gx, gy, 6 + k * 34, 2 + k * 11, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // 3. The body unfolds out of the beam
+    if (T >= BEAM_DROP) {
+      const u = ramp(T, BEAM_DROP, BEAM_DUR);
+      const stretch = easeOut(ramp(u, 0, 0.45));
+      const w = Math.max(2, Math.round(CELL_W * (0.12 + 0.88 * stretch)));
+      const h = Math.round(CELL_H * (1.25 - 0.25 * stretch));
+      const x0 = gx - Math.round(w / 2), y0 = gy - h + 1;
+      const glow = ctx.createRadialGradient(gx, gy - CELL_H / 2, 0, gx, gy - CELL_H / 2, 40);
+      glow.addColorStop(0, col); glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.35 * (1 - u);
+      ctx.fillStyle = glow; ctx.fillRect(gx - 40, gy - CELL_H / 2 - 40, 80, 80);
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.imageSmoothingEnabled = false;
+      const white = silhouette(this.character, '#FFFFFF');
+      const tint  = silhouette(this.character, col);
+      const sheet = SHEETS[this.character];
+      const aSprite = ramp(u, 0.55, 1);
+      const aTint   = ramp(u, 0.3, 0.5) * (1 - ramp(u, 0.7, 1));
+      const aWhite  = 1 - ramp(u, 0.45, 0.75);
+      if (sheet && sheet._ready && aSprite > 0) {
+        ctx.globalAlpha = aSprite;
+        ctx.drawImage(sheet, 1 * CELL_W, 0, CELL_W, CELL_H, x0, y0, w, h);
+      }
+      if (tint && aTint > 0)   { ctx.globalAlpha = aTint;  ctx.drawImage(tint,  x0, y0, w, h); }
+      if (white && aWhite > 0) { ctx.globalAlpha = aWhite; ctx.drawImage(white, x0, y0, w, h); }
+    }
+    ctx.restore();
+  }
+
   drawOccluded(ctx, alpha = 0.38) {
     const d = this._drawnAt;
     if (!d || !this.alive || !this._cell) return;
@@ -598,7 +695,7 @@ export class Player {
   }
 
   takeDamage(rawAmount) {
-    if (!this.alive || this.invincible > 0) return false;
+    if (!this.alive || this.invincible > 0 || this.beaming) return false;
 
     let amount = rawAmount;
 
@@ -692,6 +789,7 @@ export class Player {
 
     const _mob = 'ontouchstart' in window;
     const s = _mob ? this.size / 2 * 1.35 : this.size / 2;
+    if (this.beaming) { this._drawBeamIn(ctx, s); return; }
 
     // Protection window (after a hit, Phase Shift, Margin Call): no blinking.
     // Track the window's full length whenever it's (re)started, so the shield

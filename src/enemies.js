@@ -35,6 +35,11 @@ function glowStrength(type) {
 
 // ── Base Enemy ───────────────────────────────────────────────
 
+// Arrival: a new enemy gathers out of drifting motes over SPAWN_IN seconds,
+// holding still and harmless until it has formed
+const SPAWN_IN = 0.45;
+const easeOut = k => 1 - (1 - k) * (1 - k);
+
 class Enemy {
   constructor(type, x, y) {
     this.id      = _nextId++;
@@ -63,8 +68,20 @@ class Enemy {
     // Tracks whether enemy was below 25% HP before a killing hit (Frequency Shatter)
     this.wasBelow25 = false;
 
-    // Movement trail
+    // Arrival fade (see SPAWN_IN)
+    this.spawnT = 0;
+
+    // Each enemy approaches at its own angle and curves in as it closes, so a
+    // crowd comes from several sides instead of trailing in a single file.
+    // Spread evenly by id (golden angle) rather than at random.
+    this.flank = Math.sin(this.id * 2.39996) * 1.2;   // radians, about ±70°
+    // Two in three also aim ahead of where the player is heading (seconds
+    // of lead), so part of the swarm cuts you off instead of trailing behind
+    this.lead  = [0, 0.7, 1.3][this.id % 3];
+    this._sepX = 0; this._sepY = 0;                   // set each frame by EnemySystem
   }
+
+  get forming() { return this.spawnT < SPAWN_IN; }
 
   get size() { return this.cfg.size; }
 
@@ -106,6 +123,7 @@ class Enemy {
   update(dt, player, map, projectileSystem) {
     if (!this.alive) return;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
+    if (this.forming) { this.spawnT += dt; return; }
 
     // Stun check — skip all movement and firing while stunned
     if (this.stunTimer > 0) {
@@ -133,8 +151,28 @@ class Enemy {
 
   }
 
+  // Toward (tx, ty), but bent by this enemy's flank angle while still far
+  // away (straightening out inside ~90px), plus a push away from neighbours
+  _approach(tx, ty) {
+    const pv = EnemySystem.playerVel;
+    if (this.lead && pv) {
+      const lx = pv.x * this.lead, ly = pv.y * this.lead;
+      const ll = Math.hypot(lx, ly), cap = 260;
+      const k = ll > cap ? cap / ll : 1;
+      // Only lead while still out of reach; up close, go straight for them
+      const far = Math.max(0, Math.min(1, (Math.hypot(tx - this.x, ty - this.y) - 70) / 200));
+      tx += lx * k * far; ty += ly * k * far;
+    }
+    const dx = tx - this.x, dy = ty - this.y;
+    const d  = Math.hypot(dx, dy) || 1;
+    const bend = this.flank * Math.max(0, Math.min(1, (d - 90) / 320));
+    const c = Math.cos(bend), sn = Math.sin(bend);
+    return [(dx * c - dy * sn) / d, (dx * sn + dy * c) / d];
+  }
+
   _move(dt, dx, dy, map, speedOverride) {
-    const n = normalize(dx, dy);
+    let n = normalize(dx, dy);
+    if (this._sepX || this._sepY) n = normalize(n.x + this._sepX, n.y + this._sepY);
     const combinedSlow = Math.max(this.trapSlow || 0, this.slowFactor || 0);
     const spd = (speedOverride !== undefined ? speedOverride : this.cfg.move_speed) * (1 - combinedSlow);
     const step = spd * dt;
@@ -208,17 +246,20 @@ class Enemy {
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)
   _updateViolet(dt, player, map) {
-    this._move(dt, player.x - this.x, player.y - this.y, map);
+    const [ax, ay] = this._approach(player.x, player.y);
+    this._move(dt, ax, ay, map);
   }
 
   // YELLOW — persistent drift toward player, slightly faster than Violet
   _updateYellow(dt, player, map) {
-    this._move(dt, player.x - this.x, player.y - this.y, map);
+    const [ax, ay] = this._approach(player.x, player.y);
+    this._move(dt, ax, ay, map);
   }
 
   // GREEN — chase at full speed and shoot straight ahead
   _updateGreen(dt, player, map, projectileSystem) {
-    this._move(dt, player.x - this.x, player.y - this.y, map);
+    const [ax, ay] = this._approach(player.x, player.y);
+    this._move(dt, ax, ay, map);
 
     if (!this.trapSuppressed) {
       this.fireTimer -= dt;
@@ -232,7 +273,7 @@ class Enemy {
 
   // ORANGE — moves toward player while shooting
   _updateOrange(dt, player, map, projectileSystem) {
-    const dx = player.x - this.x, dy = player.y - this.y;
+    const [dx, dy] = this._approach(player.x, player.y);
     this._move(dt, dx, dy, map);
 
     // Shoot (suppressed inside Weaver traps)
@@ -294,7 +335,7 @@ class Enemy {
     if (!this.alive) return;
 
     const cfg   = this.cfg;
-    const r     = this.drawSize;
+    let   r     = this.drawSize;
     const t     = Date.now() / 1000 + this.id * 0.37;          // per-ghost phase offset
     const seed  = this.id * 2.39;
     const bx    = this.x, by = this.y - this.lift;
@@ -306,15 +347,29 @@ class Enemy {
     const k     = glowStrength(this.type);
     const hpK   = Math.max(0, Math.min(1, this.hp / this.maxHp));
     this._pulse = pulse;   // the halo pass breathes with the core
+    const form  = easeOut(Math.min(1, this.spawnT / SPAWN_IN));
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
+    // Forming: motes of its colour drift in and gather where it will be
+    if (form < 1) {
+      ctx.fillStyle = col;
+      for (let i = 0; i < 10; i++) {
+        const a  = seed + i * 0.628 + form * 1.5;
+        const rr = r * (0.6 + 2.6 * (1 - form)) * (0.7 + 0.3 * ((i * 7) % 3));
+        ctx.globalAlpha = 0.9 * (1 - form * 0.8);
+        ctx.fillRect(Math.round(bx + Math.cos(a) * rr) - 1, Math.round(by + Math.sin(a) * rr) - 1, 2, 2);
+      }
+    }
+    const rFull = r;
+    r = r * (0.35 + 0.65 * form);
+
     // Pool of its own light on the floor below (light casts glow, not shadow)
-    const pool = haloSprite(cfg.glow_color, Math.round(r * 2), 0.35);
-    ctx.globalAlpha = 0.55 + 0.45 * pulse;
+    const pool = haloSprite(cfg.glow_color, Math.round(rFull * 2), 0.35);
+    ctx.globalAlpha = (0.55 + 0.45 * pulse) * form;
     ctx.drawImage(pool.canvas, this.x - r * 1.8, this.y + r * 0.35 - r * 0.7, r * 3.6, r * 1.4);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = form;
 
     // (the wide outer glow is drawn in drawHalo, after the racks)
     for (let i = 0; i < 5; i++) {
@@ -329,7 +384,7 @@ class Enemy {
     ctx.restore();
 
     // HP bar
-    if (this.hp < this.maxHp) {
+    if (this.hp < this.maxHp && !this.forming) {
       this._drawHpBar(ctx);
     }
   }
@@ -337,8 +392,9 @@ class Enemy {
   // Additive halo — breathes with the core; drawn in the glow pass after the racks
   drawHalo(ctx) {
     if (!this.alive) return;
-    const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2);
-    drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * glowStrength(this.type) * (0.85 + 0.15 * (this._pulse ?? 1)));
+    const form = easeOut(Math.min(1, this.spawnT / SPAWN_IN));
+    const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2) * (0.35 + 0.65 * form);
+    drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * form * glowStrength(this.type) * (0.85 + 0.15 * (this._pulse ?? 1)));
   }
 
   _drawHpBar(ctx) {
@@ -425,6 +481,33 @@ export class EnemySystem {
       }
     }
 
+    // The player's velocity (smoothed), for enemies that lead their target
+    if (this._lastPX !== undefined && dt > 0) {
+      const vx = (player.x - this._lastPX) / dt, vy = (player.y - this._lastPY) / dt;
+      const pv = EnemySystem.playerVel || { x: 0, y: 0 };
+      const k = Math.min(1, dt * 6);
+      EnemySystem.playerVel = Math.hypot(vx, vy) > 2000 ? { x: 0, y: 0 } : { x: pv.x + (vx - pv.x) * k, y: pv.y + (vy - pv.y) * k };
+    }
+    this._lastPX = player.x; this._lastPY = player.y;
+
+    // Personal space: each enemy is pushed gently away from close neighbours,
+    // so a crowd spreads into a loose swarm instead of a queue
+    const list = this.enemies;
+    for (const e of list) { e._sepX = 0; e._sepY = 0; }
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        const R = (a.size + b.size) * 2.6;
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= R * R || d2 < 1e-6) continue;
+        const d = Math.sqrt(d2), push = (1 - d / R) * 1.8;
+        a._sepX += dx / d * push; a._sepY += dy / d * push;
+        b._sepX -= dx / d * push; b._sepY -= dy / d * push;
+      }
+    }
+
     // Update enemies
     for (const e of this.enemies) {
       e.update(dt, player, map, projectileSystem);
@@ -501,7 +584,7 @@ export class EnemySystem {
   checkPlayerContact(player, particles) {
     if (!player.alive) return;
     for (const e of this.enemies) {
-      if (!e.isAlive) continue;
+      if (!e.isAlive || e.forming) continue;
       // Only melee enemies deal contact damage (violet/yellow/green)
       if (e.type !== 'violet' && e.type !== 'yellow' && e.type !== 'green') continue;
       const dx = e.x - player.x, dy = e.y - player.y;

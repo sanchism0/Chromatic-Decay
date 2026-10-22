@@ -6,6 +6,48 @@ import { drawGroundShadow } from './sprites.js';
 
 let _echoId = 0;
 
+// ── Echo figure ───────────────────────────────────────────────
+// A small faceless person made of white light, a pink health cross on the
+// chest, fading into a wisp instead of legs.
+const ECHO_ART = [
+  '.....ooo.....',
+  '....o###o....',
+  '....o###o....',
+  '....o###o....',
+  '.....o#o.....',
+  '...ooo#ooo...',
+  '..o#######o..',
+  '.o#o#####o#o.',
+  'o#.o##+##o.#o',
+  'o..o#+++#o..o',
+  '...o##+##o...',
+  '....o###o....',
+  '....os#so....',
+  '.....s#s.....',
+  '.....s#s.....',
+  '......#......',
+  '......s......',
+  '......s......',
+];
+const ECHO_PAL = { '#': '#FFFFFF', s: '#C9D3E6', o: '#7888A6', '+': '#FF4F9A' };
+const ECHO_W = ECHO_ART[0].length, ECHO_H = ECHO_ART.length;
+const ECHO_PX = 1;   // screen pixels per art pixel, same as the characters
+const ECHO_TAIL = 12; // rows from here down are the wisp
+const ECHO_IN = 0.6;  // seconds to fade in when it appears
+const _echoArt = (() => {
+  const c = document.createElement('canvas');
+  c.width = ECHO_W; c.height = ECHO_H;
+  const x = c.getContext('2d');
+  ECHO_ART.forEach((row, j) => [...row].forEach((ch, i) => {
+    if (!ECHO_PAL[ch]) return;
+    // The wisp thins out toward the tip
+    x.globalAlpha = j >= ECHO_TAIL ? Math.max(0.3, 1 - (j - ECHO_TAIL + 1) * 0.12) : 1;
+    x.fillStyle = ECHO_PAL[ch];
+    x.fillRect(i, j, 1, 1);
+  }));
+  return c;
+})();
+
 export class Echo {
   constructor(x, y, isFragment = false, fragmentId = null) {
     this.id           = _echoId++;
@@ -52,7 +94,7 @@ export class EchoSystem {
       // Only fragments can be consumed by enemies — health pickups are ignored
 
       // Player rescue — fragments need to be close, regular echoes too
-      const rescueRange = echo.isFragment ? 28 : 20;
+      const rescueRange = echo.isFragment ? 28 : 32;
       const d = dist(echo.x, echo.y, player.x, player.y);
       if (d < rescueRange) {
         echo.channeling = true;
@@ -113,7 +155,7 @@ export class EchoSystem {
       const bob   = Math.sin(echo.bobTimer * 2.2) * 3;
 
       // Contact shadow stays on the floor while the pickup bobs above it
-      const shR = echo.isFragment ? 14 : 9;
+      const shR = echo.isFragment ? 14 : 7;
       drawGroundShadow(ctx, echo.x, echo.y + shR, shR * 1.2, shR * 0.45, 0.55);
 
       if (echo.isFragment) {
@@ -127,55 +169,56 @@ export class EchoSystem {
   }
 
   _drawEcho(ctx, sx, sy, pulse, echo) {
-    const outerR = 13 + pulse * 6;
-    const alpha  = 0.55 + pulse * 0.35;
-
-    // Outer expanding ring
-    ctx.globalAlpha = alpha * 0.5;
-    ctx.strokeStyle = '#C4C8D4';
-    ctx.lineWidth   = 1.5;
-    ctx.shadowBlur  = 8;
-    ctx.shadowColor = '#C4C8D4';
-    ctx.beginPath();
-    ctx.arc(sx, sy, outerR, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Core circle
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle   = '#8A9AB0';
-    ctx.shadowBlur  = 12;
-    ctx.shadowColor = '#C4C8D4';
-    ctx.beginPath();
-    ctx.arc(sx, sy, 8, 0, Math.PI * 2);
-    ctx.fill();
-
-    // White center dot
-    ctx.fillStyle  = '#FFFFFF';
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Pink plus / health cross (small, on top of white dot)
-    const arm = 4, thick = 1.5;
-    ctx.fillStyle   = '#FFB3D4';
-    ctx.shadowBlur  = 14;
-    ctx.shadowColor = '#FF80BB';
-    ctx.fillRect(sx - thick, sy - arm, thick * 2, arm * 2);
-    ctx.fillRect(sx - arm,   sy - thick, arm * 2, thick * 2);
-    ctx.shadowBlur = 0;
-
-    // Channel progress
-    if (echo.channeling) {
-      const prog = echo.channelTimer / CONFIG.echo_channel_time;
-      const bw   = 36;
-      ctx.globalAlpha = 1;
-      ctx.fillStyle   = '#1E2130';
-      ctx.fillRect(sx - bw / 2, sy - 22, bw, 4);
-      ctx.fillStyle = '#C4C8D4';
-      ctx.fillRect(sx - bw / 2, sy - 22, bw * prog, 4);
+    // Soft light behind the figure (smooth, like every other light)
+    const t = echo.pulseTimer;
+    // Arriving: it brightens in over ECHO_IN seconds out of rising motes
+    const form = Math.min(1, t / ECHO_IN);
+    if (form < 1) {
+      ctx.fillStyle = '#FFFFFF';
+      for (let i = 0; i < 8; i++) {
+        const k  = (form + i / 8) % 1;
+        ctx.globalAlpha = (1 - form) * Math.sin(k * Math.PI);
+        ctx.fillRect(Math.round(sx + Math.sin(i * 2.4) * 10 * (1 - k)), Math.round(sy + 14 - k * 22), 1, 1);
+      }
     }
+
+    // A little white fog drifting around it
+    ctx.globalAlpha = 1;
+    for (let k = 0; k < 5; k++) {
+      const a  = t * (0.5 + k * 0.13) + k * 1.26;
+      const fx = sx + Math.cos(a) * (7 + (k % 3) * 3);
+      const fy = sy + 3 + Math.sin(a * 1.3) * 5;
+      const fr = 11 + (k % 2) * 4;
+      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+      fg.addColorStop(0, `rgba(240,245,255,${0.16 * form})`);
+      fg.addColorStop(1, 'rgba(240,245,255,0)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
+    }
+    const R = 17 + pulse * 3;
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+    g.addColorStop(0, `rgba(255,255,255,${(0.42 + pulse * 0.14) * form})`);
+    g.addColorStop(0.45, 'rgba(235,242,255,0.14)');
+    g.addColorStop(1, 'rgba(235,242,255,0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - R, sy - R, R * 2, R * 2);
+
+    // The figure: pixel art, ECHO_PX screen pixels per art pixel, snapped to
+    // whole pixels. The wispy tail sways a pixel side to side.
+    const m  = ctx.getTransform();
+    const px = ECHO_PX;
+    const ox = Math.round(m.a * sx + m.e - (ECHO_W * px) / 2);
+    const oy = Math.round(m.d * sy + m.f - (ECHO_H * px) * 0.55);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = form;
+    for (let y = 0; y < ECHO_H; y++) {
+      const sway = y >= ECHO_TAIL ? Math.round(Math.sin(t * 3 - y * 0.6) * (y - ECHO_TAIL + 2) / 4) * px : 0;
+      ctx.drawImage(_echoArt, 0, y, ECHO_W, 1, ox + sway, oy + y * px, ECHO_W * px, px);
+    }
+    ctx.restore();
   }
 
   _drawFragment(ctx, sx, sy, pulse, echo) {

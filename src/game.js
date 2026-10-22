@@ -22,7 +22,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -232,6 +232,8 @@ function startRun(opts = {}) {
   const spawn = map.playerSpawn();
   player = new Player(spawn.x, spawn.y);
   player.character = selectedCharacter;
+  player.startBeamIn();
+  sfxBeamIn();
 
   companions.reset();
   traps.reset();
@@ -585,6 +587,7 @@ function updatePlaying(dt) {
   const rescued = echoes.update(dt, player, map, enemies, particles);
   if (rescued) {
     if (rescued.type === 'echo') {
+      sfxEchoPickup();
       if (story.inTutorial) story.onEcho();
       hud.flashEcho();
       const wasFirst = player.echoesRescued === 0;
@@ -1415,8 +1418,8 @@ function _drawEchoBeacon(W, H) {
     ctx.strokeStyle = col; ctx.lineWidth = 2;
     for (let k = 0; k < 2; k++) {
       const p = (t * 0.7 + k * 0.5) % 1;
-      ctx.globalAlpha = (1 - p) * 0.8;
-      ctx.beginPath(); ctx.arc(sx, sy, 16 + p * 46, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = (1 - p) * 0.4;
+      ctx.beginPath(); ctx.arc(sx, sy, 12 + p * 24, 0, Math.PI * 2); ctx.stroke();
     }
     const by = sy - 46 + Math.round(Math.sin(t * 4) * 3);
     ctx.globalAlpha = 1;

@@ -162,10 +162,12 @@ export class GameMap {
 
   // Spawn anywhere on the map at least minPlayerDist from the player
   // and at least minEnemyDist from each position in enemyPositions.
-  randomSpawn(playerX, playerY, enemyPositions = [], minPlayerDist = 300, minEnemyDist = 110) {
+  // prefAngle (radians, optional): prefer spots in that direction from the
+  // player, within about ±50°; falls back to anywhere if none are free
+  randomSpawn(playerX, playerY, enemyPositions = [], minPlayerDist = 300, minEnemyDist = 110, prefAngle = null) {
     const INSET = 60;
     const candidates = [];
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 48; i++) {
       candidates.push({
         x: INSET + Math.random() * (W - INSET * 2),
         y: INSET + Math.random() * (H - INSET * 2),
@@ -199,6 +201,14 @@ export class GameMap {
     };
 
     let valid = candidates.filter(passesBoth);
+    if (prefAngle !== null) {
+      const facing = valid.filter(c => {
+        let da = Math.atan2(c.y - playerY, c.x - playerX) - prefAngle;
+        da = Math.atan2(Math.sin(da), Math.cos(da));
+        return Math.abs(da) < 0.87;
+      });
+      if (facing.length > 0) return facing[Math.floor(Math.random() * facing.length)];
+    }
     if (valid.length > 0) return valid[Math.floor(Math.random() * valid.length)];
 
     // Fallback: relax enemy spacing, keep player distance
