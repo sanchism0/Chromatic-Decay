@@ -14,8 +14,16 @@ SHEET.onload = () => { sheetReady = true; };
 SHEET.src = 'assets/characters/dex/sprite/dex-walk.png';
 const CELL_W = 32, CELL_H = 44;
 const WALK_CYCLE = [0, 1, 2, 1];   // step A, stand, step B, stand
-const STRIDE     = 7;              // world px travelled per walk frame
+const STRIDE     = 32;             // world px travelled per walk frame (~7 frames/s at base speed)
 const ROW_FOR = { down: 0, left: 1, right: 2, up: 3 };
+// Centre of the emitter's lens in each cell (art px, from the cell's top-left);
+// shots leave from here. [row][col] — rows down, left, right, up.
+const LENS = [
+  [[5, 29.5],  [5, 31.5],  [5, 30.5]],
+  [[16, 30.5], [20, 31.5], [20, 31.5]],
+  [[15, 30.5], [12, 31.5], [12, 31.5]],
+  [[26, 28.5], [25, 28.5], [25, 28.5]],
+];
 
 function facingRow(a) {
   const c = Math.cos(a), sn = Math.sin(a);
@@ -254,6 +262,7 @@ export class Player {
   }
 
   update(dt, input, map, camera, zoom, projectileSystem) {
+    this._map = map;
     if (!this.alive) return;
 
     // ── Timers ───────────────────────────────────────────────
@@ -321,9 +330,11 @@ export class Player {
     // ── Facing — right joystick overrides mouse ──────────────
     if (input.touchAimAngle !== null) {
       this.facing = input.touchAimAngle;
+      this._aimPoint = null;
     } else {
       const mouse = input.worldMouse(camera.x, camera.y, zoom);
       this.facing = angle(this.x, this.y, mouse.x, mouse.y);
+      this._aimPoint = mouse;
     }
 
     // ── Shooting — always fires toward cursor ────────────────
@@ -350,6 +361,21 @@ export class Player {
     this._drawAlpha += (targetAlpha - this._drawAlpha) * Math.min(1, dt * 4);
   }
 
+  // World position of the emitter lens on the current frame. Falls back to
+  // the body centre before the sprite has drawn, or if the lens would sit
+  // inside a rack (hugging a wall) so shots never spawn in a wall.
+  emitterPos() {
+    if (!this._artScale || !this._cell) return { x: this.x, y: this.y };
+    const s = ('ontouchstart' in window ? 1.35 : 1) * this.size / 2;
+    const [lx, ly] = LENS[this._cell[0]][this._cell[1]];
+    const x = this.x + (lx - CELL_W / 2) * this._artScale;
+    const y = this.y + s * 0.6 + (ly - (CELL_H - 1)) * this._artScale;
+    for (const o of this._map?.obstacles || []) {
+      if (x > o.x - 2 && x < o.x + o.w + 2 && y > o.y - 2 && y < o.y + o.h + 2) return { x: this.x, y: this.y };
+    }
+    return { x, y };
+  }
+
   _shoot(projectileSystem) {
     // Flash Crash: every 10th shot deals 400% damage
     let flashMultiplier = 1;
@@ -367,12 +393,17 @@ export class Player {
 
     const half   = Math.floor(this.projCount / 2);
     const damage = this.effectiveDamage * flashMultiplier * (isOverload ? 3 : 1);
+    const from   = this.emitterPos();
+    // Aim from the lens itself at the cursor, so shots still land where you
+    // point even though they leave from his arm (stick aim keeps its angle)
+    const ap     = this._aimPoint;
+    const aim    = ap && Math.hypot(ap.x - from.x, ap.y - from.y) > 24 ? angle(from.x, from.y, ap.x, ap.y) : this.facing;
 
     for (let i = 0; i < this.projCount; i++) {
       const offset = this.projCount === 1 ? 0 : (i - half) * this.projSpread;
-      const a = this.facing + offset;
+      const a = aim + offset;
       projectileSystem.spawnPlayer(
-        this.x, this.y, a,
+        from.x, from.y, a,
         damage,
         this.projSpeed,
         this.projRange,
@@ -663,6 +694,9 @@ export class Player {
       ctx.globalAlpha = alpha;
       ctx.drawImage(SHEET, col * CELL_W, row * CELL_H, CELL_W, CELL_H, sx, sy, CELL_W * px, CELL_H * px);
       ctx.restore();
+      // Remember how the sprite maps to the world so shots can leave the lens
+      this._artScale = px / t.a;
+      this._cell     = [row, col];
     } else {
       // Fallback until the sheet loads: the original light-square body
       ctx.save();
