@@ -86,7 +86,7 @@ function tutorialSteps(agent, touch, api) {
     { lines: [L(f('neutral', 'soft-smile'), 'See that? Its colour came loose, and it came to you.'),
               L(f('determined', 'neutral'), 'Every one you break gives a little of it back.')],
       until: () => true },
-    { lines: [L(f('worried', 'concerned'), 'Two more waking up. Yellows are different. They notice you, and they come straight at you.'),
+    { lines: [L(f('worried', 'concerned'), 'Two more waking up. Yellows are faster, and there are two of them.'),
               L(f('determined', 'focused'), 'Keep moving. Keep firing.')],
       spawnAfter: [['yellow', 2]],
       objective: (s, b) => `Destroy the yellow Chromatics (${Math.min(2, s.kills - b.kills)}/2)`, until: (s, b) => s.kills - b.kills >= 2 },
