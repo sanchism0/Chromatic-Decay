@@ -188,21 +188,33 @@ export class Dialogue {
   }
 }
 
-// In-game comms. Lines queue up and advance on their own after a reading
-// pause, so the radio never stops the action.
+// In-game comms. Lines queue up and advance on their own after a generous
+// reading pause; Enter or a tap on the box moves on sooner.
 export class Radio {
-  constructor() { this.queue = []; this.cur = null; this.shown = 0; this.hold = 0; this.t = 0; }
+  constructor() { this.queue = []; this.cur = null; this.shown = 0; this.hold = 0; this.holdMax = 1; this.t = 0; this.rect = null; }
 
   say(lines) { for (const l of lines) { preloadPortraits([l]); this.queue.push(l); } }
   get busy() { return !!this.cur || this.queue.length > 0; }
-  clear() { this.queue = []; this.cur = null; }
+  clear() { this.queue = []; this.cur = null; this.rect = null; }
+
+  // Player asked to move on: finish typing first, then drop the line
+  next() {
+    if (!this.cur) return;
+    if (this.shown < this.cur.text.length) this.shown = this.cur.text.length;
+    else this.cur = null;
+  }
+
+  hit(x, y) {
+    const r = this.rect;
+    return !!r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
 
   update(dt) {
     this.t += dt;
     if (!this.cur) {
       if (!this.queue.length) return;
       this.cur = this.queue.shift(); this.shown = 0;
-      this.hold = 1.4 + this.cur.text.length * 0.045;   // reading time after it's typed
+      this.hold = this.holdMax = 2.4 + this.cur.text.length * 0.06;   // reading time after it's typed
     }
     const len = this.cur.text.length;
     if (this.shown < len) { this.shown = Math.min(len, this.shown + dt * CPS); return; }
@@ -211,8 +223,9 @@ export class Radio {
   }
 
   // Compact box under the HUD; objective line underneath it
-  draw(ctx, W, H, objective) {
+  draw(ctx, W, H, objective, touch) {
     const narrow = W < 600;
+    this.rect = null;
     const boxW = Math.min(560, W - 24);
     const bx = (W - boxW) / 2, by = narrow ? 78 : 70;
     let bottom = by;
@@ -246,7 +259,20 @@ export class Radio {
       ctx.fillStyle = '#E8EAF0';
       ctx.font = `${narrow ? 12 : 14}px monospace`;
       lines.forEach((ln, k) => ctx.fillText(ln, tx, top + (narrow ? 36 : 40) + k * (narrow ? 16 : 19)));
+      // Once typed: how long the line stays, and how to move on
+      if (this.shown >= this.cur.text.length) {
+        const f = Math.max(0, this.hold / this.holdMax);
+        ctx.fillStyle = sp.color;
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(tx, top + boxH - 5, (bx + boxW - 10 - tx) * f, 2);
+        ctx.globalAlpha = 0.55 + 0.45 * Math.sin(this.t * 5);
+        ctx.fillStyle = '#8FA8B8';
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(touch ? 'tap ▸' : 'ENTER ▸', bx + boxW - 12, top + (narrow ? 18 : 20));
+      }
       ctx.restore();
+      this.rect = { x: bx, y: by, w: boxW, h: boxH + 8 };
       bottom = by + boxH + 10;
     }
     if (objective) {

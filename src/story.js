@@ -34,7 +34,7 @@ const INTRO = [
   { who: 'null', text: "Something woke up in the Basement, under the old server farm. It's calling a name. Over and over." },
   { who: 'juno', face: 'focused',    text: 'Nobody has been down there in years. What name?' },
   { who: 'null', text: 'Sable. An Echo that still knows who it is. If the Chromatics reach it first, we lose it, and they gain something worse.' },
-  { who: 'null', text: 'One of you goes in. One of you stays on the line and keeps them alive.' },
+  { who: 'null', text: 'I need one of you to go in, and the other to stay on the line to keep them alive.' },
   { who: 'dex',  face: 'determined', text: "I'll go in. Tight corridors, lots to hit. That's my kind of room." },
   { who: 'juno', face: 'annoyed',    text: "It's a maze of signal. You need someone who can read it." },
   { who: 'null', text: "You've had this argument for three years. Settle it." },
@@ -54,49 +54,66 @@ const AFTER_PICK = {
   ],
 };
 
-// Tutorial: each step says its lines, sets an objective, and waits for its
-// condition. `op` is filled in with the operator's id.
-function tutorialSteps(agent, touch) {
+// Tutorial: each step says its lines, then waits for its condition. A step
+// moves on only once its condition is met AND the operator has finished
+// talking, so nothing is said over the top of a fight. `spawnAfter` holds the
+// enemies back until the briefing is over. Conditions get the stats and a
+// snapshot of them from when the step began.
+function tutorialSteps(agent, touch, api) {
   const op = agent === 'dex' ? 'juno' : 'dex';
   const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
   const L = (face, text) => ({ who: op, face, text });
   return [
-    { lines: [L(f('neutral', 'focused'), "Comms are up. I can see your signal."),
+    { lines: [L(f('neutral', 'focused'), 'Comms are up. I can see your signal.'),
               L(f('determined', 'neutral'), touch ? 'Drag your left thumb to walk. Get a feel for the floor.' : 'Walk around with W, A, S, D. Get a feel for the floor.')],
-      objective: 'Walk around', until: s => s.moved > 200 },
-    { lines: [L(f('neutral', 'focused'), 'Your emitter is on your right arm.'),
-              L(f('determined', 'neutral'), touch ? 'Drag your right thumb to aim. It fires while you hold it.' : 'Aim with the mouse. Hold the button to fire.')],
-      objective: 'Fire your emitter', until: s => s.shots >= 6 },
-    { lines: [L(f('neutral', 'focused'), 'Coherent light. Every wave moving in step.'),
-              L(f('determined', 'smirk'), "It's the one signal a Chromatic can't swallow.")],
-      until: s => !s.radioBusy },
-    { spawn: [['violet', 1]],
-      lines: [L(f('worried', 'alarmed'), 'Signal ahead. Violet. A young one.'),
+      objective: 'Walk around', until: (s, b) => s.moved - b.moved > 200 },
+    { lines: [L(f('neutral', 'focused'), 'Your emitter is on your right arm. It fires on its own at whatever you aim at.'),
+              L(f('determined', 'neutral'), touch ? 'Drag your right thumb to aim.' : 'Aim with the mouse.')],
+      objective: 'Fire your emitter', until: (s, b) => s.shots - b.shots >= 6 },
+    { highlight: 'autofire',
+      lines: [L(f('neutral', 'focused'), touch ? 'Want more control? Turn auto-fire off and it only fires while you hold the aim stick.'
+                                               : 'Want more control? Turn auto-fire off and it only fires while you hold the mouse button.'),
+              L(f('determined', 'neutral'), touch ? 'Tap the AUTO button at the bottom of your screen.' : 'Press Q, or click the AUTO button in the bottom right.')],
+      objective: touch ? 'Toggle auto-fire (AUTO button)' : 'Toggle auto-fire (Q)', until: (s, b) => s.toggles > b.toggles },
+    { lines: () => [L(f('cocky-grin', 'smirk'), api.autoFire() ? "Auto it is. Leave it on, switch it whenever you like." : 'Manual. Hold to fire. Switch back whenever you like.'),
+                    L(f('neutral', 'focused'), 'That beam is coherent light. Every wave moving in step.'),
+                    L(f('determined', 'smirk'), "It's the one signal a Chromatic can't swallow.")],
+      until: () => true },
+    { lines: [L(f('worried', 'alarmed'), 'Signal ahead. Violet. A young one.'),
               L(f('determined', 'focused'), "It won't come after you. Take it down.")],
-      objective: 'Destroy the violet Chromatic', until: s => s.kills >= 1 },
+      spawnAfter: [['violet', 1]],
+      objective: 'Destroy the violet Chromatic', until: (s, b) => s.kills - b.kills >= 1 },
     { lines: [L(f('neutral', 'soft-smile'), 'See that? Its colour came loose, and it came to you.'),
               L(f('determined', 'neutral'), 'Every one you break gives a little of it back.')],
-      until: s => !s.radioBusy },
-    { spawn: [['yellow', 2]],
-      lines: [L(f('worried', 'concerned'), 'Two more waking up. Yellows notice you.'),
-              L(f('determined', 'focused'), 'If one touches you, you lose signal. Watch the bar, top left.')],
-      objective: s => `Destroy the yellow Chromatics (${Math.min(2, s.kills - 1)}/2)`, until: s => s.kills >= 3 },
-    { echo: true,
-      lines: [L(f('shocked', 'alarmed'), "Wait. There's an Echo right by you. Someone's still in there."),
-              L(f('determined', 'focused'), 'Stand on it and hold still. Pull them back.')],
-      objective: 'Rescue the Echo', until: s => s.echoes >= 1 },
-    { lines: [L(f('laughing', 'soft-smile'), 'Got them. Echoes steady your signal, too.'),
+      until: () => true },
+    { lines: [L(f('worried', 'concerned'), 'Two more waking up. Yellows are different. They notice you, and they come straight at you.'),
+              L(f('determined', 'focused'), 'Keep moving. Keep firing.')],
+      spawnAfter: [['yellow', 2]],
+      objective: (s, b) => `Destroy the yellow Chromatics (${Math.min(2, s.kills - b.kills)}/2)`, until: (s, b) => s.kills - b.kills >= 2 },
+    { echo: true, highlight: 'echo',
+      lines: () => [L(f('neutral', 'concerned'), api.playerHurt() ? 'You took some hits. Check the bar, top left. That\'s your health.'
+                                                                 : 'Not a scratch. Still, the bar top left is your health. Watch it.'),
+                    L(f('shocked', 'alarmed'), "There's an Echo nearby. Someone's still in there. I've marked it for you."),
+                    L(f('determined', 'focused'), 'Echoes heal you. Stand on it and hold still to pull them back.')],
+      objective: 'Find the Echo and stand on it', until: (s, b) => s.echoes > b.echoes },
+    { lines: [L(f('laughing', 'soft-smile'), "Got them. That's health back, and one more person out of the dark."),
               L(f('neutral', 'focused'), "Sable's signal is deeper in. That's the real job."),
               L(f('worried', 'concerned'), '...Be careful in there.')],
-      until: s => !s.radioBusy, end: true },
+      until: () => true, end: true },
   ];
 }
+
+// Said once, the first time the agent gets hit in the tutorial
+const FIRST_HIT = {
+  dex:  { face: 'worried',   text: "That's your health dropping, top left. Don't let it hit zero." },
+  juno: { face: 'concerned', text: "That's your health dropping, top left. Don't let it hit zero." },
+};
 
 // ── Director ──────────────────────────────────────────────────
 
 export class StoryMode {
   constructor(api) {
-    this.api = api;      // { touch(), openCharSelect(), startTutorialRun(agent), spawnNear(type, n), spawnEchoNear(), toTitle(), toArcade() }
+    this.api = api;      // { touch(), openCharSelect(), startTutorialRun(agent), spawnNear(type, n), spawnEchoNear(), playerHurt(), autoFire(), endTutorial() }
     this.reset();
   }
 
@@ -107,6 +124,10 @@ export class StoryMode {
     this.agent = null;
     this.stepIdx = 0;
     this.stats = null;
+    this.highlight = null;   // 'autofire' | 'echo' — what the HUD points at
+    this.echoTarget = null;
+    this._pendingSpawn = null;
+    this._saidHit = false;
   }
 
   get active() { return this.phase !== null; }
@@ -144,9 +165,9 @@ export class StoryMode {
   _beginTutorial() {
     this.scene = null;
     this.phase = 'tutorial';
-    this.steps = tutorialSteps(this.agent, this.api.touch());
+    this.steps = tutorialSteps(this.agent, this.api.touch(), this.api);
     this.stepIdx = -1;
-    this.stats = { moved: 0, shots: 0, kills: 0, echoes: 0, radioBusy: false };
+    this.stats = { moved: 0, shots: 0, kills: 0, echoes: 0, toggles: 0 };
     this.api.startTutorialRun(this.agent);
     this._nextStep();
   }
@@ -155,15 +176,17 @@ export class StoryMode {
     this.stepIdx++;
     const st = this.steps[this.stepIdx];
     if (!st) return;
-    if (st.spawn) for (const [type, n] of st.spawn) this.api.spawnNear(type, n);
-    if (st.echo) this.api.spawnEchoNear();
-    this.radio.say(st.lines);
+    this.base = { ...this.stats };
+    this.highlight = st.highlight || null;
+    this._pendingSpawn = st.spawnAfter || null;
+    if (st.echo) this.echoTarget = this.api.spawnEchoNear();
+    this.radio.say(typeof st.lines === 'function' ? st.lines() : st.lines);
   }
 
   get objective() {
     const st = this.steps?.[this.stepIdx];
     if (!st || !st.objective) return null;
-    return typeof st.objective === 'function' ? st.objective(this.stats) : st.objective;
+    return typeof st.objective === 'function' ? st.objective(this.stats, this.base) : st.objective;
   }
 
   // Hooks from the game loop
@@ -171,17 +194,26 @@ export class StoryMode {
   onShot()    { if (this.stats) this.stats.shots++; }
   onKill()    { if (this.stats) this.stats.kills++; }
   onEcho()    { if (this.stats) this.stats.echoes++; }
+  onToggleFire() { if (this.stats) this.stats.toggles++; }
+  onHit() {
+    if (!this.inTutorial || this._saidHit) return;
+    this._saidHit = true;
+    const op = this.agent === 'dex' ? 'juno' : 'dex';
+    this.radio.say([{ who: op, ...FIRST_HIT[op] }]);
+  }
 
   updateTutorial(dt) {
     this.radio.update(dt);
     const st = this.steps[this.stepIdx];
     if (!st) return;
-    this.stats.radioBusy = this.radio.busy;
-    // Advance once the condition is met and the operator has finished talking
-    // (objective steps can complete mid-sentence; the next lines queue behind)
-    const met = st.until(this.stats);
-    if (met && (st.objective ? true : !this.radio.busy)) {
-      if (st.end) { this.phase = 'end'; this.endT = 0; this.api.endTutorial(); return; }
+    // Enemies wait until the briefing is over
+    if (this._pendingSpawn && !this.radio.busy) {
+      for (const [type, n] of this._pendingSpawn) this.api.spawnNear(type, n);
+      this._pendingSpawn = null;
+    }
+    if (this._pendingSpawn || this.radio.busy) return;
+    if (st.until(this.stats, this.base)) {
+      if (st.end) { this.phase = 'end'; this.highlight = null; this.api.endTutorial(); return; }
       this._nextStep();
     }
   }
@@ -223,6 +255,6 @@ export class StoryMode {
 
   drawTutorialHud(ctx, W, H) {
     if (this.phase !== 'tutorial') return;
-    this.radio.draw(ctx, W, H, this.objective);
+    this.radio.draw(ctx, W, H, this.objective, this.api.touch());
   }
 }

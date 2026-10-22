@@ -362,12 +362,13 @@ export class Player {
       this._aimPoint = mouse;
     }
 
-    // ── Shooting — always fires toward cursor ────────────────
-    this.firing    = true;
+    // ── Shooting — toward the cursor; auto-fire or while held ─
+    this.firing    = input.autoFire || input.fireHeld;
     this.justFired = false;
     this.fireTimer -= dt;
+    if (!this.firing) this.fireTimer = Math.max(0, this.fireTimer);   // first press fires at once
 
-    if (this.fireTimer <= 0) {
+    if (this.firing && this.fireTimer <= 0) {
       this._shoot(projectileSystem);
       this.fireTimer = 1 / this.effectiveFireRate;
       this.justFired = true;

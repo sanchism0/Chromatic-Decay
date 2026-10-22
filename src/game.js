@@ -396,6 +396,14 @@ function updateTitle() {
 
 function updatePlaying(dt) {
   if (input.justPressed.escape) { state = STATES.PAUSED; return; }
+
+  // Auto-fire toggle (Q or the AUTO button), and moving the operator along
+  if (input.justPressed.q || (input.mouseJustClicked && _hitBtn(_autoBtn.r))) {
+    input.setAutoFire(!input.autoFire);
+    story.onToggleFire();
+  }
+  if (story.inTutorial && (input.justPressed.enter ||
+      (input.mouseJustClicked && story.radio.hit(input.mouseX, input.mouseY)))) story.radio.next();
   const _px = player.x, _py = player.y;
 
   elapsed += dt;
@@ -413,7 +421,7 @@ function updatePlaying(dt) {
   // Player
   player.update(dt, input, map, camera, ZOOM, projectiles);
   if (player.justFired) sfxShoot(player.lastShotOverload, player.character);
-  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; }
+  if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; story.onHit(); }
 
   // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
@@ -1317,7 +1325,9 @@ function drawGame(W, H) {
 
   hud.draw(ctx, player, elapsed, waveSystem, W, H);
   lore.draw(ctx, W, H);
+  _drawEchoBeacon(W, H);
   story.drawTutorialHud(ctx, W, H);
+  _drawAutoFireBtn(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
   if (waveSystem && waveSystem.waveTimer > 0 && waveSystem.waveTimer <= 20) {
@@ -1390,6 +1400,66 @@ function drawGame(W, H) {
   if ('ontouchstart' in window) drawMobileControls(W, H);
 }
 
+// Tutorial: point out the Echo — rings and a label on it, an arrow at the
+// screen edge when it's out of view
+function _drawEchoBeacon(W, H) {
+  const e = story.highlight === 'echo' ? story.echoTarget : null;
+  if (!e || !e.active || !echoes.echoes.includes(e)) return;
+  const sx = Math.round((e.x - camera.x) * ZOOM), sy = Math.round((e.y - camera.y) * ZOOM);
+  const t = performance.now() / 1000;
+  const col = '#FFB3D4';
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 12px monospace';
+  if (sx > 0 && sx < W && sy > 0 && sy < H) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    for (let k = 0; k < 2; k++) {
+      const p = (t * 0.7 + k * 0.5) % 1;
+      ctx.globalAlpha = (1 - p) * 0.8;
+      ctx.beginPath(); ctx.arc(sx, sy, 16 + p * 46, 0, Math.PI * 2); ctx.stroke();
+    }
+    const by = sy - 46 + Math.round(Math.sin(t * 4) * 3);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(sx - 7, by - 8); ctx.lineTo(sx + 7, by - 8); ctx.lineTo(sx, by); ctx.closePath(); ctx.fill();
+    ctx.fillText('ECHO · HEALS', Math.max(52, Math.min(W - 52, sx)), by - 14);
+  } else {
+    const m = 34;
+    const cx = Math.max(m, Math.min(W - m, sx)), cy = Math.max(m + 60, Math.min(H - m, sy));
+    const ang = Math.atan2(sy - cy, sx - cx);
+    ctx.globalAlpha = 0.75 + 0.25 * Math.sin(t * 6);
+    ctx.translate(cx, cy);
+    ctx.fillStyle = col;
+    ctx.fillText('ECHO', 0, -16);
+    ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Auto-fire toggle: bottom right on desktop, between the sticks on touch
+const _autoBtn = { r: null };
+input.uiHit = (x, y) => state === STATES.PLAYING &&
+  ((_autoBtn.r && x >= _autoBtn.r.x && x <= _autoBtn.r.x + _autoBtn.r.w &&
+    y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y));
+
+function _drawAutoFireBtn(W, H) {
+  const touch = 'ontouchstart' in window;
+  const w = touch ? 100 : 118, h = touch ? 34 : 30;
+  const x = touch ? (W - w) / 2 : W - w - 16;
+  const y = touch ? H - h - 34 : H - h - 20;
+  const on = input.autoFire;
+  const pulse = story.highlight === 'autofire' ? 0.5 + 0.5 * Math.sin(performance.now() / 160) : 0;
+  _autoBtn.r = drawSlabButton(ctx, x, y, w, h, on ? 'AUTO ● ON' : 'AUTO ○ OFF', {
+    accent: on ? '#00E5CC' : '#8FA8B8', fontSize: 12, glow: 0.15 + pulse * 0.6,
+  });
+  if (!touch) {
+    ctx.fillStyle = 'rgba(143,168,184,0.7)'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('Q', x - 8, y + h / 2 + 4);
+    ctx.textAlign = 'left';
+  }
+}
+
 function drawMobileControls(W, H) {
   const r     = input.joystickRadius;
   const thumbR = r * 0.42;
@@ -1455,7 +1525,9 @@ const story = new StoryMode({
   openCharSelect: () => _openCharSelect('story'),
   startTutorialRun: agent => { selectedCharacter = agent; startRun({ tutorial: true }); },
   spawnNear: (type, n) => { for (let i = 0; i < n; i++) { const p = _freeSpotNear(170, 250); enemies.spawnEnemyAt(type, p.x, p.y); } },
-  spawnEchoNear: () => { const p = _freeSpotNear(70, 110); echoes.echoes.push(new Echo(p.x, p.y)); },
+  spawnEchoNear: () => { const p = _freeSpotNear(260, 380); const e = new Echo(p.x, p.y); echoes.echoes.push(e); return e; },
+  playerHurt: () => player.hp < player.maxHp * 0.8,
+  autoFire: () => input.autoFire,
   endTutorial: () => {
     try { localStorage.setItem('chromatic_decay_prologue_done', '1'); } catch {}
     _storyEndDelay = 0.6;
