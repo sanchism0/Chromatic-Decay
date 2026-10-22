@@ -6,7 +6,8 @@ import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H } from './player.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
-import { EchoSystem }       from './echoes.js';
+import { EchoSystem, Echo } from './echoes.js';
+import { StoryMode }        from './story.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
@@ -84,6 +85,8 @@ const STATES = {
   WIN:              8,
   CLASS_EMERGENCE:  9,
   CHAR_SELECT:     10,
+  STORY:           11,   // story scenes (dialogue)
+  STORY_END:       12,   // prologue complete card
 };
 let state = STATES.TITLE;
 
@@ -222,7 +225,8 @@ function getUnlockedClasses() {
 
 // ── Run setup ─────────────────────────────────────────────────
 
-function startRun() {
+function startRun(opts = {}) {
+  const tutorial = !!opts.tutorial;
   map = new GameMap();
   pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
@@ -236,6 +240,7 @@ function startRun() {
   echoes.reset();
   projectiles.reset();
   lore.reset();
+  lore.enabled = !tutorial;   // the operator does the talking in the tutorial
   upgradeUI.takenIds    = [];
   upgradeUI.takenCounts = {};
   upgradeUI.active      = false;
@@ -270,19 +275,28 @@ function startRun() {
 
   camera.follow(spawn.x, spawn.y, vw(), vh());
 
-  // ── Fragment placement (one per run) ─────────────────────────
-  const archive = loadArchive();
-  const fragId  = getRunFragment(archive);
-  if (fragId) placeFragment(echoes, map, fragId);
+  hud.minimal = tutorial;
+  if (tutorial) {
+    // Story tutorial: no waves, no fragment, no random Echoes, and the
+    // player can't die — the story director spawns everything
+    waveSystem.active = false;
+    echoes.spawnTimer = Infinity;
+    player.cannotDie  = true;
+  } else {
+    // ── Fragment placement (one per run) ─────────────────────────
+    const archive = loadArchive();
+    const fragId  = getRunFragment(archive);
+    if (fragId) placeFragment(echoes, map, fragId);
 
-  if (!archive.run_started) {
-    lore.trigger('run_start');
-    archive.run_started = true;
-    saveArchive(archive);
+    if (!archive.run_started) {
+      lore.trigger('run_start');
+      archive.run_started = true;
+      saveArchive(archive);
+    }
+
+    // Start wave 1 (needs player + map to be ready)
+    waveSystem.startWave(1, enemies, map, player);
   }
-
-  // Start wave 1 (needs player + map to be ready)
-  waveSystem.startWave(1, enemies, map, player);
 
   stopTitleMusic();
   startAmbient();
@@ -342,6 +356,8 @@ function update(dt) {
   switch (state) {
     case STATES.TITLE:           updateTitle();            break;
     case STATES.CHAR_SELECT:     updateCharSelect(dt);     break;
+    case STATES.STORY:           updateStory(dt);          break;
+    case STATES.STORY_END:       updateStoryEnd(dt);       break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -365,18 +381,22 @@ function _hitBtn(btn) {
 }
 
 function updateTitle() {
+  if (story.active) story.reset();
+  hud.minimal = false;
   resumeAudio();
   startTitleMusic();
   if (input.justPressed.space) { _openCharSelect(); return; }
   if (!input.mouseJustClicked)  return;
 
   if (_hitBtn(_titleBtns.start))   { _openCharSelect();                       return; }
+  if (_hitBtn(_titleBtns.story))   { _startStory();                           return; }
   if (_hitBtn(_titleBtns.archive)) { state = STATES.ARCHIVE;                  return; }
   if (_hitBtn(_titleBtns.admin))   { adminPanel.open(); state = STATES.ADMIN; return; }
 }
 
 function updatePlaying(dt) {
   if (input.justPressed.escape) { state = STATES.PAUSED; return; }
+  const _px = player.x, _py = player.y;
 
   elapsed += dt;
   window._gameElapsed = elapsed;
@@ -426,6 +446,7 @@ function updatePlaying(dt) {
 
   // Process enemy deaths
   for (const e of dead) {
+    if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
     drain.spawn(e);
     hud.flashKill();
     sfxEnemyKill(e.type);
@@ -476,6 +497,7 @@ function updatePlaying(dt) {
   // Projectile → enemy hits
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
   for (const e of projKilled) {
+    if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
     drain.spawn(e);
     hud.flashKill();
 
@@ -555,6 +577,7 @@ function updatePlaying(dt) {
   const rescued = echoes.update(dt, player, map, enemies, particles);
   if (rescued) {
     if (rescued.type === 'echo') {
+      if (story.inTutorial) story.onEcho();
       hud.flashEcho();
       const wasFirst = player.echoesRescued === 0;
       player.onEchoRescue();
@@ -606,6 +629,12 @@ function updatePlaying(dt) {
     else _showNextUpgrade();
   }
 
+  if (story.inTutorial) {
+    story.onMoved(Math.hypot(player.x - _px, player.y - _py));
+    if (player.justFired) story.onShot();
+    story.updateTutorial(dt);
+  }
+
   if (!player.alive) handleGameOver();
 
   camera.follow(player.x, player.y, vw(), vh());
@@ -625,6 +654,7 @@ function updatePaused() {
     if (hit(_pauseBtns.confirmYes)) {
       pauseQuitConfirm = false;
       stopAmbient();
+      story.reset();
       state = STATES.TITLE;
     } else if (hit(_pauseBtns.confirmNo)) {
       pauseQuitConfirm = false;
@@ -1041,6 +1071,8 @@ function draw() {
   switch (state) {
     case STATES.TITLE:           drawTitle(W, H);          break;
     case STATES.CHAR_SELECT:     drawCharSelect(W, H);     break;
+    case STATES.STORY:           story.drawScene(ctx, W, H, _storyTime); _drawStorySkip(W, H); break;
+    case STATES.STORY_END:       drawGame(W, H); drawStoryEnd(W, H); break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1285,6 +1317,7 @@ function drawGame(W, H) {
 
   hud.draw(ctx, player, elapsed, waveSystem, W, H);
   lore.draw(ctx, W, H);
+  story.drawTutorialHud(ctx, W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
   if (waveSystem && waveSystem.waveTimer > 0 && waveSystem.waveTimer <= 20) {
@@ -1410,6 +1443,94 @@ const _ENEMY_COLORS = ['#7B3FFF', '#FFEE22', '#55FF11', '#FF5500', '#FF0066'];
 
 let _titleParts = [];
 
+// ── Story Mode ────────────────────────────────────────────────
+// Scenes, the pick and the tutorial script live in story.js; these are the
+// hooks into the world it needs.
+
+let _storyTime = 0;
+const _storySkipBtn = { r: null };
+
+const story = new StoryMode({
+  touch: () => 'ontouchstart' in window,
+  openCharSelect: () => _openCharSelect('story'),
+  startTutorialRun: agent => { selectedCharacter = agent; startRun({ tutorial: true }); },
+  spawnNear: (type, n) => { for (let i = 0; i < n; i++) { const p = _freeSpotNear(170, 250); enemies.spawnEnemyAt(type, p.x, p.y); } },
+  spawnEchoNear: () => { const p = _freeSpotNear(70, 110); echoes.echoes.push(new Echo(p.x, p.y)); },
+  endTutorial: () => {
+    try { localStorage.setItem('chromatic_decay_prologue_done', '1'); } catch {}
+    _storyEndDelay = 0.6;
+    state = STATES.STORY_END;
+  },
+});
+
+// A clear spot on the floor at a random angle, minR–maxR from the player
+function _freeSpotNear(minR, maxR) {
+  const PAD = 24;
+  for (let tries = 0; tries < 80; tries++) {
+    const a = Math.random() * Math.PI * 2, r = minR + Math.random() * (maxR - minR);
+    const x = player.x + Math.cos(a) * r, y = player.y + Math.sin(a) * r;
+    if (x < 50 || y < 50 || x > CONFIG.map_width - 50 || y > CONFIG.map_height - 50) continue;
+    if (map.obstacles.some(o => x + PAD > o.x && x - PAD < o.x + o.w && y + PAD > o.y && y - PAD < o.y + o.h)) continue;
+    return { x, y };
+  }
+  return { x: player.x + minR, y: player.y };
+}
+
+function _startStory() {
+  _storyTime = 0;
+  stopTitleMusic();
+  story.start();
+  state = STATES.STORY;
+}
+
+function updateStory(dt) {
+  _storyTime += dt;
+  const skip = input.justPressed.escape || (input.mouseJustClicked && _hitBtn(_storySkipBtn.r));
+  if (skip) { story.skipScene(); return; }
+  story.updateScene(dt, input.justPressed.space || input.mouseJustClicked);
+}
+
+function _drawStorySkip(W, H) {
+  const touch = 'ontouchstart' in window;
+  const w = 84, h = 28;
+  _storySkipBtn.r = drawSlabButton(ctx, W - w - 14, 14, w, h, 'SKIP ›', {
+    accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, depth: 4, lift: !touch && _hitBtn(_storySkipBtn.r) ? 1 : 0,
+  });
+  if (!touch) {
+    ctx.fillStyle = 'rgba(143,168,184,0.6)'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('ESC', W - w - 22, 32);
+    ctx.textAlign = 'left';
+  }
+}
+
+// Prologue complete
+let _storyEndDelay = 0;
+const _storyEndBtns = { arcade: null, title: null };
+function updateStoryEnd(dt) {
+  if (_storyEndDelay > 0) { _storyEndDelay -= dt; return; }
+  if (input.justPressed.escape) { story.reset(); stopAmbient(); state = STATES.TITLE; return; }
+  if (!input.mouseJustClicked && !input.justPressed.space) return;
+  if (input.justPressed.space || _hitBtn(_storyEndBtns.title)) { story.reset(); stopAmbient(); state = STATES.TITLE; return; }
+  if (_hitBtn(_storyEndBtns.arcade)) { story.reset(); hud.minimal = false; _openCharSelect('arcade'); }
+}
+function drawStoryEnd(W, H) {
+  dimBackdrop(ctx, W, H, 0.75);
+  const pW = Math.min(420, W - 32), pH = 210;
+  const pX = (W - pW) / 2, pY = (H - pH) / 2 - 8;
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: '#E8F0FF', depth: 12, screen: 40, glow: 0.3 });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 12; ctx.shadowColor = '#E8F0FF';
+  _fitFont('PROLOGUE COMPLETE', pW - 30, 22, 'bold ');
+  ctx.fillText('PROLOGUE COMPLETE', W / 2, top + 30);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#A9B6C4'; ctx.font = '13px monospace';
+  ctx.fillText('Story Mode continues soon.', W / 2, top + 70);
+  const bw = (pW - 60) / 2;
+  _storyEndBtns.arcade = drawSlabButton(ctx, pX + 20, top + 110, bw, 40, 'ARCADE MODE', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_storyEndBtns.arcade) ? 1 : 0 });
+  _storyEndBtns.title  = drawSlabButton(ctx, pX + 40 + bw, top + 110, bw, 40, 'TITLE',      { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_storyEndBtns.title) ? 1 : 0 });
+  ctx.textAlign = 'left';
+}
+
 // ── Character select ("Who goes in?") ─────────────────────────
 // Picked before every Arcade run. The pick is remembered between visits.
 
@@ -1424,7 +1545,9 @@ let selectedCharacter = (() => {
 const _charBtns = { dex: null, juno: null, back: null };
 let _csDelay = 0, _csPrevA = false, _csPrevD = false, _csTime = 0;
 
-function _openCharSelect() {
+let _csMode = 'arcade';            // 'arcade' starts a run; 'story' hands the pick to the story
+function _openCharSelect(mode = 'arcade') {
+  _csMode  = mode;
   _csDelay = 0.2;                  // ignore the click that opened this screen
   _csPrevA = input.keys.a; _csPrevD = input.keys.d;
   state = STATES.CHAR_SELECT;
@@ -1433,13 +1556,14 @@ function _openCharSelect() {
 function _pickCharacter(id) {
   selectedCharacter = id;
   try { localStorage.setItem('chromatic_decay_character', id); } catch {}
+  if (_csMode === 'story') { story.picked(id); state = STATES.STORY; return; }
   startRun();
 }
 
 function updateCharSelect(dt) {
   _csTime += dt;
   if (_csDelay > 0) { _csDelay -= dt; return; }
-  if (input.justPressed.escape) { state = STATES.TITLE; return; }
+  if (input.justPressed.escape) { story.reset(); state = STATES.TITLE; return; }
 
   // A/D or arrows switch, Space starts with the highlighted one
   const a = input.keys.a, d = input.keys.d;
@@ -1451,7 +1575,7 @@ function updateCharSelect(dt) {
   // Mouse hover highlights; click or tap picks
   for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id]) && !('ontouchstart' in window)) selectedCharacter = c.id;
   if (!input.mouseJustClicked) return;
-  if (_hitBtn(_charBtns.back)) { state = STATES.TITLE; return; }
+  if (_hitBtn(_charBtns.back)) { story.reset(); state = STATES.TITLE; return; }
   for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id])) { _pickCharacter(c.id); return; }
 }
 
@@ -1581,25 +1705,6 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
   ctx.shadowBlur = 0;
 }
 
-// Greyed-out button for a mode that isn't playable yet: no hover, no glow
-function _drawComingSoonBtn(x, y, w, h, label) {
-  ctx.fillStyle = '#070B12';
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.fill();
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = '#2A2E42'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, 3); ctx.stroke();
-  ctx.setLineDash([]);
-
-  const fontSize = Math.max(13, Math.min(16, Math.floor(w * 0.07)));
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#4A5068';
-  ctx.font      = `bold ${fontSize}px monospace`;
-  ctx.fillText(label, x + w / 2, y + h / 2 - 2);
-  ctx.fillStyle = '#3A3F55';
-  ctx.font      = '10px monospace';
-  ctx.fillText('COMING SOON', x + w / 2, y + h / 2 + 12);
-}
-
 // ── Title screen ──────────────────────────────────────────────
 
 function drawTitle(W, H) {
@@ -1684,7 +1789,7 @@ function drawTitle(W, H) {
     _titleBtns.admin   = { x: playX + smW + 12,  y: smY,   w: smW,   h: smH   };
 
     _drawSciFiBtn(playX,            playY, playW, playH, 'ARCADE MODE', true, pulse, teal);
-    _drawComingSoonBtn(playX,       storyY, playW, storyH, 'STORY MODE');
+    _drawSciFiBtn(playX,            storyY, playW, storyH, 'STORY MODE', false, pulse, tealDim);
     _drawSciFiBtn(playX,            smY,   smW,   smH,   'ARCHIVE',  false, pulse, tealDim);
     _drawSciFiBtn(playX + smW + 12, smY,   smW,   smH,   'SETTINGS', false, pulse, tealDim);
   } else {
@@ -1705,7 +1810,7 @@ function drawTitle(W, H) {
 
     _drawSciFiBtn(_titleBtns.archive.x, _titleBtns.archive.y, sideW, sideH, 'ARCHIVE',  false, pulse, tealDim);
     _drawSciFiBtn(_titleBtns.start.x,   _titleBtns.start.y,   playW, playH, 'ARCADE MODE', true, pulse, teal);
-    _drawComingSoonBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE');
+    _drawSciFiBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE', false, pulse, tealDim);
     _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
 

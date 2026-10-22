@@ -619,6 +619,9 @@ export class Player {
       this._lastStandUsed = true;
     }
 
+    // Story tutorial: you can be hurt, but never knocked out
+    if (this.cannotDie && this.hp < 1) this.hp = 1;
+
     const totalInvincibility = 0.6 + (this.invincibilityBonus || 0);
     this.invincible = totalInvincibility;
 
