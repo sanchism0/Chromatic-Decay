@@ -708,8 +708,9 @@ export class Player {
     const sheet = SHEETS[this.character] || SHEETS.dex;
     if (sheet._ready) {
       const t   = ctx.getTransform();
-      // Art pixel size on screen: 2 on desktop-sized canvases, 1 on phones
-      const px  = Math.min(ctx.canvas.width, ctx.canvas.height) >= 560 ? 2 : 1;
+      // One art pixel per screen pixel: about 24 world px tall at desktop zoom,
+      // in scale with the racks and Chromatics
+      const px  = 1;
       const gx  = t.a * this.x + t.e;                          // ground point on screen
       const gy  = t.d * (this.y + s * 0.6) + t.f;
       const sx  = Math.round(gx - (CELL_W / 2) * px);
