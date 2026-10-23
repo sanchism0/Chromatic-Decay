@@ -7,12 +7,14 @@ export class Input {
     // Keyboard state
     this.keys = {
       w: false, a: false, s: false, d: false,
-      space: false, escape: false, f: false, q: false, enter: false,
+      space: false, escape: false, f: false, q: false, enter: false, e: false,
     };
     // Edge detection — true for exactly one frame
     this.justPressed = {
-      escape: false, space: false, f: false, q: false, enter: false,
+      escape: false, space: false, f: false, q: false, enter: false, throw: false,
     };
+    this._prevE = false;
+    this._rightClick = false;   // right mouse pressed since last frame (throw)
     this._prevEscape = false;
     this._prevSpace  = false;
     this._prevF      = false;
@@ -57,6 +59,7 @@ export class Input {
         case 'Space':   e.preventDefault(); this.keys.space = true;  break;
         case 'KeyF':    this.keys.f      = true;  break;
         case 'KeyQ':    this.keys.q      = true;  break;
+        case 'KeyE':    this.keys.e      = true;  break;
         case 'Enter':   this.keys.enter  = true;  break;
         case 'Escape':  this.keys.escape = true; break;
       }
@@ -71,6 +74,7 @@ export class Input {
         case 'Space':   this.keys.space  = false; break;
         case 'KeyF':    this.keys.f      = false; break;
         case 'KeyQ':    this.keys.q      = false; break;
+        case 'KeyE':    this.keys.e      = false; break;
         case 'Enter':   this.keys.enter  = false; break;
         case 'Escape':  this.keys.escape = false; break;
       }
@@ -83,6 +87,7 @@ export class Input {
 
     this.canvas.addEventListener('mousedown', e => {
       if (e.button === 0) this.mouseDown = true;
+      if (e.button === 2) this._rightClick = true;
     });
 
     this.canvas.addEventListener('mouseup', e => {
@@ -213,6 +218,9 @@ export class Input {
     this.justPressed.f            = this.keys.f      && !this._prevF;
     this.justPressed.q            = this.keys.q      && !this._prevQ;
     this.justPressed.enter        = this.keys.enter  && !this._prevEnter;
+    this.justPressed.throw        = this._rightClick || (this.keys.e && !this._prevE);
+    this._rightClick = false;
+    this._prevE      = this.keys.e;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
     this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;
 

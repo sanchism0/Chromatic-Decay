@@ -479,3 +479,34 @@ export function sfxDeath() {
     for (let i = 0; i < 5; i++) _osc('square', 1800 + i * 260, t + at + 0.06 + i * 0.05, 0.05, 0.025);
   }
 }
+
+// ── Stun grenade ──────────────────────────────────────────────
+export function sfxGrenadeThrow() {
+  const t = _ac().currentTime;
+  _noise(t, 0.18, 0.06, 900, 0.6);          // whoosh
+  _osc('square', 520, t, 0.05, 0.03, 380);  // pin click
+}
+
+// A thump, then electricity crackling for a moment
+export function sfxGrenadeBurst() {
+  const t = _ac().currentTime;
+  _osc('sine', 160, t, 0.35, 0.22, 45);
+  _noise(t, 0.25, 0.14, 700, 0.8);
+  for (let i = 0; i < 9; i++) {
+    const at = t + 0.02 + Math.random() * 0.4;
+    _noise(at, 0.03 + Math.random() * 0.03, 0.09, 3500 + Math.random() * 3000, 2);
+    if (i % 3 === 0) _osc('square', 1200 + Math.random() * 900, at, 0.04, 0.03, 300);
+  }
+}
+
+// ── Unlock tune: a short, bright resolve — a card that's yours to keep ─
+// Soft triangle arpeggio up a major chord, a held shimmer on top, a warm low
+// note underneath (same palette as the wave-clear and relay chimes)
+export function sfxUnlockTune() {
+  const t = _ac().currentTime;
+  [392, 523.2, 659.3, 784, 1046.5].forEach((f, i) => _osc('triangle', f, t + i * 0.09, 0.5, 0.09));
+  _osc('sine', 1568, t + 0.45, 1.1, 0.05);
+  _osc('sine', 2093, t + 0.5, 1.0, 0.03);
+  [261.6, 392, 523.2].forEach(f => _osc('sine', f, t + 0.42, 1.2, 0.06));
+  _osc('sine', 130.8, t + 0.42, 1.3, 0.08);
+}

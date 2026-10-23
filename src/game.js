@@ -4,8 +4,9 @@ import { CONFIG }           from './config.js';
 import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS } from './player.js';
-import { LevelRun, LEVELS, AGENT_COLOR } from './level.js';
-import { profile, bankChroma, recordClear, hasSignature, unlockSignature, levelUnlocked, timesCleared } from './profile.js';
+import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
+import { GrenadeSystem, GRENADE_CD } from './grenade.js';
+import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared } from './profile.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
@@ -24,7 +25,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -94,12 +95,14 @@ const STATES = {
   DYING:           15,   // death burst, before game over / level failed
   LEVEL_FAIL:      16,   // story level failed: restart or leave
   ABILITY_UNLOCK:  17,   // the door in a Story level: new signature ability
+  POWER_UP:        18,   // a Story section cleared: power-up for the level
 };
 let state = STATES.TITLE;
 
 // ── Systems ───────────────────────────────────────────────────
 
 const input       = new Input(canvas);
+const grenades    = new GrenadeSystem();
 const camera      = new Camera();
 const particles   = new ParticleSystem();
 const drain       = new DrainSystem();
@@ -252,13 +255,12 @@ function startRun(opts = {}) {
   drain.reset();
   echoes.reset();
   projectiles.reset();
+  grenades.reset();
   lore.reset();
   lore.enabled = !tutorial && !levelId;   // the operator does the talking in Story
   upgradeUI.takenIds    = [];
   upgradeUI.takenCounts = {};
   upgradeUI.active      = false;
-  upgradeUI.storyHeader = null;
-  _levelPower           = false;
 
   // Wire back-refs so player can call systems directly in ability
   player.setSystems(companions, traps, particles);
@@ -385,6 +387,7 @@ function update(dt) {
     case STATES.DYING:           updateDying(dt);          break;
     case STATES.LEVEL_FAIL:      updateLevelFail(dt);      break;
     case STATES.ABILITY_UNLOCK:  updateAbilityUnlock(dt);  break;
+    case STATES.POWER_UP:        updatePowerUp(dt);        break;
     case STATES.PLAYING:         updatePlaying(dt);        break;
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
@@ -448,6 +451,18 @@ function updatePlaying(dt) {
   }
   if (input.mouseJustClicked && _hitBtn(_sigBtn.r) && player.signature && player.signatureCooldown <= 0 && !player.beaming) {
     player._useSignature(projectiles);
+  }
+  // Stun grenade (Dex, from a Story power-up): right-click / E at the cursor,
+  // or its button on touch, toward where you're aiming
+  player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
+  if (player.grenade && player.grenadeCooldown <= 0 && !player.beaming &&
+      (input.justPressed.throw || (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)))) {
+    const ap = player._aimPoint;
+    const touchAim = 'ontouchstart' in window || !ap;
+    const tx = touchAim ? player.x + Math.cos(player.facing) * 190 : ap.x;
+    const ty = touchAim ? player.y + Math.sin(player.facing) * 190 : ap.y;
+    grenades.throw(player.x, player.y - 8, tx, ty);
+    player.grenadeCooldown = GRENADE_CD;
   }
   const _px = player.x, _py = player.y;
 
@@ -537,6 +552,8 @@ function updatePlaying(dt) {
       particles.classEmergence(e.x, e.y, '#fff5c2');
     }
   }
+
+  grenades.update(dt, enemies);
 
   // Projectiles
   projectiles.update(dt, map, player);
@@ -696,8 +713,8 @@ function updatePlaying(dt) {
     level.update(dt);
     if (level.complete) _finishLevel();
     else if (level.failed) { _startDeath(); return; }
-    else if (level.awaitUnlock && state === STATES.PLAYING) { _unlockT = 0; state = STATES.ABILITY_UNLOCK; return; }
-    else if (level.pendingPower > 0 && state === STATES.PLAYING) _showLevelPower();
+    else if (level.awaitUnlock && state === STATES.PLAYING) { _unlockT = 0; sfxUnlockTune(); state = STATES.ABILITY_UNLOCK; return; }
+    else if (level.pendingPowerUp && state === STATES.PLAYING) { _unlockT = 0; sfxRelayChime(); state = STATES.POWER_UP; return; }
   }
 
   if (!player.alive) { _startDeath(); return; }
@@ -735,15 +752,6 @@ function updatePaused() {
 }
 
 function updateUpgrade() {
-  // Story: Resonance level-up picks
-  if (_levelPower) {
-    if (upgradeUI.handleInput(input, player, canvas)) {
-      level.pendingPower = Math.max(0, level.pendingPower - 1);
-      if (level.pendingPower > 0) _showLevelPower();
-      else { _levelPower = false; upgradeUI.storyHeader = null; state = STATES.PLAYING; }
-    }
-    return;
-  }
   if (upgradeUI.handleInput(input, player, canvas)) {
     _checkClassEmergence();
 
@@ -1153,6 +1161,7 @@ function draw() {
     case STATES.DYING:           drawGame(W, H); drawDeath(W, H); break;
     case STATES.LEVEL_FAIL:      drawGame(W, H); drawLevelFail(W, H); break;
     case STATES.ABILITY_UNLOCK:  drawGame(W, H); drawAbilityUnlock(W, H); break;
+    case STATES.POWER_UP:        drawGame(W, H); drawPowerUp(W, H); break;
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
@@ -1343,6 +1352,10 @@ function drawGame(W, H) {
     const hidden = map.obstacles.some(o => o.y + o.h > _feet &&
       b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y - rackHeight(o));
     if (hidden) player.drawOccluded(ctx);
+    // Echoes behind a rack (inside its footprint or its raised top face)
+    echoes.drawHidden(ctx, e => map.obstacles.some(o =>
+      e.x > o.x - 10 && e.x < o.x + o.w + 10 && e.y < o.y + o.h + 6 && e.y > o.y - rackHeight(o) - 18));
+
   }
 
   // ── Additive glow pass — halos bloom where they overlap and show through racks ──
@@ -1352,6 +1365,10 @@ function drawGame(W, H) {
   enemies.drawHalos(ctx);
   player.drawHalo(ctx);
   ctx.restore();
+
+  // Grenades fly over the racks, and their smoke has to read over the glow,
+  // so they're drawn last
+  grenades.draw(ctx, enemies.enemies);
 
   // ── Charging zones (pre-spawn indicators) ────────────────
   if (waveSystem && waveSystem.pendingSpawns.length > 0) {
@@ -1403,6 +1420,7 @@ function drawGame(W, H) {
   if (level) level.drawHud(ctx, W, H, 'ontouchstart' in window, (x, y) => [(x - camera.x) * ZOOM, (y - camera.y) * ZOOM]);
   _drawAutoFireBtn(W, H);
   _drawSignature(W, H);
+  _drawGrenade(W, H);
   _drawLastEnemyArrow(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
@@ -1519,7 +1537,8 @@ input.uiHit = (x, y) => state === STATES.PLAYING &&
   ((_autoBtn.r && x >= _autoBtn.r.x && x <= _autoBtn.r.x + _autoBtn.r.w &&
     y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y) ||
    (level && level.radio.hit(x, y)) ||
-   (_sigBtn.r && x >= _sigBtn.r.x && x <= _sigBtn.r.x + _sigBtn.r.w && y >= _sigBtn.r.y && y <= _sigBtn.r.y + _sigBtn.r.h));
+   (_sigBtn.r && x >= _sigBtn.r.x && x <= _sigBtn.r.x + _sigBtn.r.w && y >= _sigBtn.r.y && y <= _sigBtn.r.y + _sigBtn.r.h) ||
+   (_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h));
 
 function _drawAutoFireBtn(W, H) {
   const touch = 'ontouchstart' in window;
@@ -1695,7 +1714,7 @@ const levelApi = {
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
   clearField: () => { enemies.reset(); projectiles.reset(); },
   touch:      () => 'ontouchstart' in window,
-  needsUnlock: () => !hasSignature(selectedCharacter),
+  needsUnlock: () => { const c = _levelCard(); return !!c && !hasCard(selectedCharacter, c.id); },
 };
 
 const STORY_LEVELS = [
@@ -1866,7 +1885,7 @@ function drawStoryMap(W, H) {
       if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
       // A tick per character who has cleared it; signatures come from these
-      sub(row.id === 1 ? 'Clear it as each character to unlock their signature.' : LEVELS[row.id].blurb, '#8A8E99');
+      sub(row.id === 1 ? 'Open the door as each character to unlock their first card.' : LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;
@@ -1887,66 +1906,84 @@ function drawStoryMap(W, H) {
   ctx.textAlign = 'left';
 }
 
-// Opening the door for the first time as this character: the charge drawn
-// from the relays becomes their signature ability
+// Opening the door for the first time as this character: the first power-up
+// of the level is theirs to keep, as a card in their Arcade upgrade offers
 let _unlockT = 0;
 const _unlockBtn = { r: null };
+const _levelCard = () => (LEVEL_CARDS[level ? level.id : 0] || {})[selectedCharacter] || null;
+
 function updateAbilityUnlock(dt) {
   _unlockT += dt;
   if (_unlockT < 0.8) return;
   const take = input.justPressed.space || input.justPressed.enter || (input.mouseJustClicked && _hitBtn(_unlockBtn.r));
   if (!take) return;
-  const who = level.agent;
-  unlockSignature(who);
-  player.signature = who;
-  sfxSignature(who);
+  const card = _levelCard();
+  if (card) unlockCard(level.agent, card.id);
   level.openDoor();
   state = STATES.PLAYING;
 }
 
 function drawAbilityUnlock(W, H) {
-  const who = level.agent, sig = SIGNATURES[who], col = AGENT_COLOR[who];
+  const card = _levelCard();
+  if (!card) return;
+  const name = level.agent === 'dex' ? 'Dex' : 'Juno';
+  _drawReward(W, H, {
+    color: AGENT_COLOR[level.agent], top: 'THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
+    label: 'NEW CARD  ·  YOURS TO KEEP', name: card.name, desc: card.desc,
+    hint: `It now shows up in ${name}'s Arcade upgrades.`,
+    button: 'TAKE IT',
+  });
+}
+
+// A section cleared: the level's next power-up
+function updatePowerUp(dt) {
+  _unlockT += dt;
+  if (_unlockT < 0.8) return;
+  if (input.justPressed.space || input.justPressed.enter || (input.mouseJustClicked && _hitBtn(_unlockBtn.r))) {
+    level.takePowerUp(player);
+    state = STATES.PLAYING;
+  }
+}
+
+function drawPowerUp(W, H) {
+  const pu = level.pendingPowerUp;
+  if (!pu) return;
+  _drawReward(W, H, {
+    color: AGENT_COLOR[level.agent], top: 'THE CHARGE IN YOUR EMITTER SETTLES INTO SOMETHING NEW.',
+    label: `POWER UP  ·  ${level.powers.length + 1} / 3`, name: pu.name, desc: pu.desc,
+    hint: pu.hint || 'Lasts for the rest of this level.', button: 'NICE',
+  });
+}
+
+// Shared panel for rewards: fades in, then a button (Space / Enter / click)
+function _drawReward(W, H, o) {
   const k = Math.min(1, _unlockT / 0.6);
   dimBackdrop(ctx, W, H, 0.8 * k);
   ctx.save();
   ctx.globalAlpha = k;
   const pW = Math.min(440, W - 28), pH = 250;
   const pX = (W - pW) / 2, pY = (H - pH) / 2 - 10;
-  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: col, depth: 12, screen: 40, glow: 0.5 });
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: o.color, depth: 12, screen: 40, glow: 0.5 });
   ctx.textAlign = 'center';
   ctx.fillStyle = '#A9B6C4'; ctx.font = '11px monospace';
-  ctx.fillText('THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.', W / 2, top + 26, pW - 30);
-  ctx.fillStyle = col; ctx.font = 'bold 12px monospace';
-  ctx.fillText('NEW ABILITY', W / 2, top + 58);
-  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 16; ctx.shadowColor = col;
-  _fitFont(sig.name, pW - 40, 28, 'bold ');
-  ctx.fillText(sig.name, W / 2, top + 92);
+  ctx.fillText(o.top, W / 2, top + 26, pW - 30);
+  ctx.fillStyle = o.color; ctx.font = 'bold 12px monospace';
+  ctx.fillText(o.label, W / 2, top + 58);
+  ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 16; ctx.shadowColor = o.color;
+  _fitFont(o.name, pW - 40, 28, 'bold ');
+  ctx.fillText(o.name, W / 2, top + 92);
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#C4C8D4';
-  _fitFont(sig.desc, pW - 40, 13, '');
-  ctx.fillText(sig.desc, W / 2, top + 122);
-  const touch = 'ontouchstart' in window;
+  _fitFont(o.desc, pW - 40, 13, '');
+  ctx.fillText(o.desc, W / 2, top + 122);
   ctx.fillStyle = '#7ADDD4'; ctx.font = '11px monospace';
-  ctx.fillText(touch ? 'Tap its button to use it. Works in Story and Arcade.' : 'SPACE or F to use it. Works in Story and Arcade.', W / 2, top + 146);
+  ctx.fillText(o.hint, W / 2, top + 146, pW - 30);
   const bw = 170;
-  _unlockBtn.r = drawSlabButton(ctx, W / 2 - bw / 2, top + 170, bw, 42, _unlockT < 0.8 ? '…' : 'TAKE IT', {
-    accent: col, fontSize: 14, glow: 0.4, lift: _hitBtn(_unlockBtn.r) ? 1 : 0,
+  _unlockBtn.r = drawSlabButton(ctx, W / 2 - bw / 2, top + 170, bw, 42, _unlockT < 0.8 ? '…' : o.button, {
+    accent: o.color, fontSize: 14, glow: 0.4, lift: _hitBtn(_unlockBtn.r) ? 1 : 0,
   });
   ctx.restore();
   ctx.textAlign = 'left';
-}
-
-// Resonance level-up in a Story level: pick one of the general upgrade cards
-let _levelPower = false;
-function _showLevelPower() {
-  upgradeUI.present(player, []);
-  if (!upgradeUI.active) { level.pendingPower = 0; return; }
-  upgradeUI.storyHeader    = { level: level.resLevel - level.pendingPower + 1, color: AGENT_COLOR[level.agent] };
-  upgradeUI.waveContext    = null;
-  upgradeUI.isBonusUpgrade = false;
-  _levelPower = true;
-  sfxWaveClear();
-  state = STATES.UPGRADE;
 }
 
 // ── Death ─────────────────────────────────────────────────────
@@ -2089,6 +2126,37 @@ function _signatureEffects(who) {
       e.stunTimer = Math.max(e.stunTimer || 0, 0.8);
     }
   }
+}
+
+// Grenade HUD: beside the signature readout (desktop), or a button above the
+// signature button (touch)
+const _grenadeBtn = { r: null };
+function _drawGrenade(W, H) {
+  _grenadeBtn.r = null;
+  if (!player || !player.grenade) return;
+  const col = '#B6FF2E';
+  const touch = 'ontouchstart' in window;
+  const cd = player.grenadeCooldown || 0, ready = cd <= 0;
+  if (touch) {
+    const w = 100, h = 34, x = (W - w) / 2;
+    const y = H - 34 - 34 - h - 12 - (player.signature ? h + 12 : 0);
+    _grenadeBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'GRENADE' : `${Math.ceil(cd)}s`, {
+      accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
+    });
+    return;
+  }
+  const bw = 120;
+  const x = player.signature ? Math.round(W / 2 + 140) : Math.round(W / 2 - bw / 2 - 30), y = H - 30;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = ready ? col : '#6E7A88';
+  ctx.font = 'bold 13px monospace';
+  ctx.fillText('STUN GRENADE', x, y);
+  ctx.fillStyle = '#1E2130'; ctx.fillRect(x, y + 6, bw, 4);
+  ctx.fillStyle = ready ? col : '#4A5070';
+  ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / GRENADE_CD), 4);
+  ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
+  ctx.font = '11px monospace';
+  ctx.fillText(ready ? 'RMB / E' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
 }
 
 // Signature HUD: name, cooldown and key (desktop), or a button (touch)

@@ -2,6 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { drawSlab, dimBackdrop } from './ui3d.js';
+import { hasCard } from './profile.js';
 
 function _wrap(ctx, text, maxW) {
   const lines = [];
@@ -124,6 +125,16 @@ export const GENERIC_UPGRADES = [
 // Tier 2 — requires a specific Tier 1
 // Tier 3 — requires a specific Tier 2 (or one of two)
 // Class skills don't decay — they enter/exit pool based on prerequisites.
+
+// ── Story cards ───────────────────────────────────────────────
+// Earned in Story (opening Level 1's door the first time as that character);
+// they join that character's Arcade offers alongside the generic upgrades.
+export const STORY_CARDS = [
+  { id: 'heavy_bursts', who: 'dex',  name: 'Heavy Bursts', desc: '+1 round per burst, +15% damage.', baseWeight: 5, cap: 1,
+    apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
+  { id: 'hot_barrel',   who: 'juno', name: 'Hot Barrel',   desc: 'Minigun fires 25% faster.',        baseWeight: 5, cap: 1,
+    apply: p => { p.projCount += 1; } },
+];
 
 export const CLASS_TRAITS = {
 
@@ -474,7 +485,6 @@ export class UpgradeScreen {
     this._traps      = null;
     this.waveContext    = null;   // { type: 'early'|'timeout', bonusPts, secondsRemaining, bonusLevels }
     this.isBonusUpgrade = false;  // true when this selection was earned via bonus bank
-    this.storyHeader    = null;   // Story levels: { level, color } — Resonance level-up
   }
 
   setSystems(companions, traps) {
@@ -486,6 +496,7 @@ export class UpgradeScreen {
   present(player, unlockedClasses = []) {
     const archiveState = this._archiveState(unlockedClasses);
     const classSkills  = this._buildClassPool(unlockedClasses);
+    this._who  = player.character;
     this.cards = this._generateOffer(classSkills, archiveState);
     // Resolve any dynamic descriptions now that we have the player
     for (const card of this.cards) {
@@ -526,7 +537,8 @@ export class UpgradeScreen {
   // Weighted offer generation (per dev doc)
   _generateOffer(classSkills, archiveState) {
     // Build weighted generic pool (filter capped, apply decay)
-    const available = GENERIC_UPGRADES.filter(u => (this.takenCounts[u.id] || 0) < u.cap);
+    const story     = STORY_CARDS.filter(c => c.who === this._who && hasCard(c.who, c.id));
+    const available = [...GENERIC_UPGRADES, ...story].filter(u => (this.takenCounts[u.id] || 0) < u.cap);
     const weighted  = available.map(u => ({
       ...u,
       currentWeight: u.baseWeight * Math.pow(0.5, this.takenCounts[u.id] || 0),
@@ -615,11 +627,7 @@ export class UpgradeScreen {
     const big = compact ? 13 : 18, small = compact ? 11 : 14;
     const lines = [];
     const wc = this.waveContext;
-    if (!landscape && this.storyHeader) {
-      const sh = this.storyHeader;
-      lines.push([`RESONANCE  LV ${sh.level}`, sh.color, big, true, sh.color]);
-      lines.push(['THE COLOUR YOU DRAINED HAS SETTLED IN', 'rgba(220,228,240,0.75)', small, false, null]);
-    } else if (!landscape) {
+    if (!landscape) {
       if (this.isBonusUpgrade) {
         lines.push(['★  BONUS UPGRADE  ★', '#E8C86A', big, true, '#fff5c2']);
         lines.push(['EARNED FROM EARLY CLEAR  ·  KEEP CLEARING FAST', '#fff5c2', small, false, null]);

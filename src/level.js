@@ -4,12 +4,12 @@
 //   wave      clear groups of Chromatics (groups arrive from different sides)
 //   relays    power up relays while Chromatics keep coming to drain them
 //   sequence  watch floor pads light up, then walk over them in the same order
-//   exit      open the door — the first time, it unlocks the agent's signature
+//   exit      open the door — the first time, it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
 // beats; enemies wait for the briefing to finish. Power drawn from the map
 // takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
-// Kills fill a Resonance meter; each time it fills, the agent levels up and
-// picks an upgrade (game.js shows the cards). Going down fails the level.
+// Clearing a section grants the agent a set power-up for the rest of the level
+// (game.js shows it). Going down fails the level.
 
 import { Radio } from './dialogue.js';
 import { CONFIG } from './config.js';
@@ -18,8 +18,21 @@ import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear } from './audio.js
 
 export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
 const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
-// Kills needed for each Resonance level (a card pick each); Level 1 has ~35-40
-const RESONANCE = [5, 12, 21, 32, 45, 60];
+// Power-ups granted as each section is cleared (wave, relays, wave), per
+// agent. They last for the level and preview where each character is going.
+export const POWERUPS = {
+  dex: [
+    { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
+    { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; },
+      hint: 'Right-click or E to throw it. On a phone, use its button.' },
+    { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
+  ],
+  juno: [
+    { id: 'hot_barrel', name: 'HOT BARREL', desc: 'The minigun fires 25% faster.',                 apply: p => { p.projCount += 1; } },
+    { name: 'PIERCING STREAM', desc: 'Rounds pass through one enemy.',                apply: p => { p.piercingShots += 1; } },
+    { name: 'RICOCHET',        desc: 'Rounds bounce once off racks.',                 apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; } },
+  ],
+};
 
 // ── Level data ────────────────────────────────────────────────
 
@@ -75,6 +88,10 @@ export const LEVELS = {
   },
 };
 
+// What opening each level's door unlocks for keeps, per agent: the first
+// power-up, as a card in that character's Arcade upgrade offers
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] } };
+
 // ── Helpers ───────────────────────────────────────────────────
 
 function freeSpot(map, x, y, pad = 46) {
@@ -109,9 +126,10 @@ export class LevelRun {
     this.idx = -1;
     this.complete = false;
     this.failed   = false;
-    this.kills    = 0;        // toward Resonance levels
-    this.resLevel = 0;
-    this.pendingPower = 0;    // level-ups waiting for a card pick
+    this.kills    = 0;
+    this.powers   = [];       // power-ups granted so far (names)
+    this.pendingPowerUp = null;   // one waiting to be shown by game.js
+    this._powerIdx = 0;
     this.charge = 0;          // emitter charge drawn from relays, 0..1
     this.motes  = [];         // essence flowing into the agent
     this._spawnDir = Math.random() * Math.PI * 2;
@@ -170,17 +188,15 @@ export class LevelRun {
   onKill(e) {
     if (this.chroma[e.type] !== undefined) this.chroma[e.type]++;
     this.kills++;
-    while (this.resLevel < RESONANCE.length && this.kills >= RESONANCE[this.resLevel]) {
-      this.resLevel++;
-      this.pendingPower++;
-    }
   }
 
-  // Progress toward the next Resonance level, 0..1
-  get resonance() {
-    if (this.resLevel >= RESONANCE.length) return 1;
-    const lo = this.resLevel ? RESONANCE[this.resLevel - 1] : 0, hi = RESONANCE[this.resLevel];
-    return (this.kills - lo) / (hi - lo);
+  // game.js calls this once the power-up has been shown
+  takePowerUp(player) {
+    const pu = this.pendingPowerUp;
+    if (!pu) return;
+    pu.apply(player);
+    this.powers.push(pu.name);
+    this.pendingPowerUp = null;
   }
 
   // Stepping onto a pad (counts once until you step off)
@@ -208,7 +224,11 @@ export class LevelRun {
   _finishBeat() {
     const b = this.beat;
     if (b.done && b.done.length) this.radio.say(b.done);
-    if (b.type === 'wave' || b.type === 'relays') sfxWaveClear();
+    if (b.type === 'wave' || b.type === 'relays') {
+      sfxWaveClear();
+      const list = POWERUPS[this.agent] || [];
+      if (this._powerIdx < list.length) this.pendingPowerUp = list[this._powerIdx++];
+    }
     if (b.type === 'exit') { this.complete = true; return; }
     this._next();
   }
@@ -291,15 +311,19 @@ export class LevelRun {
     this.charge = this.relays.reduce((s, r) => s + (r.done ? 1 : r.charge), 0) / b.count;
     if (charging && Math.random() < dt * 22) this.motes.push({ x: charging.x, y: charging.y - 18, t: 0, s: Math.random() });
 
-    // Interrupters: keep a few Chromatics coming, more as the work goes on
+    // Interrupters: pairs of violets arriving from anywhere on the map (not
+    // at the relays), a little more often after each relay
     const done = this.relays.filter(r => r.done).length;
     const cap = 3 + done;
     this.spawnT -= dt;
     if (this.spawnT <= 0 && es.length < cap) {
-      const target = charging || this.relays.find(r => !r.done) || pl;
-      const type = done > 0 && Math.random() < 0.35 ? 'yellow' : 'violet';
-      this._spawnGroup([[type, Math.random() < 0.4 ? 2 : 1]], target);
-      this.spawnT = 2.6 - done * 0.3;
+      const map = this.api.map();
+      const at = map.randomSpawn(pl.x, pl.y, es.map(e => ({ x: e.x, y: e.y })), 320, 90);
+      for (let i = 0; i < 2; i++) {
+        const p = freeSpot(map, at.x + (i ? 26 : -26), at.y + (Math.random() - 0.5) * 30, 22);
+        this.api.spawnEnemy('violet', p.x, p.y);
+      }
+      this.spawnT = 4.5 - done * 0.4;
     }
     if (done >= b.count) { this.charging = null; this._finishBeat(); }
   }
@@ -442,6 +466,35 @@ export class LevelRun {
     const x = Math.round(e.x), y = Math.round(e.y);
     const pulse = 0.6 + 0.4 * Math.sin(t * 3);
     ctx.save();
+    // Light spilling onto the floor in front of the door, so it stands out
+    // from the room: a soft pool, a fan of rays from the seam, and faint lit
+    // scanlines across the floor
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.save();
+    ctx.translate(e.x, y + 16);
+    ctx.scale(1, 0.42);
+    const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, 80);
+    pool.addColorStop(0, this.color); pool.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.6 * (0.75 + 0.25 * pulse);
+    ctx.fillStyle = pool;
+    ctx.beginPath(); ctx.arc(0, 0, 80, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    for (const [spread, a] of [[-28, 0.22], [0, 0.34], [28, 0.22]]) {
+      const ray = ctx.createLinearGradient(0, y + 4, 0, y + 46);
+      ray.addColorStop(0, this.color); ray.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = a * (0.7 + 0.3 * pulse);
+      ctx.fillStyle = ray;
+      ctx.beginPath(); ctx.moveTo(x - 3, y + 5); ctx.lineTo(x + 3, y + 5);
+      ctx.lineTo(x + spread + 9, y + 46); ctx.lineTo(x + spread - 9, y + 46); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = this.color;
+    for (let k = 0; k < 7; k++) {
+      const ly = y + 9 + k * 5, half = 30 - k * 2.5;
+      ctx.globalAlpha = (0.42 - k * 0.05) * (0.75 + 0.25 * pulse);
+      ctx.fillRect(Math.round(x - half), ly, Math.round(half * 2), 1);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#141B24'; ctx.fillRect(x - 20, y - 40, 40, 46);       // frame
     ctx.fillStyle = '#2C3A48'; ctx.fillRect(x - 17, y - 37, 34, 42);       // door
     ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 17, y - 37, 34, 3);
@@ -511,18 +564,18 @@ export class LevelRun {
     ctx.fillStyle = '#5E8C96';
     ctx.font = `${narrow ? 9 : 10}px monospace`;
     ctx.fillText('CHROMA', W - 14, 40);
-    // Resonance, under the health bar: kills toward the next upgrade
+    // Power-ups so far, under the health bar
     {
       const y = narrow ? 76 : 72;
-      const bw = narrow ? 120 : 200;
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#8A8E99';
       ctx.font = `${narrow ? 9 : 11}px monospace`;
-      ctx.fillText(`RESONANCE  LV ${this.resLevel}`, 14, y);
-      ctx.fillStyle = '#1E2130';
-      ctx.fillRect(14, y + 5, bw, 5);
-      ctx.fillStyle = '#E8F0FF';
-      ctx.fillRect(14, y + 5, bw * this.resonance, 5);
+      if (this.powers.length) {
+        ctx.fillStyle = this.color;
+        ctx.fillText(this.powers.map(n => '◆ ' + n).join('  '), 14, y, narrow ? W - 28 : 520);
+      } else {
+        ctx.fillStyle = '#5A6470';
+        ctx.fillText('◇ clear a section to power up', 14, y);
+      }
     }
     // Emitter charge, under that, once relays have started
     if (this.relays) {

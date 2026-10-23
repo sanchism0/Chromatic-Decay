@@ -430,14 +430,14 @@ export class Player {
       // Rest of a burst: fires on its own once the trigger is pulled
       this._burstT -= dt;
       if (this._burstT <= 0) {
-        this._shoot(projectileSystem);
+        this._shoot(projectileSystem, this._burstLeft === 1);
         this._burstLeft--;
         this._burstT = W.gap;
         this.justFired = true;
       }
     } else if (this.firing && this.fireTimer <= 0) {
-      this._shoot(projectileSystem);
       const extra = this.projCount - 1;
+      this._shoot(projectileSystem, W.burst + (this.character === 'dex' ? extra : 0) === 1);
       const rate  = W.rate * (this.character === 'juno' ? 1 + 0.25 * extra : 1);
       this.fireTimer = 1 / (rate * spin * this.effectiveFireRate / CONFIG.player_base_fire_rate);
       const burst = W.burst + (this.character === 'dex' ? extra : 0);
@@ -584,7 +584,8 @@ export class Player {
     }
   }
 
-  _shoot(projectileSystem) {
+  // finalRound: the last round of a burst (Kinetic Finish knocks back with it)
+  _shoot(projectileSystem, finalRound = false) {
     // Flash Crash: every 10th shot deals 400% damage
     let flashMultiplier = 1;
     if (this.flashCrash) {
@@ -616,7 +617,7 @@ export class Player {
     for (let i = 0; i < count; i++) {
       const offset = count === 1 ? 0 : (i - half) * this.projSpread;
       const a = aim + offset;
-      projectileSystem.spawnPlayer(
+      const shot = projectileSystem.spawnPlayer(
         from.x, from.y, a,
         damage,
         this.projSpeed,
@@ -625,6 +626,10 @@ export class Player {
         this.projectileBounce,
         isOverload || gold,
       );
+      if (shot) {
+        shot.rackBounce = this.rackBounce || 0;
+        if (finalRound && this.kineticFinish) shot.knockback = 34;
+      }
     }
   }
 

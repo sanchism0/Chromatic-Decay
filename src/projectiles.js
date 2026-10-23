@@ -34,6 +34,8 @@ class Projectile {
     this.color    = color;
     this.piercing = piercing;   // hits remaining after first
     this.bounce   = bounce;     // reflect off map edges
+    this.rackBounce = 0;        // ricochets left off racks (set after spawn)
+    this.knockback  = 0;        // px to shove an enemy on hit (set after spawn)
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
     this.age      = 0;          // seconds since fired (muzzle ripple, wave phase)
@@ -63,6 +65,7 @@ export class ProjectileSystem {
   spawnPlayer(x, y, angle, damage, speed, range, piercing = 0, bounce = false, overload = false) {
     const p = this._getFree();
     if (p) p.init(x, y, angle, damage, speed, range, true, '#FFFFFF', piercing, bounce, false, overload);
+    return p;
   }
 
   spawnEnemy(x, y, angle, damage, speed, range, color) {
@@ -120,11 +123,17 @@ export class ProjectileSystem {
         }
       }
 
-      // Obstacle collision
+      // Obstacle collision — ricochet rounds bounce off the face they hit
       for (const obs of map.obstacles) {
         if (p.x >= obs.x && p.x <= obs.x + obs.w &&
             p.y >= obs.y && p.y <= obs.y + obs.h) {
-          this._endShot(p);
+          if (p.isPlayer && p.rackBounce > 0) {
+            p.rackBounce--;
+            if (prevX < obs.x || prevX > obs.x + obs.w) p.vx = -p.vx; else p.vy = -p.vy;
+            p.x = prevX; p.y = prevY;
+          } else {
+            this._endShot(p);
+          }
           break;
         }
       }
