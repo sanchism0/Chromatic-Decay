@@ -49,6 +49,7 @@ export class ProjectileSystem {
     // Object pools — separate for player vs enemy
     this._pool = Array.from({ length: 400 }, () => new Projectile());
     this._fizzles = [];   // where player shots ended: a brief scatter of light
+    this.rackHits = [];   // racks player shots hit this frame (Story objectives read these)
   }
 
   get playerProjectiles() {
@@ -128,6 +129,7 @@ export class ProjectileSystem {
       for (const obs of map.obstacles) {
         if (p.x >= obs.x && p.x <= obs.x + obs.w &&
             p.y >= obs.y && p.y <= obs.y + obs.h) {
+          if (p.isPlayer) this.rackHits.push(obs);
           if (p.isPlayer && p.rackBounce > 0) {
             p.rackBounce--;
             if (prevX < obs.x || prevX > obs.x + obs.w) p.vx = -p.vx; else p.vy = -p.vy;
@@ -187,6 +189,7 @@ export class ProjectileSystem {
   reset() {
     for (const p of this._pool) p.active = false;
     this._fizzles = [];
+    this.rackHits = [];
   }
 
   draw(ctx) {

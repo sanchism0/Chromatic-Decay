@@ -3,6 +3,7 @@
 // A level is a list of beats played in order, each one a checkpoint:
 //   wave      clear groups of Chromatics (groups arrive from different sides)
 //   relays    power up relays while Chromatics keep coming to drain them
+//   servers   shoot the marked server racks spread round the map to wake them
 //   sequence  watch floor pads light up, then walk over them in the same order
 //   exit      open the door — the first time, it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
@@ -14,6 +15,7 @@
 import { Radio } from './dialogue.js';
 import { CONFIG } from './config.js';
 import { drawGlow } from './sprites.js';
+import { rackHeight } from './pixelmap.js';
 import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear } from './audio.js';
 
 export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
@@ -73,12 +75,16 @@ export const LEVELS = {
           objective: s => `Hold them off (${s.left} left)`,
           done: [L(f('neutral', 'soft-smile'), "That's the last of them. The way out is sealed, though.")] },
 
-        { type: 'sequence', nodes: 4, length: 4,
-          lines: [L(f('neutral', 'focused'), "There's a lock set into the floor ahead. Four pads."),
-                  L(f('determined', 'neutral'), 'Watch the order they light up, then walk over them in the same order.'),
+        { type: 'servers', count: 4,
+          lines: [L(f('neutral', 'focused'), "The door's locked to four servers, spread right across the floor."),
+                  L(f('determined', 'neutral'), "Shoot each one to wake it up. I'll mark them for you."),
                   L(f('worried', 'concerned'), "They're still coming. Good chance to try out that new upgrade.")],
-          wrong: [L(f('worried', 'annoyed'), "Not that one. Watch again.")],
-          objective: () => 'Walk over the pads in order',
+          eachDone: [
+            [L(f('determined', 'focused'), 'One.')],
+            [L(f('cocky-grin', 'smirk'), 'Two. Halfway.')],
+            [L(f('determined', 'focused'), 'Three. One left.')],
+          ],
+          objective: s => `Wake the servers (${s.servers}/4)`,
           done: [L(f('laughing', 'soft-smile'), "Great. Now get out of there. You'll need to open the door, back where you came in.")] },
 
         { type: 'exit',
@@ -148,6 +154,17 @@ export class LevelRun {
     this.lockCenter = c;
     this.nodePos = [[0, -84], [84, 0], [0, 84], [-84, 0]].map(([dx, dy]) => freeSpot(map, c.x + dx, c.y + dy, 26));
     this.exitPos = map.playerSpawn();
+    // Four servers to wake: the rack nearest each corner region, so the
+    // player has to cover the whole floor (none right by the door)
+    const racks = map.obstacles.filter(o => o.w >= 24 && o.h >= 40 &&
+      Math.hypot(o.x + o.w / 2 - this.exitPos.x, o.y + o.h / 2 - this.exitPos.y) > 200);
+    this.serverRacks = [];
+    for (const [fx, fy] of [[0.12, 0.2], [0.88, 0.22], [0.12, 0.82], [0.88, 0.82]]) {
+      const tx = W * fx, ty = H * fy;
+      const o = racks.filter(r => !this.serverRacks.includes(r))
+        .sort((a, b) => Math.hypot(a.x + a.w / 2 - tx, a.y + a.h / 2 - ty) - Math.hypot(b.x + b.w / 2 - tx, b.y + b.h / 2 - ty))[0];
+      if (o) this.serverRacks.push(o);
+    }
   }
 
   get beat() { return this.beats[this.idx]; }
@@ -170,6 +187,8 @@ export class LevelRun {
       if (!this.relays) this.relays = this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 }));
       for (const r of this.relays) if (!r.done) r.charge = 0;
       this._saidFirst = this._saidFirst || false;
+    } else if (b.type === 'servers') {
+      if (!this.servers) this.servers = this.serverRacks.map(o => ({ o, x: o.x + o.w / 2, y: o.y + o.h / 2, lit: false, litT: 0 }));
     } else if (b.type === 'sequence') {
       if (!this.seq) {
         const order = [];
@@ -220,6 +239,22 @@ export class LevelRun {
     }
   }
 
+  // Racks the player's shots hit this frame (from the projectile system):
+  // a hit on a marked server wakes it
+  onRackHits(hits) {
+    const b = this.beat;
+    if (!b || b.type !== 'servers' || !this.ready || !hits.length) return;
+    for (const obs of hits) {
+      const s = this.servers.find(sv => sv.o === obs && !sv.lit);
+      if (!s) continue;
+      s.lit = true;
+      const n = this.servers.filter(sv => sv.lit).length;
+      sfxNode(n - 1);
+      if (n < b.count) this.radio.say(b.eachDone[n - 1] || []);
+      else { sfxRelayCharged(); this._finishBeat(); return; }
+    }
+  }
+
   // The game calls this once the door is opened (after any unlock screen)
   openDoor() { this.awaitUnlock = false; this.complete = true; }
 
@@ -246,7 +281,7 @@ export class LevelRun {
 
     // The last stretch (pads and the walk to the door) keeps a slightly heavier
     // trickle than the relays, violets and yellows, to try the last power-up on
-    if (b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 5, 4, () => (Math.random() < 0.5 ? 'yellow' : 'violet'));
+    if (b.type === 'servers' || b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 5, 4, () => (Math.random() < 0.5 ? 'yellow' : 'violet'));
     if (b.type === 'wave') this._updateWave(dt, b);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
@@ -381,7 +416,8 @@ export class LevelRun {
     if (b.type === 'sequence' && this.showing) return 'Watch the order';
     const left = this.api.enemies.enemies.filter(e => e.isAlive).length;
     const done = this.relays ? this.relays.filter(r => r.done).length : 0;
-    return b.objective({ left, done });
+    const servers = this.servers ? this.servers.filter(s => s.lit).length : 0;
+    return b.objective({ left, done, servers });
   }
 
   // ── Drawing ─────────────────────────────────────────────────
@@ -392,7 +428,7 @@ export class LevelRun {
     if (this.relays || (b && b.type === 'relays')) {
       for (const r of (this.relays || this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 })))) this._drawRelay(ctx, r, t);
     }
-    if (b && (b.type === 'sequence' || b.type === 'exit') || this.seq) this._drawLock(ctx, t);
+    if (this.seq) this._drawLock(ctx, t);
     if (b && b.type === 'exit') this._drawExit(ctx, t);
     // Essence flowing from the relay into the agent
     const pl = this.api.player();
@@ -530,18 +566,59 @@ export class LevelRun {
   }
 
   // Where the player should head next, if anywhere
-  get target() {
+  // Where the player should head next: one place, or every unlit server
+  get targets() {
     const b = this.beat;
-    if (!b || !this.ready) return null;
+    if (!b || !this.ready) return [];
     const pl = this.api.player();
     if (b.type === 'relays' && this.relays) {
       const open = this.relays.filter(r => !r.done);
-      if (!open.length) return null;
-      return open.reduce((a, r) => Math.hypot(r.x - pl.x, r.y - pl.y) < Math.hypot(a.x - pl.x, a.y - pl.y) ? r : a);
+      if (!open.length) return [];
+      return [open.reduce((a, r) => Math.hypot(r.x - pl.x, r.y - pl.y) < Math.hypot(a.x - pl.x, a.y - pl.y) ? r : a)];
     }
-    if (b.type === 'sequence') return this.lockCenter;
-    if (b.type === 'exit') return this.exitPos;
-    return null;
+    if (b.type === 'servers' && this.servers) return this.servers.filter(s => !s.lit);
+    if (b.type === 'sequence') return [this.lockCenter];
+    if (b.type === 'exit') return [this.exitPos];
+    return [];
+  }
+
+  // Drawn over the racks: the marker on each server (dim until woken, then a
+  // beam of the agent's colour rising from it)
+  drawOverRacks(ctx) {
+    if (!this.servers) return;
+    const t = this.t;
+    ctx.save();
+    for (const s of this.servers) {
+      const o = s.o;
+      const x = Math.round(o.x + o.w / 2), y = Math.round(o.y - rackHeight(o) * 0.5 + 6);
+      if (s.lit) {
+        s.litT += 1 / 60;
+        ctx.globalCompositeOperation = 'lighter';
+        const beam = ctx.createLinearGradient(0, y - 160, 0, y);
+        beam.addColorStop(0, 'rgba(0,0,0,0)'); beam.addColorStop(1, this.color);
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = beam; ctx.fillRect(x - 5, y - 160, 10, 160);
+        drawGlow(ctx, this.color, x, y, 26, 0.7);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#141B24'; ctx.fillRect(x - 7, y - 7, 14, 14);
+        ctx.fillStyle = this.color; ctx.fillRect(x - 5, y - 5, 10, 10);
+      } else {
+        const live = this.beat && this.beat.type === 'servers';
+        const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + x);
+        ctx.globalCompositeOperation = 'lighter';
+        if (live) drawGlow(ctx, '#00E5CC', x, y, 20, 0.25 + 0.2 * pulse);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#141B24'; ctx.fillRect(x - 7, y - 7, 14, 14);
+        ctx.fillStyle = live ? '#1F4A50' : '#26323E'; ctx.fillRect(x - 5, y - 5, 10, 10);
+        if (live) {
+          ctx.strokeStyle = '#00E5CC'; ctx.globalAlpha = 0.5 + 0.3 * pulse; ctx.lineWidth = 1;
+          ctx.strokeRect(x - 10.5, y - 10.5, 21, 21);
+        }
+      }
+    }
+    ctx.restore();
   }
 
   // HUD: comms + objective, Chroma collected, emitter charge, and an arrow at
@@ -550,8 +627,7 @@ export class LevelRun {
   drawHud(ctx, W, H, touch, toScreen) {
     // Keep comms clear of the Resonance / Emitter bars on narrow screens
     this.radio.draw(ctx, W, H, this.objective, touch, (W < 600 ? 100 : 96) + (this.relays ? 22 : 0));
-    const tg = this.target;
-    if (tg && toScreen) {
+    for (const tg of (toScreen ? this.targets : [])) {
       const [sx, sy] = toScreen(tg.x, tg.y);
       if (sx < 0 || sx > W || sy < 0 || sy > H) {
         const m = 30;

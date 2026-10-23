@@ -566,6 +566,8 @@ function updatePlaying(dt) {
 
   // Projectiles
   projectiles.update(dt, map, player);
+  if (level) level.onRackHits(projectiles.rackHits);
+  projectiles.rackHits.length = 0;
   projectiles.checkBulletCollisions(particles);
   projectiles.checkPlayerHits(player, particles);
 
@@ -1379,6 +1381,7 @@ function drawGame(W, H) {
   // Grenades fly over the racks, and their smoke has to read over the glow,
   // so they're drawn last
   grenades.draw(ctx, enemies.enemies);
+  if (level) level.drawOverRacks(ctx);
 
   // ── Charging zones (pre-spawn indicators) ────────────────
   if (waveSystem && waveSystem.pendingSpawns.length > 0) {
