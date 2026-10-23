@@ -75,7 +75,8 @@ export const LEVELS = {
 
         { type: 'sequence', nodes: 4, length: 4,
           lines: [L(f('neutral', 'focused'), "There's a lock set into the floor ahead. Four pads."),
-                  L(f('determined', 'neutral'), 'Watch the order they light up, then walk over them in the same order.')],
+                  L(f('determined', 'neutral'), 'Watch the order they light up, then walk over them in the same order.'),
+                  L(f('worried', 'concerned'), "They're still coming. Good chance to try out that new upgrade.")],
           wrong: [L(f('worried', 'annoyed'), "Not that one. Watch again.")],
           objective: () => 'Walk over the pads in order',
           done: [L(f('laughing', 'soft-smile'), "Great. Now get out of there. You'll need to open the door, back where you came in.")] },
@@ -162,12 +163,12 @@ export class LevelRun {
   // (Re)start a beat's state — also used when restarting from a checkpoint
   _enter(b) {
     this.ready = false;   // waits for the briefing
+    this.spawnT = 1.5;    // first interrupters (where a beat has them)
     if (b.type === 'wave') {
       this.gi = 0; this.groupT = 0; this.spawnedAll = false;
     } else if (b.type === 'relays') {
       if (!this.relays) this.relays = this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 }));
       for (const r of this.relays) if (!r.done) r.charge = 0;
-      this.spawnT = 1.5;
       this._saidFirst = this._saidFirst || false;
     } else if (b.type === 'sequence') {
       if (!this.seq) {
@@ -243,6 +244,9 @@ export class LevelRun {
     if (pl.hp <= 1 && !pl.beaming) { this.failed = true; return; }
     if (!this.ready) { if (!this.radio.busy && !pl.beaming) this.ready = true; else return; }
 
+    // The last stretch (pads and the walk to the door) keeps a slightly heavier
+    // trickle than the relays, violets and yellows, to try the last power-up on
+    if (b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 5, 4, () => (Math.random() < 0.5 ? 'yellow' : 'violet'));
     if (b.type === 'wave') this._updateWave(dt, b);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
@@ -322,21 +326,26 @@ export class LevelRun {
     this.charge = this.relays.reduce((s, r) => s + (r.done ? 1 : r.charge), 0) / b.count;
     if (charging && Math.random() < dt * 22) this.motes.push({ x: charging.x, y: charging.y - 18, t: 0, s: Math.random() });
 
-    // Interrupters: pairs of violets arriving from anywhere on the map (not
-    // at the relays), never more than 4 on the floor at once, at a steady pace
+    // Interrupters: pairs of violets from anywhere on the map, at most 4 at once
     const done = this.relays.filter(r => r.done).length;
-    const cap = 4;
-    this.spawnT -= dt;
-    if (this.spawnT <= 0 && es.length < cap) {
-      const map = this.api.map();
-      const at = map.randomSpawn(pl.x, pl.y, es.map(e => ({ x: e.x, y: e.y })), 320, 90);
-      for (let i = 0; i < Math.min(2, cap - es.length); i++) {
-        const p = freeSpot(map, at.x + (i ? 26 : -26), at.y + (Math.random() - 0.5) * 30, 22);
-        this.api.spawnEnemy('violet', p.x, p.y);
-      }
-      this.spawnT = 4.5;
-    }
+    this._interrupt(dt, 4, 4.5, () => 'violet');
     if (done >= b.count) { this.charging = null; this._finishBeat(); }
+  }
+
+  // A steady trickle of Chromatics in pairs, arriving from anywhere on the map
+  // (well away from the player), never more than `cap` on the floor at once
+  _interrupt(dt, cap, period, pickType) {
+    const pl = this.api.player();
+    const es = this.api.enemies.enemies.filter(e => e.isAlive);
+    this.spawnT -= dt;
+    if (this.spawnT > 0 || es.length >= cap) return;
+    const map = this.api.map();
+    const at = map.randomSpawn(pl.x, pl.y, es.map(e => ({ x: e.x, y: e.y })), 320, 90);
+    for (let i = 0; i < Math.min(2, cap - es.length); i++) {
+      const p = freeSpot(map, at.x + (i ? 26 : -26), at.y + (Math.random() - 0.5) * 30, 22);
+      this.api.spawnEnemy(pickType(), p.x, p.y);
+    }
+    this.spawnT = period;
   }
 
   _updateSequence(dt, b) {
