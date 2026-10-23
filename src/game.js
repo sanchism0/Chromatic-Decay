@@ -407,13 +407,23 @@ function _hitBtn(btn) {
   return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h;
 }
 
+// Menu music can be muted from the title screen; game sound is unaffected
+let _menuMuted = (() => { try { return localStorage.getItem('chromatic_decay_menu_muted') === '1'; } catch { return false; } })();
+const _muteBtn = { r: null };
+
 function updateTitle() {
   if (story.active) story.reset();
   hud.minimal = false;
   resumeAudio();
-  startTitleMusic();
+  if (_menuMuted) stopTitleMusic(); else startTitleMusic();
   if (input.justPressed.space) { _openCharSelect(); return; }
   if (!input.mouseJustClicked)  return;
+
+  if (_hitBtn(_muteBtn.r)) {
+    _menuMuted = !_menuMuted;
+    try { localStorage.setItem('chromatic_decay_menu_muted', _menuMuted ? '1' : '0'); } catch {}
+    return;
+  }
 
   if (_hitBtn(_titleBtns.start))   { _openCharSelect();                       return; }
   if (_hitBtn(_titleBtns.story))   { _prologueDone() ? _openStoryMap() : _startStory(); return; }
@@ -2493,6 +2503,13 @@ function drawTitle(W, H) {
     ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
     ctx.fillText('v0.3.0', W / 2, H - 8);
   }
+
+  // ── Menu music toggle (top right) ─────────────────────────
+  const mw = mobile ? 96 : 116, mh = mobile ? 28 : 30;
+  _muteBtn.r = drawSlabButton(ctx, W - mw - 14, 14, mw, mh, _menuMuted ? '♪ MUSIC OFF' : '♪ MUSIC ON', {
+    accent: _menuMuted ? '#5E6A78' : tealDim, textColor: _menuMuted ? '#7A8694' : '#9FE8DF',
+    fontSize: mobile ? 10 : 11, depth: 4, lift: !('ontouchstart' in window) && _hitBtn(_muteBtn.r) ? 1 : 0,
+  });
   ctx.textAlign = 'left';
 }
 
