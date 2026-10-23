@@ -88,12 +88,6 @@ export const GENERIC_UPGRADES = [
     apply: p => { p.projCount += 1; },
   },
   {
-    id: 'extended_range', name: 'Extended Range',
-    desc: '+25% proj range.',
-    baseWeight: 5, cap: 3,
-    apply: p => { p.projRange += Math.round(CONFIG.player_projectile_range * 0.25); },
-  },
-  {
     id: 'overcharge_cell', name: 'Overcharge Cell',
     desc: '+20% proj speed.',
     baseWeight: 5, cap: 3,
@@ -127,13 +121,19 @@ export const GENERIC_UPGRADES = [
 // Class skills don't decay — they enter/exit pool based on prerequisites.
 
 // ── Story cards ───────────────────────────────────────────────
-// Earned in Story (opening Level 1's door the first time as that character);
-// they join that character's Arcade offers alongside the generic upgrades.
+// Earned in Story by one character (opening Level 1's door the first time as
+// them). In Arcade every earned card is in one shared deck that either
+// character can draft — a card does exactly what it says, whoever takes it.
+// active: an activated ability; a run holds at most two (E, then F).
+const STORY_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
 export const STORY_CARDS = [
   { id: 'heavy_bursts', who: 'dex',  name: 'Heavy Bursts', desc: '+1 round per burst, +15% damage.', baseWeight: 5, cap: 1,
     apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
   { id: 'hot_barrel',   who: 'juno', name: 'Hot Barrel',   desc: 'Minigun fires 25% faster.',        baseWeight: 5, cap: 1,
     apply: p => { p.projCount += 1; } },
+  // Not awarded by any level yet; listed so it slots in once one does
+  { id: 'stun_grenade', who: 'dex', active: true, name: 'Stun Grenade', desc: 'Activated: lob a grenade that stuns and jams enemies.', baseWeight: 5, cap: 1,
+    apply: p => { p.grenade = true; p.abilities.push('grenade'); } },
 ];
 
 export const CLASS_TRAITS = {
@@ -496,7 +496,8 @@ export class UpgradeScreen {
   present(player, unlockedClasses = []) {
     const archiveState = this._archiveState(unlockedClasses);
     const classSkills  = this._buildClassPool(unlockedClasses);
-    this._who  = player.character;
+    this._who       = player.character;
+    this._abilities = (player.abilities || []).length;
     this.cards = this._generateOffer(classSkills, archiveState);
     // Resolve any dynamic descriptions now that we have the player
     for (const card of this.cards) {
@@ -537,8 +538,11 @@ export class UpgradeScreen {
   // Weighted offer generation (per dev doc)
   _generateOffer(classSkills, archiveState) {
     // Build weighted generic pool (filter capped, apply decay)
-    const story     = STORY_CARDS.filter(c => c.who === this._who && hasCard(c.who, c.id));
-    const available = [...GENERIC_UPGRADES, ...story].filter(u => (this.takenCounts[u.id] || 0) < u.cap);
+    // Every Story card any character has earned, minus taken ones; activated
+    // abilities stop appearing once both slots (E, F) are full
+    const story = STORY_CARDS.filter(c => hasCard(c.who, c.id) && (this.takenCounts[c.id] || 0) < c.cap &&
+                                          !(c.active && this._abilities >= 2));
+    const available = [...GENERIC_UPGRADES.filter(u => (this.takenCounts[u.id] || 0) < u.cap), ...story];
     const weighted  = available.map(u => ({
       ...u,
       currentWeight: u.baseWeight * Math.pow(0.5, this.takenCounts[u.id] || 0),
@@ -549,6 +553,11 @@ export class UpgradeScreen {
 
     const offer = [];
     let  guard  = 0;
+
+    // The run's first level-up always shows a Story card, if any are earned
+    if (this.takenIds.length === 0 && story.length) {
+      offer.push(story[Math.floor(Math.random() * story.length)]);
+    }
 
     while (offer.length < 3 && guard++ < 100) {
       const useClass = classSkills.length > 0 && Math.random() < classRatio;
@@ -710,7 +719,7 @@ export class UpgradeScreen {
       const card            = this.cards[i];
       const { x, y: y0, w, h } = layout[i];
       const isHovered       = i === this.hovered;
-      const classColor      = card.class ? CLASS_COLORS[card.class] : null;
+      const classColor      = card.class ? CLASS_COLORS[card.class] : (card.who ? STORY_COLOR[card.who] : null);
       const tierLabel       = card.tier ? `T${card.tier}` : null;
       const isClass         = !!card.class;
 
@@ -730,9 +739,10 @@ export class UpgradeScreen {
       const divY         = landscape ? y + 38 : narrow ? y + 38 : y + 46;
       const descY        = landscape ? y + 54 : narrow ? y + 56 : y + 70;
 
-      // Class + tier tag (top-right)
-      if (card.class) {
-        const tag = tierLabel ? `${card.class.toUpperCase()}  ${tierLabel}` : card.class.toUpperCase();
+      // Class + tier tag (top-right); Story cards say whose they were
+      if (card.class || card.who) {
+        const tag = card.who ? `STORY · ${card.who.toUpperCase()}`
+                  : tierLabel ? `${card.class.toUpperCase()}  ${tierLabel}` : card.class.toUpperCase();
         ctx.fillStyle   = classColor;
         ctx.font        = `bold ${tagFontSize}px monospace`;
         ctx.textAlign   = 'right';
