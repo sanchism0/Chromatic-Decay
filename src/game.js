@@ -16,7 +16,7 @@ import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
 import { drawGroundShadow, drawGlow } from './sprites.js';
 import { PixelMap, rackHeight } from './pixelmap.js';
-import { UpgradeScreen }    from './upgrades.js';
+import { UpgradeScreen, STORY_CARDS } from './upgrades.js';
 import { CompanionSystem }  from './companions.js';
 import { TrapSystem }       from './traps.js';
 import { HUD }              from './hud.js';
@@ -302,6 +302,9 @@ function startRun(opts = {}) {
     echoes.spawnTimer = Infinity;
     player.cannotDie  = true;
     level = new LevelRun(levelId, selectedCharacter, levelApi);
+    // After Level 1 (the sampler), a character starts with the cards they
+    // have earned — and only theirs
+    if (levelId > 1) for (const c of STORY_CARDS) if (c.who === selectedCharacter && hasCard(c.who, c.id)) c.apply(player);
   } else if (tutorial) {
     // Story tutorial: no waves, no fragment, no random Echoes, and the
     // player can't die — the story director spawns everything
@@ -311,8 +314,8 @@ function startRun(opts = {}) {
   } else {
     // ── Fragment placement (one per run) ─────────────────────────
     const archive = loadArchive();
-    const fragId  = getRunFragment(archive);
-    if (fragId) placeFragment(echoes, map, fragId);
+    // Fragments (which unlocked classes) no longer appear: Arcade is each
+    // character's base form plus the cards earned in Story
 
     if (!archive.run_started) {
       lore.trigger('run_start');
@@ -834,8 +837,9 @@ function _checkClassEmergence() {
 }
 
 function _showNextUpgrade() {
-  const unlockedClasses = getUnlockedClasses();
-  upgradeUI.present(player, unlockedClasses);
+  // Classes (Warden, Breaker…) are retired from Arcade; the offer is the
+  // white cards plus the shared deck of Story cards
+  upgradeUI.present(player, []);
   if (upgradeUI.active) {
     if (player.upgradesTaken === 0) lore.trigger('upgrade_first');
     const lcb = waveSystem ? waveSystem.lastClearBonus : null;
@@ -2332,7 +2336,14 @@ function drawCharSelect(W, H) {
   ctx.fillText('WHO GOES IN?', W / 2, headY);
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#7ADDD4'; ctx.font = `${short ? 11 : 13}px monospace`;
-  ctx.fillText('The other one stays on the radio.', W / 2, headY + (short ? 18 : 26));
+  // Arcade: what's in the shared deck. Story: the other one stays on comms.
+  let sub = 'The other one stays on the radio.';
+  if (_csMode === 'arcade') {
+    const deck = STORY_CARDS.filter(c => hasCard(c.who, c.id)).map(c => c.name);
+    sub = deck.length ? `Story cards in the deck: ${deck.join(' · ')}` : 'No Story cards yet. Earn them in Story Mode.';
+  }
+  _fitFont(sub, W - 32, short ? 11 : 13, '');
+  ctx.fillText(sub, W / 2, headY + (short ? 18 : 26));
 
   // Two cards side by side, sized to the screen
   const gap   = W < 500 ? 12 : 28;
@@ -2353,7 +2364,8 @@ function drawCharSelect(W, H) {
     const col = sel ? WALK_CYCLE[Math.floor(_csTime * 6) % 4] : 1;
     const spriteH = CELL_H * px;
     const nameFs = cardW < 170 ? 18 : 24;
-    const textH  = nameFs + 44;
+    const levelMode = _csMode === 'level';
+    const textH  = nameFs + 44 + (levelMode ? 40 : 0);
     const sy = y + Math.max(10, (cardH - spriteH - textH) / 2);
     ctx.save();
     ctx.globalAlpha = sel ? 1 : 0.55;
@@ -2375,6 +2387,23 @@ function drawCharSelect(W, H) {
     ctx.fillStyle = c.second;
     _fitFont(c.emitter.toUpperCase(), cardW - 20, 10, '');
     ctx.fillText(c.emitter.toUpperCase(), x + cardW / 2, ty + 36);
+
+    // Story level: what this character brings in, and what the level gives
+    if (levelMode) {
+      const earned = STORY_CARDS.filter(k => k.who === c.id && hasCard(k.who, k.id)).map(k => k.name.toUpperCase());
+      const reward = (LEVEL_CARDS[_pendingLevel] || {})[c.id];
+      ctx.fillStyle = earned.length ? '#E8F0FF' : '#6E7A88';
+      const have = earned.length ? `CARDS: ${earned.join(', ')}` : 'CARDS: NONE YET';
+      _fitFont(have, cardW - 20, 10, 'bold ');
+      ctx.fillText(have, x + cardW / 2, ty + 58);
+      if (reward) {
+        const got = hasCard(c.id, reward.id);
+        const line = got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `CLEAR TO KEEP: ${reward.name}`;
+        ctx.fillStyle = got ? c.color : '#7ADDD4';
+        _fitFont(line, cardW - 20, 10, '');
+        ctx.fillText(line, x + cardW / 2, ty + 74);
+      }
+    }
   });
 
   // Footer: hint + back button

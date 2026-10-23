@@ -146,3 +146,17 @@ Reset option in settings.
    character.
 4. **Levels 2–5**: the Queue and Signal Hoarder bosses, and Raze.
 5. **Tuning**: costs, farm rates and challenge goals.
+
+## Arcade (decided)
+
+- Each character starts in their **base form**: their own gun, plus dash. Nothing else.
+- The deck is the white cards (kept for now) plus a **shared pool of Story cards**: every card any character has earned. Either character can draft any of them. A card does what it says, whoever takes it; there are no guardrails yet, so we tone things down after testing.
+- The **first level-up** of a run always offers a Story card, if any are earned.
+- **Activated abilities**: at most two per run. The first drafted goes on **E**, the second on **F**. Once both are taken, no more activated-ability cards appear.
+- **Classes** (Warden, Breaker, Ghost, Weaver, Herald) and the Fragments that unlocked them are retired from Arcade. They're kept as templates for future characters.
+
+## Story cards (decided)
+
+- Level 1 is a **sampler**: you try three power-ups but **keep one**, the first, by opening the door the first time as that character.
+- A card belongs to the character who earned it. From Level 2 on, a character starts with **only their own** earned cards.
+- Character select for a Story level shows each character's cards, and what the level awards.
