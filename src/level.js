@@ -5,7 +5,7 @@
 //   relays    power up relays while Chromatics keep coming to drain them
 //   servers   shoot the marked server racks spread round the map to wake them
 //   sequence  watch floor pads light up, then walk over them in the same order
-//   exit      reach the door: mission complete, the agent beams out, and the
+//   exit      reach the door: the agent beams out, and the
 //             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
 // beats; enemies wait for the briefing to finish. Power drawn from the map
@@ -45,26 +45,23 @@ export const LEVELS = {
   1: {
     id: 1,
     name: 'SERVER FLOOR',
-    blurb: "Find Sable's trail: power the floor, pull her logs off the servers.",
-    mission: "Get the floor running again and pull Sable's last logs off the servers.",
-    outcome: "Sable's logs recovered. Her trail leads down, to Cold Storage.",
+    blurb: "Find Raze's trail: power the floor, pull his logs off the servers.",
+    outcome: "Raze's logs recovered. His trail leads down, to Cold Storage.",
     beats: (op, agent) => {
       const L = (face, text) => ({ who: op, face, text });
       const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
       const col = COLOR_NAME[agent];
       return [
         { type: 'wave',
-          lines: [L(f('neutral', 'focused'), "Server Floor. This is where Sable's signal went dark."),
-                  L(f('determined', 'focused'), "These servers logged everything that passed through here. If she left a trail, it's on them."),
-                  L(f('worried', 'concerned'), 'The Chromatics moved back in after you left. Clear them out first.')],
+          lines: [L(f('neutral', 'focused'), "Server Floor. Raze's signal went dark here, and these servers logged everything. If he left a trail, it's on them."),
+                  L(f('determined', 'focused'), 'Chromatics moved back in. Clear them out first.')],
           groups: [[['violet', 3]], [['violet', 3]], [['violet', 2], ['yellow', 1]]],
           objective: s => `Clear the floor (${s.left} left)`,
           done: [L(f('cocky-grin', 'smirk'), 'Clean.')] },
 
         { type: 'relays', count: 3,
-          lines: [L(f('neutral', 'focused'), "The floor's dead, so the servers are too. Three relays down here still hold charge."),
-                  L(f('determined', 'neutral'), 'Get close and pull it into your emitter.'),
-                  L(f('worried', 'concerned'), "Chromatics feed on signal. Anything touching a relay drains it, so keep them off.")],
+          lines: [L(f('neutral', 'focused'), "The servers need power. Three relays still hold charge: get close and pull it into your emitter."),
+                  L(f('worried', 'concerned'), 'Anything touching a relay drains it, so keep them off.')],
           firstCharge: [L(f('shocked', 'alarmed'), `Wait... it's coming through ${col}. The charge is matching your signal.`)],
           eachDone: [
             [L(f('determined', 'focused'), "One. Your emitter's holding more than it should.")],
@@ -75,31 +72,26 @@ export const LEVELS = {
           done: [] },
 
         { type: 'wave',
-          lines: [L(f('worried', 'concerned'), "That woke the rest of them up. Yellows in the mix."),
-                  L(f('determined', 'focused'), 'Yellows lunge. When one lights up and lines up on you, get out of the line.'),
-                  L(f('cocky-grin', 'smirk'), "Let's see what that charge does.")],
+          lines: [L(f('worried', 'concerned'), "That woke the rest of them up. Yellows in the mix.")],
           groups: [[['violet', 3], ['yellow', 1]], [['yellow', 2]], [['violet', 2], ['yellow', 2]]],
           objective: s => `Hold them off (${s.left} left)`,
-          done: [L(f('neutral', 'soft-smile'), "That's the last of them. The power's back. Now the servers.")] },
+          done: [L(f('neutral', 'soft-smile'), "That's the last of them. Power's back. Now the servers.")] },
 
         { type: 'servers', count: 4,
-          lines: [L(f('neutral', 'focused'), "Four servers still hold Sable's logs, spread right across the floor. The door's locked to them too."),
-                  L(f('determined', 'neutral'), "Shoot each one to wake it up. I'll mark them for you."),
-                  L(f('worried', 'concerned'), "They're still coming. Good chance to try out that new upgrade.")],
+          lines: [L(f('determined', 'focused'), "Four servers hold Raze's logs, spread across the floor. Shoot each one to wake it. I've marked them.")],
           eachDone: [
             [L(f('determined', 'focused'), 'One.')],
             [L(f('cocky-grin', 'smirk'), 'Two. Halfway.')],
             [L(f('determined', 'focused'), 'Three. One left.')],
           ],
           objective: s => `Wake the servers (${s.servers}/4)`,
-          done: [L(f('neutral', 'focused'), "That's all four. The logs are coming through..."),
-                 L(f('shocked', 'alarmed'), "There. Sable's last trace. She went down, to Cold Storage."),
-                 L(f('laughing', 'soft-smile'), "Great. Now get out of there. Head for the door, back where you came in.")] },
+          done: [L(f('shocked', 'alarmed'), "That's all four, and there's his trace. Raze went down, to Cold Storage."),
+                 L(f('laughing', 'soft-smile'), "Get back to the door you came in by. I'll pull you out.")] },
 
         { type: 'exit',
           lines: [],
           objective: () => 'Get to the door',
-          extract: [L(f('cocky-grin', 'soft-smile'), "Got you. Pulling you out.")],
+          extract: [L(f('cocky-grin', 'soft-smile'), "Got you. Coming home.")],
           done: [] },
       ];
     },
@@ -261,6 +253,7 @@ export class LevelRun {
       s.lit = true;
       const n = this.servers.filter(sv => sv.lit).length;
       sfxNode(n - 1);
+      this.radio.clear();   // a newer count replaces one still waiting or talking
       if (n < b.count) this.radio.say(b.eachDone[n - 1] || []);
       else { sfxRelayCharged(); this._finishBeat(); return; }
     }
@@ -309,7 +302,7 @@ export class LevelRun {
     this._updateMotes(dt, pl);
   }
 
-  // Extraction: the banner settles, then the beam-out; once it's done, the
+  // Extraction: a moment at the door, then the beam-out; once it's done, the
   // first clear shows the card unlock (game.js), then the results
   _updateExtract(dt, pl) {
     const t0 = this.extractT;
@@ -436,7 +429,7 @@ export class LevelRun {
   }
 
   get objective() {
-    if (this.extractT != null) return null;
+    if (this.extractT != null) return null;   // nothing left to do
     const b = this.beat;
     if (!b || !b.objective) return null;
     if (b.type === 'sequence' && this.showing) return 'Watch the order';
@@ -668,7 +661,6 @@ export class LevelRun {
       }
     }
     const narrow = W < 600;
-    this._drawMission(ctx, W, H, narrow);
     // Chroma, top right
     const cols = { violet: '#8B5CFF', yellow: '#E9FF6A', green: '#8DFF6A' };
     ctx.save();
@@ -713,45 +705,6 @@ export class LevelRun {
       ctx.fillStyle = this.color;
       ctx.fillRect(14, y + 5, bw * this.charge, 5);
     }
-    ctx.restore();
-  }
-
-  // The mission, shown as you arrive; MISSION COMPLETE and what it achieved,
-  // as you leave. Eases in and out, no flashing.
-  _drawMission(ctx, W, H, narrow) {
-    const ease = (a, b, t) => Math.max(0, Math.min(1, (t - a) / (b - a)));
-    let label, text, a, big = false;
-    if (this.extractT != null) {
-      label = 'MISSION COMPLETE'; text = this.def.outcome; a = ease(0, 0.5, this.extractT); big = true;
-    } else if (this.idx === 0 && this.def.mission) {
-      label = 'MISSION'; text = this.def.mission; a = ease(0.4, 1.0, this.t) * (1 - ease(6.5, 7.5, this.t));
-    }
-    if (!label || a <= 0) return;
-    const y = Math.round(H * (narrow ? 0.64 : 0.7));   // below the agent, clear of comms and the beam
-    const maxW = Math.min(W - 40, 560);
-    ctx.save();
-    ctx.font = `${narrow ? 11 : 13}px monospace`;
-    const lines = [];
-    for (const word of text.split(' ')) {
-      const cur = lines.length ? lines[lines.length - 1] + ' ' + word : word;
-      if (lines.length && ctx.measureText(cur).width <= maxW) lines[lines.length - 1] = cur;
-      else lines.push(word);
-    }
-    const lh = narrow ? 15 : 17;
-    const top = y - (big ? 34 : 20), bh = (big ? 56 : 30) + lines.length * lh;
-    ctx.globalAlpha = a;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(8, 10, 16, 0.72)';
-    ctx.fillRect(Math.round(W / 2 - maxW / 2 - 10), Math.round(top), maxW + 20, bh);
-    ctx.fillStyle = this.color;
-    ctx.fillRect(Math.round(W / 2 - maxW / 2 - 10), Math.round(top), maxW + 20, 2);
-    ctx.shadowBlur = big ? 14 : 0; ctx.shadowColor = this.color;
-    ctx.font = `bold ${big ? (narrow ? 20 : 26) : (narrow ? 10 : 11)}px monospace`;
-    ctx.fillText(label, W / 2, y + (big ? 0 : -4), maxW);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#D6DAE4';
-    ctx.font = `${narrow ? 11 : 13}px monospace`;
-    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y + (big ? 26 : 13) + i * lh));
     ctx.restore();
   }
 }

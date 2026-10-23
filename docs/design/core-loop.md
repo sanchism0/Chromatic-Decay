@@ -60,8 +60,9 @@ is different.
 | **Dex** | **Burst**: three quick rounds per trigger pull | Pick a target, punch it | **Arc Discharge**: a ring of shots that knocks nearby enemies back and stuns them |
 | **Raze** (gold) | **Heavy**: slow, very strong gold rounds | Every shot counts | **Gold Standard**: the next 3 rounds pierce everything and hit twice as hard |
 
-- **Raze** is the market-crash Echo from the lore, now a **playable gold
-  character**, unlocked by clearing L5. You then clear L1 as him for his
+- **Raze** is the market-crash Echo from the lore, the Echo the Basement arc
+  is out to rescue, and a **playable gold character** once he's rescued at the
+  end of L5. You then clear L1 as him for his
   signature. His tree can reuse Arcade's Breaker traits (Short Squeeze,
   Margin Call, Flash Crash…). He needs a sprite before he's playable.
 - **Power takes your colour.** Any power you draw from the map (relays now,
@@ -105,15 +106,21 @@ task is a fight with a goal.
 - **Plates**: hold plates down; violets drift onto them if you lure them.
 - **Tuning**: match a signal pattern by toggling nodes (Juno sees it sooner).
 
-### Levels 1–5: "The Basement" arc (finding Sable)
+### Levels 1–5: "The Basement" arc (rescuing Raze)
+
+The whole arc is one mission: Null hears Raze calling from under the old server
+farm, and the agent follows his trail down. Every level's dialogue says why
+you're there and what you leave with. Level 1: Raze's signal went dark on the
+Server Floor; power the floor, wake the servers, and their logs show he went
+down to Cold Storage. Sable can be character 4 later.
 
 | # | Level | Wave 1 | Task | Wave 2 | Puzzle | Boss | Unlocks |
 |---|---|---|---|---|---|---|---|
-| 1 | Server Floor | violet | Relays (3) | violet + yellow | Sequence | none | **Signature** for the character who clears it |
+| 1 | Server Floor | violet | Relays (3) | violet + yellow | Wake 4 servers | none | **Signature** for the character who clears it |
 | 2 | Cold Storage | violet + yellow | Escort an Echo | yellow | Plates | none | Tree tier 1 (story nodes) |
 | 3 | The Stacks | yellow | Hold the line | violet + yellow | Beam | **The Queue**: a huge violet made of unplayed streams | Tier 2 story node |
 | 4 | Wire Room | green (new) | Gather fragments | yellow + green | Tuning | none | Workshop opens in full |
-| 5 | Sable's Room | all three | Hold the line | all three | Beam + Sequence | **Signal Hoarder** (green) | **Raze**, and Sable's lore |
+| 5 | Raze's Room | all three | Hold the line | all three | Beam + Sequence | **Signal Hoarder** (green) | **Raze** rescued, and playable |
 
 L1 replays become the standard way to farm violet. L3 and L5 are the best
 farms for yellow and green.

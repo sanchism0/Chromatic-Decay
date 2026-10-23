@@ -30,17 +30,17 @@ every chapter has two versions of its dialogue.
 1. **Intro.** Title cards set the world, then Dex and Juno on the radio from
    two districts apart, comparing scores. It's quick, about a minute.
 2. **Null calls.** A priority signal. Something under the old server farm is
-   calling a name, *Sable*: an Echo that still knows who it is. "One of you
+   calling a name, *Raze*: an Echo that still knows who he is. "One of you
    goes in. One of you stays on the line." They argue. "Settle it."
 3. **Who goes in?** The character select picks the agent.
 4. **Tutorial.** The real game, no waves, and the agent can't die. The operator
    talks them through:
-   walk → fire the emitter → what coherent light is → a violet (harmless) →
-   colour comes back to you → two yellows (they chase; watch the bar) →
-   rescue an Echo → "Sable's signal is deeper in… be careful."
+   walk → dash → fire the emitter → auto-fire → a violet → colour comes back
+   to you → two yellows (they lunge) → rescue an Echo → "Raze is deeper in.
+   That's who we came for."
 5. **Prologue complete** → Arcade or Title.
 
-Skip any scene with Esc or the SKIP button. Finishing it sets
+One press (Space, click, tap) moves to the next line. Skip any scene with Esc or the SKIP button. Finishing it sets
 `chromatic_decay_prologue_done` in localStorage, for later unlocks.
 
 ## Possible chapters
@@ -48,10 +48,11 @@ Skip any scene with Esc or the SKIP button. Finishing it sets
 Each chapter is one zone with a short intro on the radio, a level with scripted
 objectives (not endless waves), a set-piece encounter, and a short outro.
 
-1. **The Basement, deeper.** Find Sable. First green Chromatics (they hunt).
-   Ends with Sable joining as the first companion.
-2. **The Exchange.** An old trading floor. Orange broadcasters, Raze. A
-   survive-the-timer objective.
+1. **The Basement, deeper.** Levels 1–5 follow Raze's trail down; rescuing
+   him at the end of Level 5 makes him playable (the third character).
+2. **The Exchange.** An old trading floor. Orange broadcasters. A
+   survive-the-timer objective. (Sable, a load balancer, is a candidate for
+   character 4 later.)
 3. **The Feed.** A dead social network. Lumen. Stealth, sightlines, staying
    unseen.
 4. **The Grid.** The power district. Cord. Traps and switches; route the power.

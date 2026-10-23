@@ -1,8 +1,8 @@
 // CHROMATIC DECAY — Dialogue
 //
 // Mega Man Legends–style talking: short boxes, the speaker's portrait beside
-// the box, text typed out, one tap/click/Space to finish the line and
-// another to move on. Two presentations:
+// the box, text typed out, one tap/click/Space to move on to the next line.
+// Two presentations:
 //   Dialogue — a scene: full-width box at the bottom, waits for the player
 //   Radio    — in-game comms: a compact box at the top that advances on its
 //              own, so the player keeps moving and shooting while it talks
@@ -131,8 +131,7 @@ export class Dialogue {
     blip(txt, was, this.shown, this.line.card ? 'card' : this.line.who);
     if (this._delay > 0) { this._delay -= dt; return; }
     if (!pressed) return;
-    if (this.shown < len) { this.shown = len; return; }   // first press finishes the line
-    this.i++; this.shown = 0;
+    this.i++; this.shown = 0;   // one press moves on, typed out or not
     if (this.i >= this.lines.length) this.done = true;
   }
 
@@ -207,12 +206,8 @@ export class Radio {
   get busy() { return !!this.cur || this.queue.length > 0; }
   clear() { this.queue = []; this.cur = null; this.rect = null; }
 
-  // Player asked to move on: finish typing first, then drop the line
-  next() {
-    if (!this.cur) return;
-    if (this.shown < this.cur.text.length) this.shown = this.cur.text.length;
-    else this.cur = null;
-  }
+  // Player asked to move on: drop the line, typed out or not
+  next() { this.cur = null; }
 
   hit(x, y) {
     const r = this.rect;
@@ -224,7 +219,7 @@ export class Radio {
     if (!this.cur) {
       if (!this.queue.length) return;
       this.cur = this.queue.shift(); this.shown = 0;
-      this.hold = this.holdMax = 2.16 + this.cur.text.length * 0.054;   // reading time after it's typed
+      this.hold = this.holdMax = 1.4 + this.cur.text.length * 0.045;   // reading time after it's typed
     }
     const len = this.cur.text.length;
     if (this.shown < len) {
