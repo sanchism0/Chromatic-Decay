@@ -191,6 +191,11 @@ export class WaveSystem {
       const ps = this.pendingSpawns[i];
       ps.chargeTimer -= dt;
       if (ps.chargeTimer <= 0) {
+        // The player walked (or dashed) onto the warning circle: hatch elsewhere
+        if (Math.hypot(ps.x - player.x, ps.y - player.y) < 160) {
+          const pos = map.randomSpawn(player.x, player.y, enemySystem.enemies.map(e => ({ x: e.x, y: e.y })));
+          ps.x = pos.x; ps.y = pos.y;
+        }
         const e = enemySystem.spawnEnemyAt(ps.type, ps.x, ps.y);
         if (ps.type === 'pink') {
           this.activeBoss    = e;

@@ -11,10 +11,9 @@ export class Input {
     };
     // Edge detection — true for exactly one frame
     this.justPressed = {
-      escape: false, space: false, f: false, q: false, enter: false, throw: false, dash: false,
+      escape: false, space: false, f: false, q: false, enter: false, e: false, dash: false,
     };
     this._prevE = false;
-    this._rightClick = false;   // right mouse pressed since last frame (throw)
     this._prevEscape = false;
     this._prevSpace  = false;
     this._prevF      = false;
@@ -87,7 +86,6 @@ export class Input {
 
     this.canvas.addEventListener('mousedown', e => {
       if (e.button === 0) this.mouseDown = true;
-      if (e.button === 2) this._rightClick = true;
     });
 
     this.canvas.addEventListener('mouseup', e => {
@@ -218,10 +216,8 @@ export class Input {
     this.justPressed.f            = this.keys.f      && !this._prevF;
     this.justPressed.q            = this.keys.q      && !this._prevQ;
     this.justPressed.enter        = this.keys.enter  && !this._prevEnter;
-    this.justPressed.throw        = this._rightClick;
     this.justPressed.e            = this.keys.e && !this._prevE;
     this.justPressed.dash         = this.justPressed.space;
-    this._rightClick = false;
     this._prevE      = this.keys.e;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
     this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;
@@ -249,9 +245,9 @@ export class Input {
     };
   }
 
-  // Ability — E (F also works); Space is dash. Auto-trigger handled by game.js
+  // First activated ability — E (F is the second; game.js maps both)
   get abilityJustPressed() {
-    return this.justPressed.e || this.justPressed.f;
+    return this.justPressed.e;
   }
 
   setAutoFire(on) {

@@ -178,7 +178,7 @@ export class HUD {
       if (ready) {
         ctx.fillStyle = '#FFFFFF';
         ctx.font      = fs(22);
-        ctx.fillText('E', abX + abilityBarW + 6, abY + 6);
+        ctx.fillText('AUTO', abX + abilityBarW + 6, abY + 6);
       }
     }
 

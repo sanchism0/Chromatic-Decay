@@ -3,7 +3,7 @@
 import { CONFIG }           from './config.js';
 import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
-import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS } from './player.js';
+import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD } from './grenade.js';
 import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared } from './profile.js';
@@ -245,7 +245,9 @@ function startRun(opts = {}) {
   const spawn = map.playerSpawn();
   player = new Player(spawn.x, spawn.y);
   player.character = selectedCharacter;
-  player.signature = hasSignature(selectedCharacter) ? selectedCharacter : null;
+  // Activated abilities come from Story progress (Level 1's power-ups for
+  // now); signatures will return later as one of them
+  player.signature = null;
   player.startBeamIn();
   sfxBeamIn();
 
@@ -449,22 +451,13 @@ function updatePlaying(dt) {
     _radio.next();
   }
   if (input.mouseJustClicked && _hitBtn(_dashBtn.r)) player.dashQueued = true;
-  if (input.mouseJustClicked && _hitBtn(_sigBtn.r) && player.signature && player.signatureCooldown <= 0 && !player.beaming) {
-    player._useSignature(projectiles);
-  }
-  // Stun grenade (Dex, from a Story power-up): right-click / E at the cursor,
-  // or its button on touch, toward where you're aiming
+  // Activated abilities: E is the first the character has, F the second.
+  // With none in that slot, the key does nothing. On touch, each has a button.
   player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
-  if (player.grenade && player.grenadeCooldown <= 0 && !player.beaming &&
-      (input.justPressed.throw || (input.abilityJustPressed && !player.signature) ||
-       (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)))) {
-    const ap = player._aimPoint;
-    const touchAim = 'ontouchstart' in window || !ap;
-    const tx = touchAim ? player.x + Math.cos(player.facing) * 190 : ap.x;
-    const ty = touchAim ? player.y + Math.sin(player.facing) * 190 : ap.y;
-    grenades.throw(player.x, player.y - 8, tx, ty);
-    player.grenadeCooldown = GRENADE_CD;
-  }
+  if (input.justPressed.e) _useAbility(player.abilities[0]);
+  if (input.justPressed.f) _useAbility(player.abilities[1]);
+  if (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)) _useAbility('grenade');
+  if (input.mouseJustClicked && _hitBtn(_sigBtn.r)) _useAbility('signature');
   const _px = player.x, _py = player.y;
 
   elapsed += dt;
@@ -1434,6 +1427,7 @@ function drawGame(W, H) {
   _drawAutoFireBtn(W, H);
   _drawSignature(W, H);
   _drawGrenade(W, H);
+  _drawKeyBar(W, H);
   _drawDashBtn(W, H);
   _drawLastEnemyArrow(W, H);
 
@@ -1725,7 +1719,11 @@ const levelApi = {
   player:     () => player,
   enemies,
   map:        () => map,
-  spawnEnemy: (type, x, y) => enemies.spawnEnemyAt(type, x, y),
+  // Never on top of the player: anything closer than 220px goes elsewhere
+  spawnEnemy: (type, x, y) => {
+    if (Math.hypot(x - player.x, y - player.y) < 220) ({ x, y } = map.randomSpawn(player.x, player.y, [], 300, 0));
+    return enemies.spawnEnemyAt(type, x, y);
+  },
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
   clearField: () => { enemies.reset(); projectiles.reset(); },
   touch:      () => 'ontouchstart' in window,
@@ -1761,7 +1759,6 @@ function _finishLevel() {
   bankChroma(counts, 1);
   const rec = recordClear(level.id, level.agent);
   _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks };
-  if (rec.unlocks.some(u => u.kind === 'signature')) player.signature = level.agent;
   level = null;
   _levelEndDelay = 0.6;
   sfxWaveClear();
@@ -2143,6 +2140,89 @@ function _signatureEffects(who) {
   }
 }
 
+function _useAbility(id) {
+  if (!id || !player || player.beaming) return;
+  if (id === 'grenade' && player.grenade && player.grenadeCooldown <= 0) {
+    // Stun grenade: at the cursor, or toward where you're aiming on touch
+    const ap = player._aimPoint;
+    const touchAim = 'ontouchstart' in window || !ap;
+    const tx = touchAim ? player.x + Math.cos(player.facing) * 190 : ap.x;
+    const ty = touchAim ? player.y + Math.sin(player.facing) * 190 : ap.y;
+    grenades.throw(player.x, player.y - 8, tx, ty);
+    player.grenadeCooldown = GRENADE_CD;
+  } else if (id === 'signature' && player.signature && player.signatureCooldown <= 0) {
+    player._useSignature(projectiles);
+  }
+}
+
+// What each activated ability looks like in the HUD
+function _abilityInfo(id) {
+  if (id === 'grenade') return { name: 'GRENADE', color: '#B6FF2E', cd: player.grenadeCooldown || 0, max: GRENADE_CD };
+  if (id === 'signature' && player.signature) {
+    const sig = SIGNATURES[player.signature];
+    return { name: sig.name.split(' ')[0], color: AGENT_COLOR[player.signature], cd: player.signatureCooldown || 0, max: player.signatureCooldownMax || sig.cd };
+  }
+  return null;
+}
+
+// Desktop: a key bar at the bottom centre — SPACE dash, then the E and F
+// ability slots. Each shows its key, a fill that rises as it recharges, and
+// the seconds left; ready slots light up in their colour.
+function _drawKeyBar(W, H) {
+  if (!player || 'ontouchstart' in window) return;
+  const slots = [
+    { key: 'SPACE', name: 'DASH', color: '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
+    { key: 'E', ...(_abilityInfo(player.abilities[0]) || {}) },
+    { key: 'F', ...(_abilityInfo(player.abilities[1]) || {}) },
+  ];
+  const w = 104, h = 42, gap = 8;
+  const x0 = Math.round(W / 2 - (w * 3 + gap * 2) / 2), y = H - h - 12;
+  slots.forEach((sl, i) => {
+    const x = x0 + i * (w + gap);
+    const empty = !sl.name, ready = !empty && sl.cd <= 0;
+    ctx.save();
+    ctx.fillStyle = 'rgba(7,11,18,0.82)';
+    ctx.fillRect(x, y, w, h);
+    if (!empty) {
+      const k = sl.cd > 0 ? 1 - sl.cd / sl.max : 1;
+      ctx.globalAlpha = ready ? 0.22 : 0.14;
+      ctx.fillStyle = sl.color;
+      ctx.fillRect(x, y + h * (1 - k), w, h * k);
+      ctx.globalAlpha = 1;
+    }
+    if (ready) { ctx.shadowBlur = 10; ctx.shadowColor = sl.color; }
+    ctx.strokeStyle = empty ? '#262E38' : ready ? sl.color : '#46505C';
+    ctx.lineWidth = ready ? 2 : 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    ctx.shadowBlur = 0;
+    // Key badge
+    ctx.font = 'bold 10px monospace';
+    const kw = ctx.measureText(sl.key).width + 8;
+    ctx.fillStyle = empty ? '#262E38' : ready ? sl.color : '#46505C';
+    ctx.fillRect(x + 4, y + 4, kw, 13);
+    ctx.fillStyle = '#07090D'; ctx.textAlign = 'left';
+    ctx.fillText(sl.key, x + 8, y + 14);
+    // Name, and seconds left while recharging
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = empty ? '#3A4450' : ready ? '#FFFFFF' : '#8A94A0';
+    ctx.fillText(empty ? '—' : sl.name, x + w / 2, y + 33);
+    if (!empty && sl.cd > 0) {
+      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'right'; ctx.fillStyle = '#C4C8D4';
+      ctx.fillText(sl.cd < 10 ? sl.cd.toFixed(1) : Math.ceil(sl.cd), x + w - 5, y + 14);
+    }
+    ctx.restore();
+  });
+  ctx.textAlign = 'left';
+}
+
+// Touch buttons: a thin bar under the button fills as it recharges
+function _cooldownBar(r, cd, max, color) {
+  if (!r || cd <= 0) return;
+  ctx.fillStyle = 'rgba(7,11,18,0.8)'; ctx.fillRect(r.x, r.y + r.h + 1, r.w, 4);
+  ctx.fillStyle = color; ctx.fillRect(r.x, r.y + r.h + 1, r.w * (1 - cd / max), 4);
+}
+
 // Touch: a DASH button just above the aim stick
 const _dashBtn = { r: null };
 function _drawDashBtn(W, H) {
@@ -2150,71 +2230,42 @@ function _drawDashBtn(W, H) {
   if (!('ontouchstart' in window) || !player) return;
   const ready = (player.dashCooldown || 0) <= 0;
   const w = 80, h = 40, x = W - w - 14, y = H - 40 - input.joystickRadius * 2 - h - 18;
-  _dashBtn.r = drawSlabButton(ctx, x, y, w, h, 'DASH', {
+  _dashBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'DASH' : player.dashCooldown.toFixed(1), {
     accent: ready ? '#E8F0FF' : '#4A5560', textColor: ready ? '#FFFFFF' : '#6E7A88', fontSize: 13, glow: ready ? 0.25 : 0,
   });
+  _cooldownBar(_dashBtn.r, player.dashCooldown, player.dashCooldownMax || DASH_CD, '#E8F0FF');
 }
 
-// Grenade HUD: beside the signature readout (desktop), or a button above the
-// signature button (touch)
+// Touch: the grenade's button, above the signature button if there is one
+// (desktop shows it in the key bar)
 const _grenadeBtn = { r: null };
 function _drawGrenade(W, H) {
   _grenadeBtn.r = null;
-  if (!player || !player.grenade) return;
+  if (!player || !player.grenade || !('ontouchstart' in window)) return;
   const col = '#B6FF2E';
-  const touch = 'ontouchstart' in window;
   const cd = player.grenadeCooldown || 0, ready = cd <= 0;
-  if (touch) {
-    const w = 100, h = 34, x = (W - w) / 2;
-    const y = H - 34 - 34 - h - 12 - (player.signature ? h + 12 : 0);
-    _grenadeBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'GRENADE' : `${Math.ceil(cd)}s`, {
-      accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
-    });
-    return;
-  }
-  const bw = 120;
-  const x = player.signature ? Math.round(W / 2 + 140) : Math.round(W / 2 - bw / 2 - 30), y = H - 30;
-  ctx.textAlign = 'left';
-  ctx.fillStyle = ready ? col : '#6E7A88';
-  ctx.font = 'bold 13px monospace';
-  ctx.fillText('STUN GRENADE', x, y);
-  ctx.fillStyle = '#1E2130'; ctx.fillRect(x, y + 6, bw, 4);
-  ctx.fillStyle = ready ? col : '#4A5070';
-  ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / GRENADE_CD), 4);
-  ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
-  ctx.font = '11px monospace';
-  ctx.fillText(ready ? (player.signature ? 'RMB' : 'RMB / E') : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
+  const w = 100, h = 34, x = (W - w) / 2;
+  const y = H - 34 - 34 - h - 12 - (player.signature ? h + 12 : 0);
+  _grenadeBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'GRENADE' : cd.toFixed(1), {
+    accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
+  });
+  _cooldownBar(_grenadeBtn.r, cd, GRENADE_CD, col);
 }
 
-// Signature HUD: name, cooldown and key (desktop), or a button (touch)
+// Touch: the signature's button (desktop shows it in the key bar)
 const _sigBtn = { r: null };
 function _drawSignature(W, H) {
   _sigBtn.r = null;
-  if (!player || !player.signature) return;
+  if (!player || !player.signature || !('ontouchstart' in window)) return;
   const sig = SIGNATURES[player.signature];
   const col = AGENT_COLOR[player.signature];
-  const touch = 'ontouchstart' in window;
   const cd = player.signatureCooldown || 0, max = player.signatureCooldownMax || sig.cd;
   const ready = cd <= 0;
-  if (touch) {
-    const w = 100, h = 34, x = (W - w) / 2, y = H - 34 - 34 - h - 12;
-    _sigBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? sig.name.split(' ')[0] : `${Math.ceil(cd)}s`, {
-      accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
-    });
-    return;
-  }
-  // Bottom centre, clear of the class readout (bottom left) and AUTO (bottom right)
-  const bw = 150, x = Math.round(W / 2 - bw / 2 - 30), y = H - 30;
-  ctx.textAlign = 'left';
-  ctx.fillStyle = ready ? col : '#6E7A88';
-  ctx.font = 'bold 13px monospace';
-  ctx.fillText(sig.name, x, y);
-  ctx.fillStyle = '#1E2130'; ctx.fillRect(x, y + 6, bw, 4);
-  ctx.fillStyle = ready ? col : '#4A5070';
-  ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / max), 4);
-  ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
-  ctx.font = '11px monospace';
-  ctx.fillText(ready ? 'E' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
+  const w = 100, h = 34, x = (W - w) / 2, y = H - 34 - 34 - h - 12;
+  _sigBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? sig.name.split(' ')[0] : cd.toFixed(1), {
+    accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
+  });
+  _cooldownBar(_sigBtn.r, cd, max, col);
 }
 
 // ── Character select ("Who goes in?") ─────────────────────────

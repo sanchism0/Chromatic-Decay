@@ -78,7 +78,7 @@ export const SIGNATURES = {
 // A short burst in the direction you're moving (toward your aim if standing
 // still). You can't be hurt during it; dashing through a hit at that moment
 // is a perfect dodge and refunds the cooldown once.
-export const DASH_DIST = 110, DASH_TIME = 0.16, DASH_CD = 1.1;
+export const DASH_DIST = 88, DASH_TIME = 0.16, DASH_CD = 1.6;
 
 // ── Beam-in (Mega Man X style arrival) ────────────────────────
 // A streak of light in the character's colour drops to the floor, then the
@@ -183,6 +183,9 @@ export class Player {
 
     // ── Ability ──────────────────────────────────────────────
     this.abilityCooldown          = 0;   // seconds remaining
+    // Activated abilities, in the order the character gained them: the first
+    // goes on E, the second on F (game.js). Empty = those keys do nothing.
+    this.abilities                = [];
     this.abilityCooldownMax       = 0;
     this.abilityCooldownMultiplier = 1.0;
     this.abilityOrbCount          = 1;   // Herald: orbs per ability use
@@ -473,13 +476,9 @@ export class Player {
       this.justFired = true;
     }
 
-    // ── Signature (Space / F) — falls back to the class ability ─
+    // Ability timers (the E / F keys are handled in game.js)
     this.signatureCooldown = Math.max(0, (this.signatureCooldown || 0) - dt);
     this.spinUpTimer       = Math.max(0, (this.spinUpTimer || 0) - dt);
-    if (input.abilityJustPressed && !this.suppressAbility) {
-      if (this.signature && this.signatureCooldown <= 0) this._useSignature(projectileSystem);
-      else if (!this.signature && this.abilityCooldown <= 0 && this.classId) this._useAbility();
-    }
 
     // ── Invincibility window ─────────────────────────────────
     if (this.invincible > 0) this.invincible -= dt;
@@ -947,8 +946,8 @@ export class Player {
     if (this.dashCooldown > 0) {
       const k = 1 - this.dashCooldown / (this.dashCooldownMax || DASH_CD);
       ctx.save();
-      ctx.globalAlpha = 0.35;
-      ctx.strokeStyle = '#E8F0FF'; ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.65;
+      ctx.strokeStyle = '#E8F0FF'; ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(this.x, this.y + s * 0.6, s * 1.5, s * 0.65, 0, Math.PI / 2, Math.PI / 2 + Math.PI * 2 * k);
       ctx.stroke();

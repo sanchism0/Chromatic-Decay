@@ -23,8 +23,8 @@ const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
 export const POWERUPS = {
   dex: [
     { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
-    { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; },
-      hint: 'Right-click to throw it (or E). On a phone, use its button.' },
+    { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; p.abilities.push('grenade'); },
+      hint: 'Press E to throw it. On a phone, use its button.' },
     { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
   ],
   juno: [
@@ -271,8 +271,18 @@ export class LevelRun {
     const map = this.api.map();
     this._spawnDir = (this._spawnDir + 2.39996) % (Math.PI * 2);
     const o = near || pl;
-    const d = 330 + Math.random() * 90;
-    const c = freeSpot(map, o.x + Math.cos(this._spawnDir) * d, o.y + Math.sin(this._spawnDir) * d, 30);
+    // Pick a direction whose spot is on the map and well away from the player
+    // (near an edge, the straight-out spot can be off the map, and the nearest
+    // open floor to it might be right next to them)
+    let c = null;
+    for (let k = 0; k < 8 && !c; k++) {
+      const a = this._spawnDir + k * 0.8, d = 330 + Math.random() * 90;
+      const tx = o.x + Math.cos(a) * d, ty = o.y + Math.sin(a) * d;
+      if (tx < 70 || ty < 70 || tx > CONFIG.map_width - 70 || ty > CONFIG.map_height - 70) continue;
+      const spot = freeSpot(map, tx, ty, 30);
+      if (Math.hypot(spot.x - pl.x, spot.y - pl.y) >= 260) c = spot;
+    }
+    if (!c) c = map.randomSpawn(pl.x, pl.y, [], 300, 0);
     for (const [type, n] of group) {
       for (let i = 0; i < n; i++) {
         const p = freeSpot(map, c.x + (Math.random() - 0.5) * 90, c.y + (Math.random() - 0.5) * 90, 22);
