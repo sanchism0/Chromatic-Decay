@@ -534,17 +534,37 @@ function _lungeOk() {
   _lastLungeSfx = t;
   return true;
 }
-// Wind-up: a rising charge
+// Wind-up: static building up — filtered crackle that sweeps upward and gets
+// denser, over a faint electrical hum (no pitched tones)
 export function sfxLungeWindup() {
   if (!_lungeOk()) return;
-  const t = _ac().currentTime;
-  _osc('triangle', 280, t, 0.55, 0.05, 950);
-  _osc('sine', 560, t, 0.55, 0.025, 1900);
+  const ctx = _ac();
+  const t = ctx.currentTime, dur = 0.6;
+  const len = Math.ceil(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 3;
+  bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(4200, t + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + dur * 0.92);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t); src.stop(t + dur + 0.02);
+  // Crackle ticks, bunching up toward the strike
+  for (let i = 0; i < 10; i++) {
+    const at = t + dur * (1 - Math.pow(1 - i / 10, 1.8));
+    _noise(at, 0.012, 0.05, 4500 + Math.random() * 3000, 3);
+  }
+  _osc('sawtooth', 58, t, dur, 0.012);   // mains hum underneath
 }
-// The lunge: a short whoosh and a falling zap
+// The lunge: a lightning strike — a sharp crack, then a low rumble
 export function sfxLunge() {
   if (!_lungeOk()) return;
   const t = _ac().currentTime;
-  _noise(t, 0.2, 0.08, 1800, 0.9);
-  _osc('sawtooth', 900, t, 0.22, 0.03, 200);
+  _noise(t, 0.06, 0.24, 3800, 0.6);          // crack
+  _noise(t + 0.01, 0.3, 0.12, 1100, 0.5);    // the body of it
+  _noise(t + 0.03, 0.55, 0.1, 220, 0.7);     // rumble
+  _osc('sine', 70, t + 0.02, 0.5, 0.1, 38);  // weight underneath
 }

@@ -545,12 +545,59 @@ class Enemy {
     // Yellow lunge: the telegraph line while winding up (brightening as it
     // nears), a streak while charging; dimmer while dazed
     if (this.lunge === 'windup') {
-      const w = 1 - Math.max(0, this.lungeT) / LUNGE.windup;
-      const ex = this.x + this.lungeDir[0] * LUNGE.dist, ey = this.y + this.lungeDir[1] * LUNGE.dist;
-      ctx.globalAlpha = (0.2 + 0.6 * w) * form;
-      ctx.strokeStyle = col; ctx.lineWidth = 1.5 + 1.5 * w;
-      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey - this.lift); ctx.stroke();
-      drawGlow(ctx, col, ex, ey - this.lift, 10 + 6 * w, 0.5 * w);
+      // A charging signal beam: it grows out from the yellow, a soft haze
+      // round a thin bright core with round ends; pulses run along it toward
+      // the target, faster as the lunge nears; a broken ring tightens round
+      // the end point; crackles flicker along it just before release
+      const w    = 1 - Math.max(0, this.lungeT) / LUNGE.windup;
+      const grow = Math.min(1, w / 0.35);
+      const [ux, uy] = this.lungeDir;
+      const len  = LUNGE.dist * grow;
+      const ex = bx + ux * len, ey = by + uy * len;
+      ctx.lineCap = 'round';
+      const beam = (width, alpha, color) => {
+        ctx.globalAlpha = alpha * form; ctx.strokeStyle = color; ctx.lineWidth = width;
+        ctx.beginPath(); ctx.moveTo(bx + ux * r * 0.6, by + uy * r * 0.6); ctx.lineTo(ex, ey); ctx.stroke();
+      };
+      beam(10, 0.06 + 0.10 * w, col);
+      beam(5, 0.14 + 0.22 * w, col);
+      beam(1.4, 0.45 + 0.45 * w, '#FFFDE0');
+      // Pulses heading for the target
+      ctx.globalAlpha = form;
+      for (let i = 0; i < 4; i++) {
+        const f = ((t * (1.2 + 3.5 * w)) + i / 4) % 1;
+        if (f * LUNGE.dist > len) continue;
+        const px = bx + ux * LUNGE.dist * f, py = by + uy * LUNGE.dist * f;
+        drawGlow(ctx, col, px, py, 6 + 3 * w, 0.5);
+        drawGlow(ctx, '#ffffff', px, py, 2.5, 0.7);
+      }
+      // Target: a broken ring that turns and tightens
+      if (grow >= 1) {
+        const tr = 16 - 8 * w, rot = t * 2.5;
+        ctx.globalAlpha = (0.35 + 0.55 * w) * form;
+        ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+        for (let q = 0; q < 4; q++) {
+          ctx.beginPath(); ctx.arc(ex, ey, tr, rot + q * Math.PI / 2, rot + q * Math.PI / 2 + Math.PI / 3.2); ctx.stroke();
+        }
+        drawGlow(ctx, col, ex, ey, 8 + 6 * w, 0.4 * w);
+      }
+      // Crackle just before release
+      if (w > 0.72) {
+        ctx.globalAlpha = (w - 0.72) / 0.28 * form;
+        ctx.strokeStyle = '#FFFDE0'; ctx.lineWidth = 1;
+        const tick = Math.floor(t * 18);
+        for (let c = 0; c < 2; c++) {
+          const s0 = ((tick * 7 + c * 13 + this.id) % 10) / 10 * len;
+          const sx = bx + ux * s0, sy = by + uy * s0;
+          ctx.beginPath(); ctx.moveTo(sx, sy);
+          for (let j = 1; j <= 3; j++) {
+            const jag = (((tick + j * 3 + c) * 2654435761) % 1000) / 1000 - 0.5;
+            ctx.lineTo(sx + ux * j * 7 - uy * jag * 9, sy + uy * j * 7 + ux * jag * 9);
+          }
+          ctx.stroke();
+        }
+      }
+      ctx.lineCap = 'butt';
       ctx.globalAlpha = form;
       drawGlow(ctx, '#ffffff', bx, by, r * (0.8 + 0.6 * w), 0.45 * w);
     } else if (this.lunge === 'lunging') {
@@ -729,8 +776,13 @@ export class EnemySystem {
       if (!proj.active) continue;
       for (const e of this.enemies) {
         if (!e.isAlive) continue;
+        // A round hits each enemy once: it overlaps one for several frames as
+        // it passes through, which used to spend a piercing round's pierce on
+        // the same enemy over and over
+        if (proj.hitIds && proj.hitIds.includes(e.id)) continue;
         const dx = e.x - proj.x, dy = e.y - proj.y;
         if (dx * dx + dy * dy < (e.hitSize + 3) * (e.hitSize + 3)) {
+          (proj.hitIds || (proj.hitIds = [])).push(e.id);
           // ── Volatile Signal: bonus damage based on travel distance ──
           let dmg = proj.damage;
           if (player && player.volatileSignal) {

@@ -36,6 +36,7 @@ class Projectile {
     this.bounce   = bounce;     // reflect off map edges
     this.rackBounce = 0;        // ricochets left off racks (set after spawn)
     this.knockback  = 0;        // px to shove an enemy on hit (set after spawn)
+    this.hitIds     = null;     // enemies this round has already hit
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
     this.age      = 0;          // seconds since fired (muzzle ripple, wave phase)
