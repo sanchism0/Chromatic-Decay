@@ -345,15 +345,22 @@ export class Player {
     return d;
   }
 
-  startBeamIn() { this.beamT = 0; this._drawnAt = null; }
-  get beaming() { return this.beamT < BEAM_DUR; }
+  startBeamIn() { this.beamT = 0; this.beamOutT = null; this._drawnAt = null; }
+  // Leaving: the beam-in played backwards — the body folds into a column of
+  // light and the streak shoots back up. Untouchable throughout.
+  startBeamOut() { this.beamOutT = 0; this.firing = false; }
+  get beaming()    { return this.beamT < BEAM_DUR || this.beamOutT != null; }
+  get beamedOut()  { return this.beamOutT != null && this.beamOutT >= BEAM_DUR; }
 
   update(dt, input, map, camera, zoom, projectileSystem) {
     this._map = map;
     if (!this.alive) return;
 
     // Arriving: no moving or firing until the body has formed
-    if (this.beaming) { this.beamT += dt; this.firing = false; this.justFired = false; return; }
+    if (this.beaming) {
+      if (this.beamOutT != null) this.beamOutT += dt; else this.beamT += dt;
+      this.firing = false; this.justFired = false; return;
+    }
 
     // ── Timers ───────────────────────────────────────────────
     this.abilityCooldown = Math.max(0, this.abilityCooldown - dt);
@@ -490,8 +497,7 @@ export class Player {
 
   // Faint copy of the sprite drawn over racks that hide the player, so you
   // never lose sight of yourself behind a tall rack
-  _drawBeamIn(ctx, s) {
-    const T   = this.beamT;
+  _drawBeamIn(ctx, s, T = this.beamT) {
     const col = BEAM_COLOR[this.character] || '#FFFFFF';
     const m   = ctx.getTransform();
     const gx  = Math.round(m.a * this.x + m.e);
@@ -894,6 +900,7 @@ export class Player {
 
     const _mob = 'ontouchstart' in window;
     const s = _mob ? this.size / 2 * 1.35 : this.size / 2;
+    if (this.beamOutT != null) { if (!this.beamedOut) this._drawBeamIn(ctx, s, BEAM_DUR - this.beamOutT); return; }
     if (this.beaming) { this._drawBeamIn(ctx, s); return; }
 
     // Protection window (after a hit, Phase Shift, Margin Call): no blinking.

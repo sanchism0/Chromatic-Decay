@@ -407,6 +407,21 @@ export function sfxBeamIn() {
   _osc('square', 2093, t + 0.99, 0.12, 0.05);
 }
 
+// ── Beam-out (the beam-in in reverse: the body folds into light, which shoots
+// back up). Timed to the beam-out in player.js
+export function sfxBeamOut() {
+  const ctx = _ac();
+  const t   = ctx.currentTime;
+  // Dematerialising: the shimmer falls as the body folds into the column
+  _osc('triangle', 1760, t, 0.55, 0.09, 330);
+  _osc('square',   3520, t, 0.55, 0.025, 660);
+  // Lift-off thump, then the zap climbing away with a fizz
+  _osc('sine', 55, t + 0.62, 0.18, 0.2, 190);
+  _osc('square',   420, t + 0.75, 0.30, 0.07, 2600);
+  _osc('sawtooth', 210, t + 0.75, 0.30, 0.04, 1300);
+  _noise(t + 0.75, 0.30, 0.08, 3200, 0.9);
+}
+
 // ── Echo pickup (jewels clinking — bright inharmonic pings) ────
 export function sfxEchoPickup() {
   const ctx = _ac();
@@ -523,4 +538,48 @@ export function sfxPerfectDodge() {
   const t = _ac().currentTime;
   _osc('triangle', 1318.5, t, 0.18, 0.08);
   _osc('triangle', 1975.5, t + 0.06, 0.3, 0.07);
+}
+
+// ── Yellow lunge ──────────────────────────────────────────────
+// Throttled: a pack winding up at once shouldn't stack into noise
+let _lastLungeSfx = 0;
+function _lungeOk() {
+  const t = _ac().currentTime;
+  if (t - _lastLungeSfx < 0.12) return false;
+  _lastLungeSfx = t;
+  return true;
+}
+// Wind-up: static building up — filtered crackle that sweeps upward and gets
+// denser, over a faint electrical hum (no pitched tones)
+export function sfxLungeWindup() {
+  if (!_lungeOk()) return;
+  const ctx = _ac();
+  const t = ctx.currentTime, dur = 0.6;
+  const len = Math.ceil(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 3;
+  bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(4200, t + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + dur * 0.92);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t); src.stop(t + dur + 0.02);
+  // Crackle ticks, bunching up toward the strike
+  for (let i = 0; i < 10; i++) {
+    const at = t + dur * (1 - Math.pow(1 - i / 10, 1.8));
+    _noise(at, 0.012, 0.05, 4500 + Math.random() * 3000, 3);
+  }
+  _osc('sawtooth', 58, t, dur, 0.012);   // mains hum underneath
+}
+// The lunge: a lightning strike — a sharp crack, then a low rumble
+export function sfxLunge() {
+  if (!_lungeOk()) return;
+  const t = _ac().currentTime;
+  _noise(t, 0.06, 0.24, 3800, 0.6);          // crack
+  _noise(t + 0.01, 0.3, 0.12, 1100, 0.5);    // the body of it
+  _noise(t + 0.03, 0.55, 0.1, 220, 0.7);     // rumble
+  _osc('sine', 70, t + 0.02, 0.5, 0.1, 38);  // weight underneath
 }

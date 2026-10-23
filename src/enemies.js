@@ -3,6 +3,7 @@
 import { CONFIG } from './config.js';
 import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } from './utils.js';
 import { haloSprite, drawGlow } from './sprites.js';
+import { sfxLungeWindup, sfxLunge } from './audio.js';
 
 let _nextId = 0;
 
@@ -38,6 +39,11 @@ function glowStrength(type) {
 // Arrival: a new enemy gathers out of drifting motes over SPAWN_IN seconds,
 // holding still and harmless until it has formed
 const SPAWN_IN = 0.45;
+
+// Yellow lunge: within range with a clear line, a yellow stops and lines up
+// (windup, telegraphed), charges straight along that line (lunge), then is
+// dazed for a moment (recover) before it can lunge again (cooldown)
+const LUNGE = { range: 210, windup: 0.6, dist: 230, time: 0.3, recover: 0.6, cdMin: 2.2, cdMax: 3.5 };
 
 // ── Pathing (flow field) ─────────────────────────────────────
 // The shortest walkable distance to the player is worked out for every 20px cell of the map, whenever the player changes cell (Dijkstra over a grid where racks,
@@ -239,6 +245,8 @@ class Enemy {
     // Stun check — skip all movement and firing while stunned
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
+      // A stun breaks a lunge
+      if (this.lunge === 'windup' || this.lunge === 'lunging') { this.lunge = 'chase'; this.lungeT = 1.5; }
       return;
     }
 
@@ -382,9 +390,35 @@ class Enemy {
   }
 
   // YELLOW — persistent drift toward player, slightly faster than Violet
+  // YELLOW — swarms like the rest, then lunges: when it's close with a clear
+  // line, it stops, brightens and lines up (the telegraph line), then charges
+  // straight along that line. The line locks when the windup starts, so a
+  // sidestep or a dash makes it overshoot; afterwards it's dazed for a moment.
   _updateYellow(dt, player, map) {
-    const [ax, ay] = this._approach(player.x, player.y);
-    this._move(dt, ax, ay, map);
+    if (this.lunge === undefined) { this.lunge = 'chase'; this.lungeT = 1 + Math.random() * 2; }
+    this.lungeT -= dt;
+    if (this.lunge === 'chase') {
+      const [ax, ay] = this._approach(player.x, player.y);
+      this._move(dt, ax, ay, map);
+      const dx = player.x - this.x, dy = player.y - this.y, d = Math.hypot(dx, dy);
+      if (this.lungeT <= 0 && d < LUNGE.range && d > 40 && (!FLOW.ready || FLOW.clear(this.x, this.y, player.x, player.y))) {
+        this.lunge = 'windup'; this.lungeT = LUNGE.windup;
+        this.lungeDir = [dx / d, dy / d];
+        sfxLungeWindup();
+      }
+    } else if (this.lunge === 'windup') {
+      if (this.lungeT <= 0) { this.lunge = 'lunging'; this.lungeT = LUNGE.time; sfxLunge(); }
+    } else if (this.lunge === 'lunging') {
+      // Straight along the locked line: no swarming, no steering round racks
+      const x0 = this.x, y0 = this.y;
+      this._sepX = 0; this._sepY = 0; this._flowing = true;
+      this._move(dt, this.lungeDir[0], this.lungeDir[1], map, LUNGE.dist / LUNGE.time);
+      this._flowing = false;
+      const stopped = Math.hypot(this.x - x0, this.y - y0) < LUNGE.dist / LUNGE.time * dt * 0.3;   // hit a rack
+      if (this.lungeT <= 0 || stopped) { this.lunge = 'recover'; this.lungeT = LUNGE.recover; }
+    } else if (this.lunge === 'recover') {
+      if (this.lungeT <= 0) { this.lunge = 'chase'; this.lungeT = LUNGE.cdMin + Math.random() * (LUNGE.cdMax - LUNGE.cdMin); }
+    }
   }
 
   // GREEN — chase at full speed and shoot straight ahead
@@ -508,7 +542,69 @@ class Enemy {
       const len = r * (1.3 + Math.sin(t * 2 + i * 2 + seed) * 0.3);
       drawGlow(ctx, col, bx + Math.cos(a) * len * 0.7, by + Math.sin(a) * len * 0.7 + r * 0.25, r * 0.9, 0.22 * k);
     }
-    drawGlow(ctx, col, bx, by, r * 1.5, 0.55 * k * beat);
+    // Yellow lunge: the telegraph line while winding up (brightening as it
+    // nears), a streak while charging; dimmer while dazed
+    if (this.lunge === 'windup') {
+      // A charging signal beam: it grows out from the yellow, a soft haze
+      // round a thin bright core with round ends; pulses run along it toward
+      // the target, faster as the lunge nears; a broken ring tightens round
+      // the end point; crackles flicker along it just before release
+      const w    = 1 - Math.max(0, this.lungeT) / LUNGE.windup;
+      const grow = Math.min(1, w / 0.35);
+      const [ux, uy] = this.lungeDir;
+      const len  = LUNGE.dist * grow;
+      const ex = bx + ux * len, ey = by + uy * len;
+      ctx.lineCap = 'round';
+      const beam = (width, alpha, color) => {
+        ctx.globalAlpha = alpha * form; ctx.strokeStyle = color; ctx.lineWidth = width;
+        ctx.beginPath(); ctx.moveTo(bx + ux * r * 0.6, by + uy * r * 0.6); ctx.lineTo(ex, ey); ctx.stroke();
+      };
+      beam(10, 0.06 + 0.10 * w, col);
+      beam(5, 0.14 + 0.22 * w, col);
+      beam(1.4, 0.45 + 0.45 * w, '#FFFDE0');
+      // Pulses heading for the target
+      ctx.globalAlpha = form;
+      for (let i = 0; i < 4; i++) {
+        const f = ((t * (1.2 + 3.5 * w)) + i / 4) % 1;
+        if (f * LUNGE.dist > len) continue;
+        const px = bx + ux * LUNGE.dist * f, py = by + uy * LUNGE.dist * f;
+        drawGlow(ctx, col, px, py, 6 + 3 * w, 0.5);
+        drawGlow(ctx, '#ffffff', px, py, 2.5, 0.7);
+      }
+      // Target: a broken ring that turns and tightens
+      if (grow >= 1) {
+        const tr = 16 - 8 * w, rot = t * 2.5;
+        ctx.globalAlpha = (0.35 + 0.55 * w) * form;
+        ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+        for (let q = 0; q < 4; q++) {
+          ctx.beginPath(); ctx.arc(ex, ey, tr, rot + q * Math.PI / 2, rot + q * Math.PI / 2 + Math.PI / 3.2); ctx.stroke();
+        }
+        drawGlow(ctx, col, ex, ey, 8 + 6 * w, 0.4 * w);
+      }
+      // Crackle just before release
+      if (w > 0.72) {
+        ctx.globalAlpha = (w - 0.72) / 0.28 * form;
+        ctx.strokeStyle = '#FFFDE0'; ctx.lineWidth = 1;
+        const tick = Math.floor(t * 18);
+        for (let c = 0; c < 2; c++) {
+          const s0 = ((tick * 7 + c * 13 + this.id) % 10) / 10 * len;
+          const sx = bx + ux * s0, sy = by + uy * s0;
+          ctx.beginPath(); ctx.moveTo(sx, sy);
+          for (let j = 1; j <= 3; j++) {
+            const jag = (((tick + j * 3 + c) * 2654435761) % 1000) / 1000 - 0.5;
+            ctx.lineTo(sx + ux * j * 7 - uy * jag * 9, sy + uy * j * 7 + ux * jag * 9);
+          }
+          ctx.stroke();
+        }
+      }
+      ctx.lineCap = 'butt';
+      ctx.globalAlpha = form;
+      drawGlow(ctx, '#ffffff', bx, by, r * (0.8 + 0.6 * w), 0.45 * w);
+    } else if (this.lunge === 'lunging') {
+      for (let i = 1; i <= 3; i++) drawGlow(ctx, col, bx - this.lungeDir[0] * i * 9, by - this.lungeDir[1] * i * 9, r * (1.2 - i * 0.2), 0.3 / i);
+    }
+    const daze = this.lunge === 'recover' ? 0.6 : 1;
+    drawGlow(ctx, col, bx, by, r * 1.5, 0.55 * k * beat * daze);
     // Small white core that shrinks as the ghost loses health
     drawGlow(ctx, '#ffffff', bx, by, r * 0.32 * (0.35 + 0.65 * hpK), 0.45 * beat);
     if (heat > 0) drawGlow(ctx, '#ffffff', bx, by, r * 1.0, 0.35 * k * heat);
@@ -680,8 +776,13 @@ export class EnemySystem {
       if (!proj.active) continue;
       for (const e of this.enemies) {
         if (!e.isAlive) continue;
+        // A round hits each enemy once: it overlaps one for several frames as
+        // it passes through, which used to spend a piercing round's pierce on
+        // the same enemy over and over
+        if (proj.hitIds && proj.hitIds.includes(e.id)) continue;
         const dx = e.x - proj.x, dy = e.y - proj.y;
         if (dx * dx + dy * dy < (e.hitSize + 3) * (e.hitSize + 3)) {
+          (proj.hitIds || (proj.hitIds = [])).push(e.id);
           // ── Volatile Signal: bonus damage based on travel distance ──
           let dmg = proj.damage;
           if (player && player.volatileSignal) {
