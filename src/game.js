@@ -25,7 +25,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxBeamOut, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -1734,6 +1734,7 @@ const levelApi = {
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
   clearField: () => { enemies.reset(); projectiles.reset(); },
   touch:      () => 'ontouchstart' in window,
+  beamOut: () => sfxBeamOut(),
   needsUnlock: () => { const c = _levelCard(); return !!c && !hasCard(selectedCharacter, c.id); },
 };
 
@@ -1765,7 +1766,7 @@ function _finishLevel() {
   const counts = { ...level.chroma };
   bankChroma(counts, 1);
   const rec = recordClear(level.id, level.agent);
-  _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks };
+  _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks, outcome: level.def.outcome };
   level = null;
   _levelEndDelay = 0.6;
   sfxWaveClear();
@@ -1786,7 +1787,8 @@ function drawLevelEnd(W, H) {
   if (!r) return;
   dimBackdrop(ctx, W, H, 0.78);
   const sig = r.unlocks.find(u => u.kind === 'signature');
-  const pW = Math.min(460, W - 28), pH = sig ? 330 : 236;
+  const dy = r.outcome ? 18 : 0;   // room for the mission outcome line
+  const pW = Math.min(460, W - 28), pH = (sig ? 330 : 236) + dy;
   const pX = (W - pW) / 2, pY = Math.max(16, (H - pH) / 2 - 8);
   const col = AGENT_COLOR[r.agent];
   const top = drawSlab(ctx, pX, pY, pW, pH, { accent: col, depth: 12, screen: 40, glow: 0.35 });
@@ -1797,24 +1799,29 @@ function drawLevelEnd(W, H) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = col; ctx.font = '12px monospace';
   ctx.fillText(`as ${r.agent.toUpperCase()}${r.first ? '  ·  first clear' : ''}`, W / 2, top + 52);
+  if (r.outcome) {
+    ctx.fillStyle = '#C4C8D4';
+    _fitFont(r.outcome, pW - 30, 11, '');
+    ctx.fillText(r.outcome, W / 2, top + 68);
+  }
 
   // Chroma collected, by colour, and the wallet after banking
   ctx.fillStyle = '#8A8E99'; ctx.font = '11px monospace';
-  ctx.fillText('CHROMA COLLECTED', W / 2, top + 82);
+  ctx.fillText('CHROMA COLLECTED', W / 2, top + 82 + dy);
   const keys = ['violet', 'yellow', 'green'];
   const cw = Math.min(110, (pW - 40) / 3);
   keys.forEach((k, i) => {
     const cx = W / 2 + (i - 1) * cw;
     ctx.fillStyle = CHROMA_COLORS[k];
-    ctx.fillRect(Math.round(cx - 30), top + 96, 8, 8);
+    ctx.fillRect(Math.round(cx - 30), top + 96 + dy, 8, 8);
     ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(`+${r.chroma[k] || 0}`, Math.round(cx - 16), top + 105);
+    ctx.fillText(`+${r.chroma[k] || 0}`, Math.round(cx - 16), top + 105 + dy);
     ctx.fillStyle = '#6E7A88'; ctx.font = '10px monospace';
-    ctx.fillText(`${profile().chroma[k]} total`, Math.round(cx - 16), top + 120);
+    ctx.fillText(`${profile().chroma[k]} total`, Math.round(cx - 16), top + 120 + dy);
     ctx.textAlign = 'center';
   });
 
-  let by = top + 150;
+  let by = top + 150 + dy;
   if (sig) {
     const s2 = SIGNATURES[sig.who];
     const touch = 'ontouchstart' in window;
@@ -1904,7 +1911,7 @@ function drawStoryMap(W, H) {
       if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
       // A tick per character who has cleared it; signatures come from these
-      sub(row.id === 1 ? 'Open the door as each character to unlock their first card.' : LEVELS[row.id].blurb, '#8A8E99');
+      sub(LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;

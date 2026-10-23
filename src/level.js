@@ -5,7 +5,8 @@
 //   relays    power up relays while Chromatics keep coming to drain them
 //   servers   shoot the marked server racks spread round the map to wake them
 //   sequence  watch floor pads light up, then walk over them in the same order
-//   exit      open the door — the first time, it unlocks a card for keeps
+//   exit      reach the door: mission complete, the agent beams out, and the
+//             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
 // beats; enemies wait for the briefing to finish. Power drawn from the map
 // takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
@@ -17,6 +18,8 @@ import { CONFIG } from './config.js';
 import { drawGlow } from './sprites.js';
 import { rackHeight } from './pixelmap.js';
 import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear } from './audio.js';
+
+const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
 export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
 const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
@@ -42,21 +45,25 @@ export const LEVELS = {
   1: {
     id: 1,
     name: 'SERVER FLOOR',
-    blurb: 'Clear the floor, pull the power out of three relays, open the lock.',
+    blurb: "Find Sable's trail: power the floor, pull her logs off the servers.",
+    mission: "Get the floor running again and pull Sable's last logs off the servers.",
+    outcome: "Sable's logs recovered. Her trail leads down, to Cold Storage.",
     beats: (op, agent) => {
       const L = (face, text) => ({ who: op, face, text });
       const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
       const col = COLOR_NAME[agent];
       return [
         { type: 'wave',
-          lines: [L(f('neutral', 'focused'), "Server Floor. The Chromatics moved back in after you left."),
-                  L(f('determined', 'neutral'), 'Clear them out. Then we get the power back on.')],
+          lines: [L(f('neutral', 'focused'), "Server Floor. This is where Sable's signal went dark."),
+                  L(f('determined', 'focused'), "These servers logged everything that passed through here. If she left a trail, it's on them."),
+                  L(f('worried', 'concerned'), 'The Chromatics moved back in after you left. Clear them out first.')],
           groups: [[['violet', 3]], [['violet', 3]], [['violet', 2], ['yellow', 1]]],
           objective: s => `Clear the floor (${s.left} left)`,
           done: [L(f('cocky-grin', 'smirk'), 'Clean.')] },
 
         { type: 'relays', count: 3,
-          lines: [L(f('neutral', 'focused'), 'Three relays down here still hold charge. Get close and pull it into your emitter.'),
+          lines: [L(f('neutral', 'focused'), "The floor's dead, so the servers are too. Three relays down here still hold charge."),
+                  L(f('determined', 'neutral'), 'Get close and pull it into your emitter.'),
                   L(f('worried', 'concerned'), "Chromatics feed on signal. Anything touching a relay drains it, so keep them off.")],
           firstCharge: [L(f('shocked', 'alarmed'), `Wait... it's coming through ${col}. The charge is matching your signal.`)],
           eachDone: [
@@ -73,10 +80,10 @@ export const LEVELS = {
                   L(f('cocky-grin', 'smirk'), "Let's see what that charge does.")],
           groups: [[['violet', 3], ['yellow', 1]], [['yellow', 2]], [['violet', 2], ['yellow', 2]]],
           objective: s => `Hold them off (${s.left} left)`,
-          done: [L(f('neutral', 'soft-smile'), "That's the last of them. The way out is sealed, though.")] },
+          done: [L(f('neutral', 'soft-smile'), "That's the last of them. The power's back. Now the servers.")] },
 
         { type: 'servers', count: 4,
-          lines: [L(f('neutral', 'focused'), "The door's locked to four servers, spread right across the floor."),
+          lines: [L(f('neutral', 'focused'), "Four servers still hold Sable's logs, spread right across the floor. The door's locked to them too."),
                   L(f('determined', 'neutral'), "Shoot each one to wake it up. I'll mark them for you."),
                   L(f('worried', 'concerned'), "They're still coming. Good chance to try out that new upgrade.")],
           eachDone: [
@@ -85,11 +92,14 @@ export const LEVELS = {
             [L(f('determined', 'focused'), 'Three. One left.')],
           ],
           objective: s => `Wake the servers (${s.servers}/4)`,
-          done: [L(f('laughing', 'soft-smile'), "Great. Now get out of there. You'll need to open the door, back where you came in.")] },
+          done: [L(f('neutral', 'focused'), "That's all four. The logs are coming through..."),
+                 L(f('shocked', 'alarmed'), "There. Sable's last trace. She went down, to Cold Storage."),
+                 L(f('laughing', 'soft-smile'), "Great. Now get out of there. Head for the door, back where you came in.")] },
 
         { type: 'exit',
           lines: [],
-          objective: () => 'Open the door',
+          objective: () => 'Get to the door',
+          extract: [L(f('cocky-grin', 'soft-smile'), "Got you. Pulling you out.")],
           done: [] },
       ];
     },
@@ -134,6 +144,7 @@ export class LevelRun {
     this.idx = -1;
     this.complete = false;
     this.failed   = false;
+    this.extractT = null;     // set once the agent reaches the door and beams out
     this.kills    = 0;
     this.powers   = [];       // power-ups granted so far (names)
     this.pendingPowerUp = null;   // one waiting to be shown by game.js
@@ -281,18 +292,32 @@ export class LevelRun {
 
     // The last stretch (pads and the walk to the door) keeps a slightly heavier
     // trickle than the relays, violets and yellows, to try the last power-up on
+    if (this.extractT != null) { this._updateExtract(dt, pl); this._updateMotes(dt, pl); return; }
     if (b.type === 'servers' || b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 5, 4, () => (Math.random() < 0.5 ? 'yellow' : 'violet'));
     if (b.type === 'wave') this._updateWave(dt, b);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
     else if (b.type === 'exit') {
-      // At the door: the first clear unlocks the signature (game.js shows it)
-      if (!this.awaitUnlock && Math.hypot(pl.x - this.exitPos.x, pl.y - this.exitPos.y) < 34) {
-        if (this.api.needsUnlock()) this.awaitUnlock = true;
-        else this.openDoor();
+      // At the door: mission complete, and the agent beams out
+      if (Math.hypot(pl.x - this.exitPos.x, pl.y - this.exitPos.y) < 34) {
+        this.extractT = 0;
+        pl.invincible = Math.max(pl.invincible, 1);
+        this.radio.say(b.extract || []);
+        sfxRelayCharged();
       }
     }
     this._updateMotes(dt, pl);
+  }
+
+  // Extraction: the banner settles, then the beam-out; once it's done, the
+  // first clear shows the card unlock (game.js), then the results
+  _updateExtract(dt, pl) {
+    const t0 = this.extractT;
+    this.extractT += dt;
+    if (t0 < EXTRACT_BEAM && this.extractT >= EXTRACT_BEAM) { pl.startBeamOut(); this.api.beamOut(); }
+    if (this.awaitUnlock || !pl.beamedOut || this.extractT < EXTRACT_BEAM + 1.6) return;
+    if (this.api.needsUnlock()) this.awaitUnlock = true;
+    else this.openDoor();
   }
 
   // Groups arrive from different sides; the next comes when this one thins out
@@ -411,6 +436,7 @@ export class LevelRun {
   }
 
   get objective() {
+    if (this.extractT != null) return null;
     const b = this.beat;
     if (!b || !b.objective) return null;
     if (b.type === 'sequence' && this.showing) return 'Watch the order';
@@ -642,6 +668,7 @@ export class LevelRun {
       }
     }
     const narrow = W < 600;
+    this._drawMission(ctx, W, H, narrow);
     // Chroma, top right
     const cols = { violet: '#8B5CFF', yellow: '#E9FF6A', green: '#8DFF6A' };
     ctx.save();
@@ -686,6 +713,45 @@ export class LevelRun {
       ctx.fillStyle = this.color;
       ctx.fillRect(14, y + 5, bw * this.charge, 5);
     }
+    ctx.restore();
+  }
+
+  // The mission, shown as you arrive; MISSION COMPLETE and what it achieved,
+  // as you leave. Eases in and out, no flashing.
+  _drawMission(ctx, W, H, narrow) {
+    const ease = (a, b, t) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+    let label, text, a, big = false;
+    if (this.extractT != null) {
+      label = 'MISSION COMPLETE'; text = this.def.outcome; a = ease(0, 0.5, this.extractT); big = true;
+    } else if (this.idx === 0 && this.def.mission) {
+      label = 'MISSION'; text = this.def.mission; a = ease(0.4, 1.0, this.t) * (1 - ease(6.5, 7.5, this.t));
+    }
+    if (!label || a <= 0) return;
+    const y = Math.round(H * (narrow ? 0.64 : 0.7));   // below the agent, clear of comms and the beam
+    const maxW = Math.min(W - 40, 560);
+    ctx.save();
+    ctx.font = `${narrow ? 11 : 13}px monospace`;
+    const lines = [];
+    for (const word of text.split(' ')) {
+      const cur = lines.length ? lines[lines.length - 1] + ' ' + word : word;
+      if (lines.length && ctx.measureText(cur).width <= maxW) lines[lines.length - 1] = cur;
+      else lines.push(word);
+    }
+    const lh = narrow ? 15 : 17;
+    const top = y - (big ? 34 : 20), bh = (big ? 56 : 30) + lines.length * lh;
+    ctx.globalAlpha = a;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(8, 10, 16, 0.72)';
+    ctx.fillRect(Math.round(W / 2 - maxW / 2 - 10), Math.round(top), maxW + 20, bh);
+    ctx.fillStyle = this.color;
+    ctx.fillRect(Math.round(W / 2 - maxW / 2 - 10), Math.round(top), maxW + 20, 2);
+    ctx.shadowBlur = big ? 14 : 0; ctx.shadowColor = this.color;
+    ctx.font = `bold ${big ? (narrow ? 20 : 26) : (narrow ? 10 : 11)}px monospace`;
+    ctx.fillText(label, W / 2, y + (big ? 0 : -4), maxW);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#D6DAE4';
+    ctx.font = `${narrow ? 11 : 13}px monospace`;
+    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y + (big ? 26 : 13) + i * lh));
     ctx.restore();
   }
 }

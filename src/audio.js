@@ -407,6 +407,21 @@ export function sfxBeamIn() {
   _osc('square', 2093, t + 0.99, 0.12, 0.05);
 }
 
+// ── Beam-out (the beam-in in reverse: the body folds into light, which shoots
+// back up). Timed to the beam-out in player.js
+export function sfxBeamOut() {
+  const ctx = _ac();
+  const t   = ctx.currentTime;
+  // Dematerialising: the shimmer falls as the body folds into the column
+  _osc('triangle', 1760, t, 0.55, 0.09, 330);
+  _osc('square',   3520, t, 0.55, 0.025, 660);
+  // Lift-off thump, then the zap climbing away with a fizz
+  _osc('sine', 55, t + 0.62, 0.18, 0.2, 190);
+  _osc('square',   420, t + 0.75, 0.30, 0.07, 2600);
+  _osc('sawtooth', 210, t + 0.75, 0.30, 0.04, 1300);
+  _noise(t + 0.75, 0.30, 0.08, 3200, 0.9);
+}
+
 // ── Echo pickup (jewels clinking — bright inharmonic pings) ────
 export function sfxEchoPickup() {
   const ctx = _ac();
