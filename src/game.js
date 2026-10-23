@@ -1977,7 +1977,7 @@ function drawPowerUp(W, H) {
   _drawReward(W, H, {
     color: AGENT_COLOR[level.agent], top: 'THE CHARGE IN YOUR EMITTER SETTLES INTO SOMETHING NEW.',
     label: `POWER UP  ·  ${level.powers.length + 1} / 3`, name: pu.name, desc: pu.desc,
-    hint: pu.hint || 'Lasts for the rest of this level.', button: 'NICE',
+    hint: (typeof pu.hint === 'function' ? pu.hint('ontouchstart' in window) : pu.hint) || 'Lasts for the rest of this level.', button: 'NICE',
   });
 }
 
