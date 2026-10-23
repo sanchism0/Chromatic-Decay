@@ -238,11 +238,14 @@ export class Radio {
   }
 
   // Compact box under the HUD; objective line underneath it
-  draw(ctx, W, H, objective, touch) {
+  // clearLeft: if the box would reach into the top-left HUD column (x < 230),
+  // start it at this y instead, below the bars
+  draw(ctx, W, H, objective, touch, clearLeft = 0) {
     const narrow = W < 600;
     this.rect = null;
     const boxW = Math.min(560, W - 24);
-    const bx = (W - boxW) / 2, by = narrow ? 78 : 70;
+    const bx = (W - boxW) / 2;
+    const by = Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0);
     let bottom = by;
     if (this.cur) {
       const sp = SPEAKERS[this.cur.who] || SPEAKERS.null;

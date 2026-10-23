@@ -475,7 +475,8 @@ export class LevelRun {
   // the screen edge toward the next place to go when it's out of view.
   // toScreen maps world → screen coordinates.
   drawHud(ctx, W, H, touch, toScreen) {
-    this.radio.draw(ctx, W, H, this.objective, touch);
+    // Keep comms clear of the Resonance / Emitter bars on narrow screens
+    this.radio.draw(ctx, W, H, this.objective, touch, (W < 600 ? 100 : 96) + (this.relays ? 22 : 0));
     const tg = this.target;
     if (tg && toScreen) {
       const [sx, sy] = toScreen(tg.x, tg.y);

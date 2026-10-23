@@ -1805,7 +1805,7 @@ function updateStoryMap(dt) {
 function drawStoryMap(W, H) {
   ctx.fillStyle = '#0D0E12'; ctx.fillRect(0, 0, W, H);
   dimBackdrop(ctx, W, H, 0);
-  const narrow = W < 600, short = H < 560;
+  const narrow = W < 600, short = H < 560, tiny = H < 440;   // tiny: landscape phones
   const headY = short ? 34 : 54;
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 18; ctx.shadowColor = '#00E5CC';
@@ -1830,7 +1830,7 @@ function drawStoryMap(W, H) {
 
   // Rows: the prologue, then the levels
   const rowW = Math.min(560, W - 28), rowX = (W - rowW) / 2;
-  const rowH = short ? 46 : 58, gap = short ? 6 : 10;
+  const rowH = tiny ? 34 : short ? 46 : 58, gap = tiny ? 4 : short ? 6 : 10;
   let y = headY + (short ? 54 : 66);
   _mapBtns.rows = [];
   const rows = [{ id: 0, name: 'PROLOGUE · THE CALL' }, ...STORY_LEVELS];
@@ -1843,17 +1843,20 @@ function drawStoryMap(W, H) {
     _mapBtns.rows.push({ id: row.id, r: { x: rowX, y: y - 4, w: rowW, h: rowH + 8 } });
     ctx.textAlign = 'left';
     ctx.fillStyle = playable ? '#FFFFFF' : '#5A6470';
-    ctx.font = `bold ${narrow ? 13 : 15}px monospace`;
-    ctx.fillText(row.id === 0 ? row.name : `${row.id} · ${row.name}`, rowX + 14, top + (short ? 20 : 24));
+    ctx.font = `bold ${narrow || tiny ? 13 : 15}px monospace`;
+    ctx.fillText(row.id === 0 ? row.name : `${row.id} · ${row.name}`, rowX + 14, top + (tiny ? 21 : short ? 20 : 24));
     ctx.font = `${narrow ? 10 : 11}px monospace`;
+    // Second line of text; on landscape phones (tiny) rows are one line, and
+    // only the right-hand status shows
+    const sub = (text, color) => { if (!tiny) { ctx.fillStyle = color; ctx.fillText(text, rowX + 14, top + (short ? 36 : 44)); } };
     if (row.id === 0) {
-      ctx.fillStyle = '#8A8E99'; ctx.fillText('Replay the introduction and tutorial.', rowX + 14, top + (short ? 36 : 44));
+      sub('Replay the introduction and tutorial.', '#8A8E99');
     } else if (!built) {
-      ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + 14, top + (short ? 36 : 44));
+      sub('Coming soon', '#5A6470');
+      if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
       // A tick per character who has cleared it; signatures come from these
-      ctx.fillStyle = '#8A8E99';
-      ctx.fillText(row.id === 1 ? 'Clear it as each character to unlock their signature.' : LEVELS[row.id].blurb, rowX + 14, top + (short ? 36 : 44));
+      sub(row.id === 1 ? 'Clear it as each character to unlock their signature.' : LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;
@@ -1861,15 +1864,16 @@ function drawStoryMap(W, H) {
         const n = timesCleared(row.id, who);
         const label = `${who.toUpperCase()} ${n ? '✓' : '·'}`;
         ctx.fillStyle = n ? AGENT_COLOR[who] : '#4A5560';
-        ctx.fillText(label, rx, top + (short ? 20 : 24));
+        ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
         rx -= ctx.measureText(label).width + 14;
       }
     }
     y += rowH + gap;
   }
 
-  const by = Math.min(H - 52, y + 8);
-  _mapBtns.back = drawSlabButton(ctx, rowX, by, 110, 36, '‹ BACK', { accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, lift: _hitBtn(_mapBtns.back) ? 1 : 0 });
+  // Landscape phones: Back goes in the top-left corner so it never covers a row
+  const bx = tiny ? 14 : rowX, by = tiny ? 12 : Math.min(H - 52, y + 8);
+  _mapBtns.back = drawSlabButton(ctx, bx, by, tiny ? 90 : 110, tiny ? 30 : 36, '‹ BACK', { accent: '#5E8C96', textColor: '#9FB4BE', fontSize: 12, lift: _hitBtn(_mapBtns.back) ? 1 : 0 });
   ctx.textAlign = 'left';
 }
 
