@@ -29,7 +29,7 @@ export const POWERUPS = {
   dex: [
     { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
     { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; p.abilities.push('grenade'); },
-      hint: 'Press E to throw it. On a phone, use its button.' },
+      hint: touch => (touch ? 'Tap its button to throw it.' : 'Press E to throw it.') },
     { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
   ],
   juno: [
@@ -78,7 +78,8 @@ export const LEVELS = {
           done: [L(f('neutral', 'soft-smile'), "That's the last of them. Power's back. Now the servers.")] },
 
         { type: 'servers', count: 4,
-          lines: [L(f('determined', 'focused'), "Four servers hold Raze's logs, spread across the floor. Shoot each one to wake it. I've marked them.")],
+          lines: [L(f('determined', 'focused'), "Four servers hold Raze's logs, spread across the floor. Shoot each one to wake it. I've marked them."),
+                  L(f('worried', 'concerned'), "Careful. All that noise is drawing a swarm. You don't have to fight them all, just keep moving.")],
           eachDone: [
             [L(f('determined', 'focused'), 'One.')],
             [L(f('cocky-grin', 'smirk'), 'Two. Halfway.')],
@@ -283,10 +284,10 @@ export class LevelRun {
     if (pl.hp <= 1 && !pl.beaming) { this.failed = true; return; }
     if (!this.ready) { if (!this.radio.busy && !pl.beaming) this.ready = true; else return; }
 
-    // The last stretch (pads and the walk to the door) keeps a slightly heavier
-    // trickle than the relays, violets and yellows, to try the last power-up on
     if (this.extractT != null) { this._updateExtract(dt, pl); this._updateMotes(dt, pl); return; }
-    if (b.type === 'servers' || b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 5, 4, () => (Math.random() < 0.5 ? 'yellow' : 'violet'));
+    // The last stretch (the servers and the walk to the door) brings a swarm:
+    // mostly violets, some yellows. Not all of them need killing
+    if (b.type === 'servers' || b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 10, 2, () => (Math.random() < 0.25 ? 'yellow' : 'violet'));
     if (b.type === 'wave') this._updateWave(dt, b);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
