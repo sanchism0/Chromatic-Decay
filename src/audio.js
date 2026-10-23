@@ -498,3 +498,15 @@ export function sfxGrenadeBurst() {
     if (i % 3 === 0) _osc('square', 1200 + Math.random() * 900, at, 0.04, 0.03, 300);
   }
 }
+
+// ── Unlock tune: a short, bright resolve — a card that's yours to keep ─
+// Soft triangle arpeggio up a major chord, a held shimmer on top, a warm low
+// note underneath (same palette as the wave-clear and relay chimes)
+export function sfxUnlockTune() {
+  const t = _ac().currentTime;
+  [392, 523.2, 659.3, 784, 1046.5].forEach((f, i) => _osc('triangle', f, t + i * 0.09, 0.5, 0.09));
+  _osc('sine', 1568, t + 0.45, 1.1, 0.05);
+  _osc('sine', 2093, t + 0.5, 1.0, 0.03);
+  [261.6, 392, 523.2].forEach(f => _osc('sine', f, t + 0.42, 1.2, 0.06));
+  _osc('sine', 130.8, t + 0.42, 1.3, 0.08);
+}

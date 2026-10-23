@@ -4,9 +4,9 @@ import { CONFIG }           from './config.js';
 import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS } from './player.js';
-import { LevelRun, LEVELS, AGENT_COLOR } from './level.js';
+import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD } from './grenade.js';
-import { profile, bankChroma, recordClear, hasSignature, unlockSignature, levelUnlocked, timesCleared } from './profile.js';
+import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared } from './profile.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
@@ -25,7 +25,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -713,7 +713,7 @@ function updatePlaying(dt) {
     level.update(dt);
     if (level.complete) _finishLevel();
     else if (level.failed) { _startDeath(); return; }
-    else if (level.awaitUnlock && state === STATES.PLAYING) { _unlockT = 0; state = STATES.ABILITY_UNLOCK; return; }
+    else if (level.awaitUnlock && state === STATES.PLAYING) { _unlockT = 0; sfxUnlockTune(); state = STATES.ABILITY_UNLOCK; return; }
     else if (level.pendingPowerUp && state === STATES.PLAYING) { _unlockT = 0; sfxRelayChime(); state = STATES.POWER_UP; return; }
   }
 
@@ -1714,7 +1714,7 @@ const levelApi = {
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
   clearField: () => { enemies.reset(); projectiles.reset(); },
   touch:      () => 'ontouchstart' in window,
-  needsUnlock: () => !hasSignature(selectedCharacter),
+  needsUnlock: () => { const c = _levelCard(); return !!c && !hasCard(selectedCharacter, c.id); },
 };
 
 const STORY_LEVELS = [
@@ -1885,7 +1885,7 @@ function drawStoryMap(W, H) {
       if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
       // A tick per character who has cleared it; signatures come from these
-      sub(row.id === 1 ? 'Clear it as each character to unlock their signature.' : LEVELS[row.id].blurb, '#8A8E99');
+      sub(row.id === 1 ? 'Open the door as each character to unlock their first card.' : LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;
@@ -1906,30 +1906,31 @@ function drawStoryMap(W, H) {
   ctx.textAlign = 'left';
 }
 
-// Opening the door for the first time as this character: the charge drawn
-// from the relays becomes their signature ability
+// Opening the door for the first time as this character: the first power-up
+// of the level is theirs to keep, as a card in their Arcade upgrade offers
 let _unlockT = 0;
 const _unlockBtn = { r: null };
+const _levelCard = () => (LEVEL_CARDS[level ? level.id : 0] || {})[selectedCharacter] || null;
+
 function updateAbilityUnlock(dt) {
   _unlockT += dt;
   if (_unlockT < 0.8) return;
   const take = input.justPressed.space || input.justPressed.enter || (input.mouseJustClicked && _hitBtn(_unlockBtn.r));
   if (!take) return;
-  const who = level.agent;
-  unlockSignature(who);
-  player.signature = who;
-  sfxSignature(who);
+  const card = _levelCard();
+  if (card) unlockCard(level.agent, card.id);
   level.openDoor();
   state = STATES.PLAYING;
 }
 
 function drawAbilityUnlock(W, H) {
-  const who = level.agent, sig = SIGNATURES[who];
-  const touch = 'ontouchstart' in window;
+  const card = _levelCard();
+  if (!card) return;
+  const name = level.agent === 'dex' ? 'Dex' : 'Juno';
   _drawReward(W, H, {
-    color: AGENT_COLOR[who], top: 'THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
-    label: 'NEW ABILITY', name: sig.name, desc: sig.desc,
-    hint: touch ? 'Tap its button to use it. Works in Story and Arcade.' : 'SPACE or F to use it. Works in Story and Arcade.',
+    color: AGENT_COLOR[level.agent], top: 'THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
+    label: 'NEW CARD  ·  YOURS TO KEEP', name: card.name, desc: card.desc,
+    hint: `It now shows up in ${name}'s Arcade upgrades.`,
     button: 'TAKE IT',
   });
 }

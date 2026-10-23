@@ -4,7 +4,7 @@
 //   wave      clear groups of Chromatics (groups arrive from different sides)
 //   relays    power up relays while Chromatics keep coming to drain them
 //   sequence  watch floor pads light up, then walk over them in the same order
-//   exit      open the door — the first time, it unlocks the agent's signature
+//   exit      open the door — the first time, it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
 // beats; enemies wait for the briefing to finish. Power drawn from the map
 // takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
@@ -22,13 +22,13 @@ const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
 // agent. They last for the level and preview where each character is going.
 export const POWERUPS = {
   dex: [
-    { name: 'HEAVY BURSTS',    desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
+    { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
     { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; },
       hint: 'Right-click or E to throw it. On a phone, use its button.' },
     { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
   ],
   juno: [
-    { name: 'HOT BARREL',      desc: 'The minigun fires 25% faster.',                 apply: p => { p.projCount += 1; } },
+    { id: 'hot_barrel', name: 'HOT BARREL', desc: 'The minigun fires 25% faster.',                 apply: p => { p.projCount += 1; } },
     { name: 'PIERCING STREAM', desc: 'Rounds pass through one enemy.',                apply: p => { p.piercingShots += 1; } },
     { name: 'RICOCHET',        desc: 'Rounds bounce once off racks.',                 apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; } },
   ],
@@ -87,6 +87,10 @@ export const LEVELS = {
     },
   },
 };
+
+// What opening each level's door unlocks for keeps, per agent: the first
+// power-up, as a card in that character's Arcade upgrade offers
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] } };
 
 // ── Helpers ───────────────────────────────────────────────────
 

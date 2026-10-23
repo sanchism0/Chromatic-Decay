@@ -2,8 +2,8 @@
 //
 // Kept in localStorage. Chroma is the colour drained from Chromatics in Story
 // levels, banked per colour; it will buy skill-tree nodes in the Workshop.
-// Clears are tracked per level per character: clearing Level 1 with a
-// character unlocks that character's signature ability.
+// Clears are tracked per level per character. Opening Level 1's door the first
+// time as a character unlocks their first power-up as an Arcade card.
 
 const KEY = 'chromatic_decay_profile';
 
@@ -11,6 +11,7 @@ const BLANK = () => ({
   chroma: { violet: 0, yellow: 0, green: 0, orange: 0, pink: 0 },
   clears: {},                       // { levelId: { dex: n, juno: n } } — times cleared
   signatures: {},                   // { dex: true } — unlocked signature abilities
+  cards: {},                        // { dex: ['heavy_bursts'] } — Story cards for Arcade
   characters: { dex: true, juno: true, raze: false },
 });
 
@@ -56,10 +57,6 @@ export function recordClear(levelId, who) {
   const first = !row[who];
   row[who] = (row[who] || 0) + 1;
   const unlocks = [];
-  if (first && levelId === 1 && !p.signatures[who]) {
-    p.signatures[who] = true;
-    unlocks.push({ kind: 'signature', who });
-  }
   save();
   return { first, unlocks };
 }
@@ -68,6 +65,15 @@ export function hasSignature(who) { return !!profile().signatures[who]; }
 
 export function unlockSignature(who) {
   profile().signatures[who] = true;
+  save();
+}
+
+// Cards earned in Story; each joins that character's Arcade upgrade offers
+export function hasCard(who, id) { return (profile().cards[who] || []).includes(id); }
+export function unlockCard(who, id) {
+  const p = profile();
+  const list = p.cards[who] || (p.cards[who] = []);
+  if (!list.includes(id)) list.push(id);
   save();
 }
 
