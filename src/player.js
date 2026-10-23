@@ -61,7 +61,7 @@ export { WALK_CYCLE, CELL_W, CELL_H };
 // a round to the burst, for Juno each makes the minigun 25% faster. Raze's
 // heavy rounds still fan out.
 export const WEAPONS = {
-  juno: { name: 'Minigun', rate: 5.0,  burst: 1, gap: 0,     dmg: 0.34, spread: 0.07 },
+  juno: { name: 'Minigun', rate: 5.0,  burst: 1, gap: 0,     dmg: 0.40, spread: 0.07 },
   dex:  { name: 'Burst',   rate: 0.85, burst: 3, gap: 0.075, dmg: 0.66, spread: 0.025 },
   raze: { name: 'Heavy',   rate: 0.55, burst: 1, gap: 0,     dmg: 3.2,  spread: 0 },
 };
