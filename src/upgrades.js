@@ -88,12 +88,6 @@ export const GENERIC_UPGRADES = [
     apply: p => { p.projCount += 1; },
   },
   {
-    id: 'extended_range', name: 'Extended Range',
-    desc: '+25% proj range.',
-    baseWeight: 5, cap: 3,
-    apply: p => { p.projRange += Math.round(CONFIG.player_projectile_range * 0.25); },
-  },
-  {
     id: 'overcharge_cell', name: 'Overcharge Cell',
     desc: '+20% proj speed.',
     baseWeight: 5, cap: 3,
