@@ -67,6 +67,7 @@ export const LEVELS = {
 
         { type: 'wave',
           lines: [L(f('worried', 'concerned'), "That woke the rest of them up. Yellows in the mix."),
+                  L(f('determined', 'focused'), 'Yellows lunge. When one lights up and lines up on you, get out of the line.'),
                   L(f('cocky-grin', 'smirk'), "Let's see what that charge does.")],
           groups: [[['violet', 3], ['yellow', 1]], [['yellow', 2]], [['violet', 2], ['yellow', 2]]],
           objective: s => `Hold them off (${s.left} left)`,

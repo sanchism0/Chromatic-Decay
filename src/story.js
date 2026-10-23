@@ -90,7 +90,8 @@ function tutorialSteps(agent, touch, api) {
               L(f('determined', 'neutral'), 'Every one you break gives a little of it back.')],
       until: () => true },
     { lines: [L(f('worried', 'concerned'), 'Two more waking up. Yellows are faster, and there are two of them.'),
-              L(f('determined', 'focused'), 'Keep moving. Keep firing.')],
+              L(f('determined', 'focused'), touch ? 'They lunge. When one lights up and lines up on you, get out of the line. Tap DASH if you have to.'
+                                                  : 'They lunge. When one lights up and lines up on you, get out of the line. Space to dash if you have to.')],
       spawnAfter: [['yellow', 2]],
       objective: (s, b) => `Destroy the yellow Chromatics (${Math.min(2, s.kills - b.kills)}/2)`, until: (s, b) => s.kills - b.kills >= 2 },
     { echo: true, highlight: 'echo',

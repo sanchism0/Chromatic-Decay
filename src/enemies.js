@@ -3,6 +3,7 @@
 import { CONFIG } from './config.js';
 import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } from './utils.js';
 import { haloSprite, drawGlow } from './sprites.js';
+import { sfxLungeWindup, sfxLunge } from './audio.js';
 
 let _nextId = 0;
 
@@ -38,6 +39,11 @@ function glowStrength(type) {
 // Arrival: a new enemy gathers out of drifting motes over SPAWN_IN seconds,
 // holding still and harmless until it has formed
 const SPAWN_IN = 0.45;
+
+// Yellow lunge: within range with a clear line, a yellow stops and lines up
+// (windup, telegraphed), charges straight along that line (lunge), then is
+// dazed for a moment (recover) before it can lunge again (cooldown)
+const LUNGE = { range: 210, windup: 0.6, dist: 230, time: 0.3, recover: 0.6, cdMin: 2.2, cdMax: 3.5 };
 
 // ── Pathing (flow field) ─────────────────────────────────────
 // The shortest walkable distance to the player is worked out for every 20px cell of the map, whenever the player changes cell (Dijkstra over a grid where racks,
@@ -239,6 +245,8 @@ class Enemy {
     // Stun check — skip all movement and firing while stunned
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
+      // A stun breaks a lunge
+      if (this.lunge === 'windup' || this.lunge === 'lunging') { this.lunge = 'chase'; this.lungeT = 1.5; }
       return;
     }
 
@@ -382,9 +390,35 @@ class Enemy {
   }
 
   // YELLOW — persistent drift toward player, slightly faster than Violet
+  // YELLOW — swarms like the rest, then lunges: when it's close with a clear
+  // line, it stops, brightens and lines up (the telegraph line), then charges
+  // straight along that line. The line locks when the windup starts, so a
+  // sidestep or a dash makes it overshoot; afterwards it's dazed for a moment.
   _updateYellow(dt, player, map) {
-    const [ax, ay] = this._approach(player.x, player.y);
-    this._move(dt, ax, ay, map);
+    if (this.lunge === undefined) { this.lunge = 'chase'; this.lungeT = 1 + Math.random() * 2; }
+    this.lungeT -= dt;
+    if (this.lunge === 'chase') {
+      const [ax, ay] = this._approach(player.x, player.y);
+      this._move(dt, ax, ay, map);
+      const dx = player.x - this.x, dy = player.y - this.y, d = Math.hypot(dx, dy);
+      if (this.lungeT <= 0 && d < LUNGE.range && d > 40 && (!FLOW.ready || FLOW.clear(this.x, this.y, player.x, player.y))) {
+        this.lunge = 'windup'; this.lungeT = LUNGE.windup;
+        this.lungeDir = [dx / d, dy / d];
+        sfxLungeWindup();
+      }
+    } else if (this.lunge === 'windup') {
+      if (this.lungeT <= 0) { this.lunge = 'lunging'; this.lungeT = LUNGE.time; sfxLunge(); }
+    } else if (this.lunge === 'lunging') {
+      // Straight along the locked line: no swarming, no steering round racks
+      const x0 = this.x, y0 = this.y;
+      this._sepX = 0; this._sepY = 0; this._flowing = true;
+      this._move(dt, this.lungeDir[0], this.lungeDir[1], map, LUNGE.dist / LUNGE.time);
+      this._flowing = false;
+      const stopped = Math.hypot(this.x - x0, this.y - y0) < LUNGE.dist / LUNGE.time * dt * 0.3;   // hit a rack
+      if (this.lungeT <= 0 || stopped) { this.lunge = 'recover'; this.lungeT = LUNGE.recover; }
+    } else if (this.lunge === 'recover') {
+      if (this.lungeT <= 0) { this.lunge = 'chase'; this.lungeT = LUNGE.cdMin + Math.random() * (LUNGE.cdMax - LUNGE.cdMin); }
+    }
   }
 
   // GREEN — chase at full speed and shoot straight ahead
@@ -508,7 +542,22 @@ class Enemy {
       const len = r * (1.3 + Math.sin(t * 2 + i * 2 + seed) * 0.3);
       drawGlow(ctx, col, bx + Math.cos(a) * len * 0.7, by + Math.sin(a) * len * 0.7 + r * 0.25, r * 0.9, 0.22 * k);
     }
-    drawGlow(ctx, col, bx, by, r * 1.5, 0.55 * k * beat);
+    // Yellow lunge: the telegraph line while winding up (brightening as it
+    // nears), a streak while charging; dimmer while dazed
+    if (this.lunge === 'windup') {
+      const w = 1 - Math.max(0, this.lungeT) / LUNGE.windup;
+      const ex = this.x + this.lungeDir[0] * LUNGE.dist, ey = this.y + this.lungeDir[1] * LUNGE.dist;
+      ctx.globalAlpha = (0.2 + 0.6 * w) * form;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5 + 1.5 * w;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey - this.lift); ctx.stroke();
+      drawGlow(ctx, col, ex, ey - this.lift, 10 + 6 * w, 0.5 * w);
+      ctx.globalAlpha = form;
+      drawGlow(ctx, '#ffffff', bx, by, r * (0.8 + 0.6 * w), 0.45 * w);
+    } else if (this.lunge === 'lunging') {
+      for (let i = 1; i <= 3; i++) drawGlow(ctx, col, bx - this.lungeDir[0] * i * 9, by - this.lungeDir[1] * i * 9, r * (1.2 - i * 0.2), 0.3 / i);
+    }
+    const daze = this.lunge === 'recover' ? 0.6 : 1;
+    drawGlow(ctx, col, bx, by, r * 1.5, 0.55 * k * beat * daze);
     // Small white core that shrinks as the ghost loses health
     drawGlow(ctx, '#ffffff', bx, by, r * 0.32 * (0.35 + 0.65 * hpK), 0.45 * beat);
     if (heat > 0) drawGlow(ctx, '#ffffff', bx, by, r * 1.0, 0.35 * k * heat);

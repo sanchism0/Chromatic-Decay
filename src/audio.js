@@ -524,3 +524,27 @@ export function sfxPerfectDodge() {
   _osc('triangle', 1318.5, t, 0.18, 0.08);
   _osc('triangle', 1975.5, t + 0.06, 0.3, 0.07);
 }
+
+// ── Yellow lunge ──────────────────────────────────────────────
+// Throttled: a pack winding up at once shouldn't stack into noise
+let _lastLungeSfx = 0;
+function _lungeOk() {
+  const t = _ac().currentTime;
+  if (t - _lastLungeSfx < 0.12) return false;
+  _lastLungeSfx = t;
+  return true;
+}
+// Wind-up: a rising charge
+export function sfxLungeWindup() {
+  if (!_lungeOk()) return;
+  const t = _ac().currentTime;
+  _osc('triangle', 280, t, 0.55, 0.05, 950);
+  _osc('sine', 560, t, 0.55, 0.025, 1900);
+}
+// The lunge: a short whoosh and a falling zap
+export function sfxLunge() {
+  if (!_lungeOk()) return;
+  const t = _ac().currentTime;
+  _noise(t, 0.2, 0.08, 1800, 0.9);
+  _osc('sawtooth', 900, t, 0.22, 0.03, 200);
+}
