@@ -25,7 +25,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -443,12 +443,12 @@ function updatePlaying(dt) {
     story.onToggleFire();
   }
   const _radio = level ? level.radio : (story.inTutorial ? story.radio : null);
-  player.suppressAbility = false;
-  if (_radio && _radio.busy && (input.justPressed.enter || input.justPressed.space ||
+  // Comms: Enter or a tap on the box moves on (Space is dash)
+  if (_radio && _radio.busy && (input.justPressed.enter ||
       (input.mouseJustClicked && _radio.hit(input.mouseX, input.mouseY)))) {
     _radio.next();
-    player.suppressAbility = input.justPressed.space;   // Space skipped a line; don't also fire the signature
   }
+  if (input.mouseJustClicked && _hitBtn(_dashBtn.r)) player.dashQueued = true;
   if (input.mouseJustClicked && _hitBtn(_sigBtn.r) && player.signature && player.signatureCooldown <= 0 && !player.beaming) {
     player._useSignature(projectiles);
   }
@@ -456,7 +456,8 @@ function updatePlaying(dt) {
   // or its button on touch, toward where you're aiming
   player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
   if (player.grenade && player.grenadeCooldown <= 0 && !player.beaming &&
-      (input.justPressed.throw || (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)))) {
+      (input.justPressed.throw || (input.abilityJustPressed && !player.signature) ||
+       (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)))) {
     const ap = player._aimPoint;
     const touchAim = 'ontouchstart' in window || !ap;
     const tx = touchAim ? player.x + Math.cos(player.facing) * 190 : ap.x;
@@ -483,6 +484,18 @@ function updatePlaying(dt) {
   if (player.justFired) sfxShoot(player.lastShotOverload, player.character);
   if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; story.onHit(); }
   if (player.justSignature) _signatureEffects(player.justSignature);
+  if (player.justDashed) {
+    player.justDashed = false;
+    sfxDash();
+    if (story.inTutorial) story.onDash();
+  }
+  if (player.perfectDodge) {
+    // Dashed through a hit: the cooldown comes straight back
+    player.perfectDodge = false;
+    player.dashCooldown = Math.min(player.dashCooldown, 0.15);
+    sfxPerfectDodge();
+    particles.flash(player.x, player.y - 8, 22, 0.22);
+  }
 
   // ── Auto-trigger ability when an enemy is within 50px ────
   if (player.classId && player.abilityCooldown <= 0) {
@@ -1421,6 +1434,7 @@ function drawGame(W, H) {
   _drawAutoFireBtn(W, H);
   _drawSignature(W, H);
   _drawGrenade(W, H);
+  _drawDashBtn(W, H);
   _drawLastEnemyArrow(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
@@ -1538,7 +1552,8 @@ input.uiHit = (x, y) => state === STATES.PLAYING &&
     y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y) ||
    (level && level.radio.hit(x, y)) ||
    (_sigBtn.r && x >= _sigBtn.r.x && x <= _sigBtn.r.x + _sigBtn.r.w && y >= _sigBtn.r.y && y <= _sigBtn.r.y + _sigBtn.r.h) ||
-   (_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h));
+   (_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h) ||
+   (_dashBtn.r && x >= _dashBtn.r.x && x <= _dashBtn.r.x + _dashBtn.r.w && y >= _dashBtn.r.y && y <= _dashBtn.r.y + _dashBtn.r.h));
 
 function _drawAutoFireBtn(W, H) {
   const touch = 'ontouchstart' in window;
@@ -1808,7 +1823,7 @@ function drawLevelEnd(W, H) {
     _fitFont(s2.desc, pW - 60, 12, '');
     ctx.fillText(s2.desc, W / 2, by + 60);
     ctx.fillStyle = '#7ADDD4'; ctx.font = '10px monospace';
-    ctx.fillText(touch ? 'Tap its button. Works in Story and Arcade.' : 'SPACE or F. Works in Story and Arcade.', W / 2, by + 78);
+    ctx.fillText(touch ? 'Tap its button. Works in Story and Arcade.' : 'Press E. Works in Story and Arcade.', W / 2, by + 78);
     by += 104;
   }
   const bw = (pW - 60) / 2;
@@ -2128,6 +2143,18 @@ function _signatureEffects(who) {
   }
 }
 
+// Touch: a DASH button just above the aim stick
+const _dashBtn = { r: null };
+function _drawDashBtn(W, H) {
+  _dashBtn.r = null;
+  if (!('ontouchstart' in window) || !player) return;
+  const ready = (player.dashCooldown || 0) <= 0;
+  const w = 80, h = 40, x = W - w - 14, y = H - 40 - input.joystickRadius * 2 - h - 18;
+  _dashBtn.r = drawSlabButton(ctx, x, y, w, h, 'DASH', {
+    accent: ready ? '#E8F0FF' : '#4A5560', textColor: ready ? '#FFFFFF' : '#6E7A88', fontSize: 13, glow: ready ? 0.25 : 0,
+  });
+}
+
 // Grenade HUD: beside the signature readout (desktop), or a button above the
 // signature button (touch)
 const _grenadeBtn = { r: null };
@@ -2156,7 +2183,7 @@ function _drawGrenade(W, H) {
   ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / GRENADE_CD), 4);
   ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
   ctx.font = '11px monospace';
-  ctx.fillText(ready ? 'RMB / E' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
+  ctx.fillText(ready ? (player.signature ? 'RMB' : 'RMB / E') : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
 }
 
 // Signature HUD: name, cooldown and key (desktop), or a button (touch)
@@ -2187,7 +2214,7 @@ function _drawSignature(W, H) {
   ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / max), 4);
   ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
   ctx.font = '11px monospace';
-  ctx.fillText(ready ? 'SPACE / F' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
+  ctx.fillText(ready ? 'E' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
 }
 
 // ── Character select ("Who goes in?") ─────────────────────────

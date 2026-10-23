@@ -11,7 +11,7 @@ export class Input {
     };
     // Edge detection — true for exactly one frame
     this.justPressed = {
-      escape: false, space: false, f: false, q: false, enter: false, throw: false,
+      escape: false, space: false, f: false, q: false, enter: false, throw: false, dash: false,
     };
     this._prevE = false;
     this._rightClick = false;   // right mouse pressed since last frame (throw)
@@ -218,7 +218,9 @@ export class Input {
     this.justPressed.f            = this.keys.f      && !this._prevF;
     this.justPressed.q            = this.keys.q      && !this._prevQ;
     this.justPressed.enter        = this.keys.enter  && !this._prevEnter;
-    this.justPressed.throw        = this._rightClick || (this.keys.e && !this._prevE);
+    this.justPressed.throw        = this._rightClick;
+    this.justPressed.e            = this.keys.e && !this._prevE;
+    this.justPressed.dash         = this.justPressed.space;
     this._rightClick = false;
     this._prevE      = this.keys.e;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
@@ -247,9 +249,9 @@ export class Input {
     };
   }
 
-  // Ability — keyboard only (Space or F); auto-trigger handled by game.js
+  // Ability — E (F also works); Space is dash. Auto-trigger handled by game.js
   get abilityJustPressed() {
-    return this.justPressed.space || this.justPressed.f;
+    return this.justPressed.e || this.justPressed.f;
   }
 
   setAutoFire(on) {

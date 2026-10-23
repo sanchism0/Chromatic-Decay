@@ -510,3 +510,17 @@ export function sfxUnlockTune() {
   [261.6, 392, 523.2].forEach(f => _osc('sine', f, t + 0.42, 1.2, 0.06));
   _osc('sine', 130.8, t + 0.42, 1.3, 0.08);
 }
+
+// ── Dash ──────────────────────────────────────────────────────
+export function sfxDash() {
+  const t = _ac().currentTime;
+  _noise(t, 0.14, 0.09, 1400, 0.7);          // whoosh
+  _osc('sine', 300, t, 0.12, 0.05, 700);     // a little lift
+}
+
+// Perfect dodge: a bright two-note ping
+export function sfxPerfectDodge() {
+  const t = _ac().currentTime;
+  _osc('triangle', 1318.5, t, 0.18, 0.08);
+  _osc('triangle', 1975.5, t + 0.06, 0.3, 0.07);
+}

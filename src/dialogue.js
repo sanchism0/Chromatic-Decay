@@ -199,7 +199,7 @@ export class Dialogue {
 }
 
 // In-game comms. Lines queue up and advance on their own after a generous
-// reading pause; Space, Enter or a tap on the box moves on sooner.
+// reading pause; Enter or a tap on the box moves on sooner (Space is dash).
 export class Radio {
   constructor() { this.queue = []; this.cur = null; this.shown = 0; this.hold = 0; this.holdMax = 1; this.t = 0; this.rect = null; }
 
@@ -287,7 +287,7 @@ export class Radio {
         ctx.fillStyle = '#8FA8B8';
         ctx.font = '11px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText(touch ? 'tap ▸' : 'SPACE ▸', bx + boxW - 12, top + (narrow ? 18 : 20));
+        ctx.fillText(touch ? 'tap ▸' : 'ENTER ▸', bx + boxW - 12, top + (narrow ? 18 : 20));
       }
       ctx.restore();
       this.rect = { x: bx, y: by, w: boxW, h: boxH + 8 };

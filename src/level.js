@@ -24,7 +24,7 @@ export const POWERUPS = {
   dex: [
     { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
     { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; },
-      hint: 'Right-click or E to throw it. On a phone, use its button.' },
+      hint: 'Right-click to throw it (or E). On a phone, use its button.' },
     { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
   ],
   juno: [

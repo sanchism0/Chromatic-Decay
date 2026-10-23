@@ -67,6 +67,9 @@ function tutorialSteps(agent, touch, api) {
     { lines: [L(f('neutral', 'focused'), 'Comms are up. I can see your signal.'),
               L(f('determined', 'neutral'), touch ? 'Drag your left thumb to walk. Get a feel for the floor.' : 'Walk around with W, A, S, D. Get a feel for the floor.')],
       objective: 'Walk around', until: (s, b) => s.moved - b.moved > 200 },
+    { lines: [L(f('determined', 'focused'), touch ? 'Tap DASH to burst out of trouble. Nothing can touch you mid-dash.'
+                                                  : 'Press Space to dash. Nothing can touch you mid-dash.')],
+      objective: touch ? 'Dash (DASH button)' : 'Dash (Space)', until: (s, b) => s.dashes > b.dashes },
     { lines: [L(f('neutral', 'focused'), 'Your emitter is on your right arm. It fires on its own at whatever you aim at.'),
               L(f('determined', 'neutral'), touch ? 'Drag your right thumb to aim.' : 'Aim with the mouse.')],
       objective: 'Fire your emitter', until: (s, b) => s.shots - b.shots >= 6 },
@@ -167,7 +170,7 @@ export class StoryMode {
     this.phase = 'tutorial';
     this.steps = tutorialSteps(this.agent, this.api.touch(), this.api);
     this.stepIdx = -1;
-    this.stats = { moved: 0, shots: 0, kills: 0, echoes: 0, toggles: 0 };
+    this.stats = { moved: 0, shots: 0, kills: 0, echoes: 0, toggles: 0, dashes: 0 };
     this.api.startTutorialRun(this.agent);
     this._nextStep();
   }
@@ -195,6 +198,7 @@ export class StoryMode {
   onKill()    { if (this.stats) this.stats.kills++; }
   onEcho()    { if (this.stats) this.stats.echoes++; }
   onToggleFire() { if (this.stats) this.stats.toggles++; }
+  onDash()       { if (this.stats) this.stats.dashes++; }
   onHit() {
     if (!this.inTutorial || this._saidHit) return;
     this._saidHit = true;

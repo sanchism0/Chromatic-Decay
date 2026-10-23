@@ -74,6 +74,12 @@ export const SIGNATURES = {
   raze: { name: 'GOLD STANDARD', cd: 10, desc: 'Your next 3 rounds pierce everything and hit twice as hard.' },
 };
 
+// ── Dash (Space, or the touch button) ─────────────────────────
+// A short burst in the direction you're moving (toward your aim if standing
+// still). You can't be hurt during it; dashing through a hit at that moment
+// is a perfect dodge and refunds the cooldown once.
+export const DASH_DIST = 110, DASH_TIME = 0.16, DASH_CD = 1.1;
+
 // ── Beam-in (Mega Man X style arrival) ────────────────────────
 // A streak of light in the character's colour drops to the floor, then the
 // body unfolds out of it: white silhouette → colour → the real sprite.
@@ -82,15 +88,15 @@ export const BEAM_DUR = 1.05;
 const BEAM_DROP = 0.30;                                   // streak reaches the floor
 const BEAM_COLOR = { dex: '#B6FF2E', juno: '#E58CFF' };
 const _silhouettes = {};
-function silhouette(who, color) {
-  const key = who + color;
+function silhouette(who, color, row = 0, col = 1) {   // default: standing, facing down
+  const key = who + color + row + col;
   if (_silhouettes[key]) return _silhouettes[key];
   const img = SHEETS[who];
   if (!img || !img._ready) return null;
   const c = document.createElement('canvas');
   c.width = CELL_W; c.height = CELL_H;
   const x = c.getContext('2d');
-  x.drawImage(img, 1 * CELL_W, 0, CELL_W, CELL_H, 0, 0, CELL_W, CELL_H);   // standing, facing down
+  x.drawImage(img, col * CELL_W, row * CELL_H, CELL_W, CELL_H, 0, 0, CELL_W, CELL_H);
   x.globalCompositeOperation = 'source-atop';
   x.fillStyle = color;
   x.fillRect(0, 0, CELL_W, CELL_H);
@@ -373,6 +379,11 @@ export class Player {
       this.shield = Math.min((this.shield || 0) + this.shieldRegen * dt, 80);
     }
 
+    this.dashCooldown = Math.max(0, (this.dashCooldown || 0) - dt);
+    this.dashT        = Math.max(0, (this.dashT || 0) - dt);
+    for (const a of (this._afterimages || [])) a.age += dt;
+    if (this._afterimages) this._afterimages = this._afterimages.filter(a => a.age < 0.25);
+
     // ── Movement — keyboard or touch joystick ────────────────
     let dx = 0, dy = 0;
     if (input.touchMoveX !== 0 || input.touchMoveY !== 0) {
@@ -385,8 +396,25 @@ export class Player {
       if (input.keys.d) dx += 1;
     }
 
-    const dir = normalize(dx, dy);
-    const spd = this.effectiveSpeed;
+    let dir = normalize(dx, dy);
+    let spd = this.effectiveSpeed;
+
+    // Dash: start one, then it overrides movement for DASH_TIME
+    const wantDash = input.justPressed.dash || this.dashQueued;
+    this.dashQueued = false;
+    if (wantDash && this.dashCooldown <= 0 && this.dashT <= 0) {
+      this.dashDir = (dx || dy) ? dir : { x: Math.cos(this.facing), y: Math.sin(this.facing) };
+      this.dashT = DASH_TIME;
+      this.dashCooldown = this.dashCooldownMax = DASH_CD;
+      this._dodged = false;
+      this._afterimages = [];
+      this.justDashed = true;
+    }
+    if (this.dashT > 0) {
+      dir = this.dashDir;
+      spd = DASH_DIST / DASH_TIME;
+      this._afterimages.push({ x: this.x, y: this.y, age: 0, cell: this._cell || [0, 1] });
+    }
 
     // Move in sub-steps no longer than a quarter of the body, so a slow frame
     // (large dt) can't jump the player's centre inside a rack
@@ -768,6 +796,11 @@ export class Player {
   }
 
   takeDamage(rawAmount) {
+    // Mid-dash: untouchable. The first hit dodged this way is a perfect dodge
+    if (this.dashT > 0) {
+      if (!this._dodged) { this._dodged = true; this.perfectDodge = true; }
+      return false;
+    }
     if (!this.alive || this.invincible > 0 || this.beaming) return false;
 
     let amount = rawAmount;
@@ -890,8 +923,37 @@ export class Player {
       ctx.globalAlpha = 1;
     }
 
+    // Dash afterimages: fading copies in the character's colour
+    if (this._afterimages && this._afterimages.length) {
+      const t = ctx.getTransform();
+      const col = BEAM_COLOR[this.character] || '#FFFFFF';
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      for (let i = 0; i < this._afterimages.length; i += 2) {
+        const a = this._afterimages[i];
+        const img = silhouette(this.character, col, a.cell[0], a.cell[1]);
+        if (!img) continue;
+        const gx = t.a * a.x + t.e, gy = t.d * (a.y + s * 0.6) + t.f;
+        ctx.globalAlpha = 0.45 * (1 - a.age / 0.25);
+        ctx.drawImage(img, Math.round(gx - CELL_W / 2), Math.round(gy - (CELL_H - 1)));
+      }
+      ctx.restore();
+    }
+
     // Contact shadow, then the body
     drawGroundShadow(ctx, this.x, this.y + s * 0.6, s * 1.4, s * 0.6, 0.6 * alpha);
+    // Dash recharging: a thin arc on the floor that fills back up
+    if (this.dashCooldown > 0) {
+      const k = 1 - this.dashCooldown / (this.dashCooldownMax || DASH_CD);
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = '#E8F0FF'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y + s * 0.6, s * 1.5, s * 0.65, 0, Math.PI / 2, Math.PI / 2 + Math.PI * 2 * k);
+      ctx.stroke();
+      ctx.restore();
+    }
     const by = this.y - this.lift;
 
     // Walk frame advances with distance moved; standing frame when still
