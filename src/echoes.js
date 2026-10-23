@@ -168,6 +168,21 @@ export class EchoSystem {
     ctx.shadowBlur  = 0;
   }
 
+  // A see-through copy of each Echo that a rack in front is hiding, drawn after
+  // the racks, so health is never lost behind the scenery. isHidden(echo)
+  // comes from game.js, which knows the rack layout.
+  drawHidden(ctx, isHidden) {
+    this._seeThrough = 0.6;
+    for (const echo of this.echoes) {
+      if (!echo.active || echo.isFragment || !isHidden(echo)) continue;
+      const pulse = Math.sin(echo.pulseTimer * 2.8) * 0.5 + 0.5;
+      const bob   = Math.sin(echo.bobTimer * 2.2) * 3;
+      this._drawEcho(ctx, echo.x, echo.y + bob, pulse, echo);
+    }
+    this._seeThrough = 0;
+    ctx.globalAlpha = 1;
+  }
+
   _drawEcho(ctx, sx, sy, pulse, echo) {
     // Soft light behind the figure (smooth, like every other light)
     const t = echo.pulseTimer;
@@ -183,7 +198,8 @@ export class EchoSystem {
     }
 
     // A little white fog drifting around it
-    ctx.globalAlpha = 1;
+    const k0 = this._seeThrough || 1;   // < 1 when drawn see-through over a rack
+    ctx.globalAlpha = k0;
     for (let k = 0; k < 5; k++) {
       const a  = t * (0.5 + k * 0.13) + k * 1.26;
       const fx = sx + Math.cos(a) * (7 + (k % 3) * 3);
@@ -200,7 +216,7 @@ export class EchoSystem {
     g.addColorStop(0, `rgba(255,255,255,${(0.42 + pulse * 0.14) * form})`);
     g.addColorStop(0.45, 'rgba(235,242,255,0.14)');
     g.addColorStop(1, 'rgba(235,242,255,0)');
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = k0;
     ctx.fillStyle = g;
     ctx.fillRect(sx - R, sy - R, R * 2, R * 2);
 
@@ -213,7 +229,7 @@ export class EchoSystem {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = form;
+    ctx.globalAlpha = form * k0;
     for (let y = 0; y < ECHO_H; y++) {
       const sway = y >= ECHO_TAIL ? Math.round(Math.sin(t * 3 - y * 0.6) * (y - ECHO_TAIL + 2) / 4) * px : 0;
       ctx.drawImage(_echoArt, 0, y, ECHO_W, 1, ox + sway, oy + y * px, ECHO_W * px, px);

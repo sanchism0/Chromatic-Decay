@@ -38,6 +38,114 @@ function glowStrength(type) {
 // Arrival: a new enemy gathers out of drifting motes over SPAWN_IN seconds,
 // holding still and harmless until it has formed
 const SPAWN_IN = 0.45;
+
+// ── Pathing (flow field) ─────────────────────────────────────
+// The shortest walkable distance to the player is worked out for every 20px cell of the map, whenever the player changes cell (Dijkstra over a grid where racks,
+// grown by an enemy's radius, are walls). An enemy that can see the player
+// swarms as usual (flank angle, leading); one with a rack in the way follows
+// the field downhill instead of guessing which way round to go.
+const FLOW = {
+  C: 20, cols: 0, rows: 0, blocked: null, dist: null, ready: false,
+  _obs: null, _pcell: -1,
+
+  _build(map) {
+    const C = this.C;
+    this.cols = Math.ceil(CONFIG.map_width / C);
+    this.rows = Math.ceil(CONFIG.map_height / C);
+    this.blocked = new Uint8Array(this.cols * this.rows);
+    const R = 13;   // a typical enemy's radius
+    for (let j = 0; j < this.rows; j++) for (let i = 0; i < this.cols; i++) {
+      const x = i * C + C / 2, y = j * C + C / 2;
+      if (x < R || y < R || x > CONFIG.map_width - R || y > CONFIG.map_height - R ||
+          map.obstacles.some(o => x > o.x - R && x < o.x + o.w + R && y > o.y - R && y < o.y + o.h + R)) {
+        this.blocked[j * this.cols + i] = 1;
+      }
+    }
+    this.dist = new Float64Array(this.cols * this.rows);   // 64-bit: Float32 rounding made the solver loop forever
+    this._obs = map.obstacles;
+    this._pcell = -1;
+  },
+
+  cell(x, y) {
+    const i = Math.max(0, Math.min(this.cols - 1, Math.floor(x / this.C)));
+    const j = Math.max(0, Math.min(this.rows - 1, Math.floor(y / this.C)));
+    return j * this.cols + i;
+  },
+
+  update(dt, map, player) {
+    if (this._obs !== map.obstacles) this._build(map);
+    // The map doesn't change, so only re-solve when the player changes cell
+    let start = this.cell(player.x, player.y);
+    if (start === this._pcell) return;
+    this._pcell = start;
+    // The player can stand right against a rack, in a "blocked" cell: start
+    // from the nearest open cell instead
+    if (this.blocked[start]) {
+      const ci = start % this.cols, cj = (start / this.cols) | 0;
+      let best = -1, bd = Infinity;
+      for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+        const i = ci + di, j = cj + dj;
+        if (i < 0 || j < 0 || i >= this.cols || j >= this.rows || this.blocked[j * this.cols + i]) continue;
+        if (di * di + dj * dj < bd) { bd = di * di + dj * dj; best = j * this.cols + i; }
+      }
+      if (best >= 0) start = best;
+    }
+    const D = this.dist, cols = this.cols, rows = this.rows, B = this.blocked;
+    D.fill(Infinity);
+    D[start] = 0;
+    // Binary heap of [dist, cell]
+    const heap = [[0, start]];
+    const push = n => { heap.push(n); let k = heap.length - 1; while (k > 0) { const pk = (k - 1) >> 1; if (heap[pk][0] <= heap[k][0]) break; [heap[pk], heap[k]] = [heap[k], heap[pk]]; k = pk; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    while (heap.length) {
+      const [d, c] = pop();
+      if (d > D[c]) continue;
+      const ci = c % cols, cj = (c / cols) | 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        if (!di && !dj) continue;
+        const i = ci + di, j = cj + dj;
+        if (i < 0 || j < 0 || i >= cols || j >= rows) continue;
+        const n = j * cols + i;
+        if (B[n]) continue;
+        // No cutting corners past a rack
+        if (di && dj && (B[cj * cols + i] || B[j * cols + ci])) continue;
+        const nd = d + (di && dj ? 1.4142 : 1);
+        if (nd < D[n]) { D[n] = nd; push([nd, n]); }
+      }
+    }
+    this.ready = true;
+  },
+
+  // Is the straight line between two points free of racks?
+  clear(x0, y0, x1, y1) {
+    const len = Math.hypot(x1 - x0, y1 - y0), steps = Math.ceil(len / 10);
+    for (let k = 1; k < steps; k++) {
+      const t = k / steps;
+      if (this.blocked[this.cell(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)]) return false;
+    }
+    return true;
+  },
+
+  // Unit vector downhill from (x, y), or null if there's no way through
+  dir(x, y) {
+    const cols = this.cols, rows = this.rows, D = this.dist, B = this.blocked;
+    const c = this.cell(x, y);
+    const ci = c % cols, cj = (c / cols) | 0;
+    let best = -1, bd = D[c];
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      if (!di && !dj) continue;
+      const i = ci + di, j = cj + dj;
+      if (i < 0 || j < 0 || i >= cols || j >= rows) continue;
+      const n = j * cols + i;
+      if (B[n] || (di && dj && (B[cj * cols + i] || B[j * cols + ci]))) continue;
+      if (D[n] < bd) { bd = D[n]; best = n; }
+    }
+    if (best < 0 || !isFinite(bd)) return null;
+    const tx = (best % cols) * this.C + this.C / 2, ty = ((best / cols) | 0) * this.C + this.C / 2;
+    const dx = tx - x, dy = ty - y, d = Math.hypot(dx, dy) || 1;
+    return [dx / d, dy / d];
+  },
+};
 const easeOut = k => 1 - (1 - k) * (1 - k);
 
 class Enemy {
@@ -152,8 +260,25 @@ class Enemy {
   }
 
   // Toward (tx, ty), but bent by this enemy's flank angle while still far
-  // away (straightening out inside ~90px), plus a push away from neighbours
+  // away (straightening out inside ~90px), plus a push away from neighbours.
+  // With a rack between it and (tx, ty), it follows the flow field instead.
   _approach(tx, ty) {
+    if (FLOW.ready) {
+      this._losT = (this._losT || 0) - 1 / 60;
+      if (this._losT <= 0) { this._los = FLOW.clear(this.x, this.y, tx, ty); this._losT = 0.12; }
+      if (!this._los) {
+        const d = FLOW.dir(this.x, this.y);
+        if (d) {
+          // Spread out along the route: lean by part of this enemy's flank
+          // angle, unless that would point it into a rack
+          const b = this.flank * 0.45, c = Math.cos(b), sn = Math.sin(b);
+          const lx = d[0] * c - d[1] * sn, ly = d[0] * sn + d[1] * c;
+          this._flowing = true;
+          return FLOW.blocked[FLOW.cell(this.x + lx * 22, this.y + ly * 22)] ? d : [lx, ly];
+        }
+      }
+    }
+    this._flowing = false;
     const pv = EnemySystem.playerVel;
     if (this.lead && pv) {
       const lx = pv.x * this.lead, ly = pv.y * this.lead;
@@ -182,12 +307,15 @@ class Enemy {
     // steer angle around the obstacle. Once clear, decay back to the direct path.
     if (this._steerAngle === undefined) { this._steerAngle = 0; this._stuckTimer = 0; }
 
+    // Following the flow field: the path already goes round the racks
+    if (this._flowing) { this._steerAngle = 0; this._stuckTimer = 0; }
+
     const baseAngle = Math.atan2(n.y, n.x);
     const probeDist = Math.max(30, this.size * 2.5);
     const probeX    = this.x + Math.cos(baseAngle + this._steerAngle) * probeDist;
     const probeY    = this.y + Math.sin(baseAngle + this._steerAngle) * probeDist;
     let probeHit    = false;
-    for (const obs of map.obstacles) {
+    if (!this._flowing) for (const obs of map.obstacles) {
       if (circleVsRect(probeX, probeY, this.size + 2, obs.x, obs.y, obs.w, obs.h)) {
         probeHit = true; break;
       }
@@ -481,6 +609,8 @@ export class EnemySystem {
       }
     }
 
+    FLOW.update(dt, map, player);
+
     // The player's velocity (smoothed), for enemies that lead their target
     if (this._lastPX !== undefined && dt > 0) {
       const vx = (player.x - this._lastPX) / dt, vy = (player.y - this._lastPY) / dt;
@@ -558,6 +688,14 @@ export class EnemySystem {
 
           const wasAlive = e.isAlive;
           e.takeDamage(dmg);
+
+          // Knockback rounds shove the target along the shot (not into a rack)
+          if (proj.knockback && e.isAlive) {
+            const v = Math.hypot(proj.vx, proj.vy) || 1;
+            const nx = e.x + proj.vx / v * proj.knockback, ny = e.y + proj.vy / v * proj.knockback;
+            if (!FLOW.blocked || !FLOW.blocked[FLOW.cell(nx, ny)]) { e.x = nx; e.y = ny; }
+            e.stunTimer = Math.max(e.stunTimer || 0, 0.3);
+          }
 
           if (!e.isAlive) {
             killed.push(e);   // death effect: DrainSystem, spawned by game.js
