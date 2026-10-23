@@ -6,7 +6,8 @@ import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD } from './grenade.js';
-import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared } from './profile.js';
+import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE } from './profile.js';
+import { PLATFORM, refreshBoard, cycleBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
@@ -96,6 +97,7 @@ const STATES = {
   LEVEL_FAIL:      16,   // story level failed: restart or leave
   ABILITY_UNLOCK:  17,   // the door in a Story level: new signature ability
   POWER_UP:        18,   // a Story section cleared: power-up for the level
+  NAME_ENTRY:      19,   // pick a leaderboard name (first start, or changing it)
 };
 let state = STATES.TITLE;
 
@@ -160,68 +162,6 @@ function loadArchive() {
 function saveArchive(a) {
   localStorage.setItem('chromatic_decay_archive', JSON.stringify(a));
 }
-// ── Supabase config ───────────────────────────────────────────
-const _SB_URL  = 'https://kzjvbygxtnyedrfeqmmt.supabase.co';
-const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6anZieWd4dG55ZWRyZmVxbW10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MTE1NjQsImV4cCI6MjA5MTI4NzU2NH0.NXCqGSO4uuCXYDQfw2rgtXGiEDxk0kRTt-iaMG6aUmE';
-const _SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': _SB_KEY, 'Authorization': `Bearer ${_SB_KEY}` };
-const _platform = 'ontouchstart' in window ? 'mobile' : 'desktop';
-
-// In-memory cache — populated by _refreshScores(), used by draw calls synchronously
-let _cachedScores = [];
-
-function _loadLocalScores() {
-  try { return JSON.parse(localStorage.getItem('chromatic_decay_scores') || '[]'); }
-  catch { return []; }
-}
-
-function _saveLocalScore(entry) {
-  const scores = _loadLocalScores();
-  scores.push(entry);
-  scores.sort((a, b) => b.score - a.score);
-  localStorage.setItem('chromatic_decay_scores', JSON.stringify(scores.slice(0, 50)));
-}
-
-// Returns the best available scores synchronously (Supabase cache, or local fallback)
-function loadScores() {
-  return _cachedScores.length > 0 ? _cachedScores : _loadLocalScores();
-}
-
-// Fetch top 10 from Supabase and update cache. Falls back to localStorage on error.
-async function _refreshScores() {
-  try {
-    const res = await fetch(
-      `${_SB_URL}/rest/v1/scores?select=initials,score,wave,class,time&platform=eq.${_platform}&order=score.desc&limit=10`,
-      { headers: _SB_HEADERS }
-    );
-    if (!res.ok) throw new Error(res.status);
-    const rows = await res.json();
-    _cachedScores = rows;
-  } catch {
-    _cachedScores = _loadLocalScores();
-  }
-}
-
-// POST a score to Supabase, also save locally, then refresh cache.
-async function saveScore(entry) {
-  _saveLocalScore(entry);
-  try {
-    const res = await fetch(`${_SB_URL}/rest/v1/scores`, {
-      method:  'POST',
-      headers: { ..._SB_HEADERS, 'Prefer': 'return=minimal' },
-      body:    JSON.stringify(entry),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error('[Chromatic Decay] Score save failed:', res.status, body);
-    } else {
-      console.log('[Chromatic Decay] Score saved to Supabase:', entry);
-    }
-  } catch (err) {
-    console.error('[Chromatic Decay] Score save error (offline?):', err);
-  }
-  await _refreshScores();
-}
-
 function getUnlockedClasses() {
   const archive = loadArchive();
   // Breaker is excluded from archive-based unlocking — requires RAZE rescued each run
@@ -282,11 +222,8 @@ function startRun(opts = {}) {
     { time: 1200, id: 'survive_20', fired: false },
   ];
 
-  // Reset win screen state
-  winInitials          = '';
-  winInitialsSubmitted = false;
-  _kbdOverlay          = false;
-  _kbdIconBtn          = null;
+  _kbdOverlay = false;
+  _runChroma  = { violet: 0, yellow: 0, green: 0, orange: 0, pink: 0 };
 
   // Wave system — enable manual spawn mode and start wave 1
   enemies.manualSpawnMode = true;
@@ -334,16 +271,26 @@ function startRun(opts = {}) {
 
 // ── Game over ─────────────────────────────────────────────────
 
-let gameOverData      = null;
-let initialsInput     = '';
-let initialsSubmitted = false;
-
-// Win screen state
-let winInitials          = '';
-let winInitialsSubmitted = false;
+let gameOverData = null;
+// The posted run: { rank, weekRank } once ranked, { offline } if unreachable,
+// null while posting. Shared by the game over and win screens.
+let _arcadeResult = null;
+let _arcadePB     = null;   // { prev, isBest }
+let _runChroma    = {};     // colour drained this Arcade run, by type
 
 let _gameOverInputDelay = 0; // ignore all input for first 0.5s of game over screen
 let _winInputDelay      = 0; // same guard for win screen
+
+// Posts an Arcade run under the player's name and banks a quarter of the
+// colour it drained (into the wallet and lifetime Chroma)
+function _postArcadeRun(score, wave, time) {
+  _arcadePB = recordArcadeScore(PLATFORM, score);
+  _arcadeResult = null;
+  bankChroma(_runChroma, 0.25);
+  submitArcade({ score, wave, time: Math.floor(time), agent: selectedCharacter })
+    .then(r => { _arcadeResult = r; });
+  syncPlayer();
+}
 
 function handleGameOver() {
   gameOverData = {
@@ -352,25 +299,11 @@ function handleGameOver() {
     echoes:   player.echoesRescued,
     time:     waveSystem.totalTime,
     upgrades: player.upgradesTaken,
-    classId:  player.classId || null,
-    subclass: player.subclassId || null,
+    agent:    selectedCharacter,
     wave:     Math.max(0, waveSystem.wave - 1), // last *completed* wave
   };
-  initialsInput        = '';
-  initialsSubmitted    = false;
-  _kbdOverlay          = false;
-  _kbdIconBtn          = null;
-  _kbdBtns             = [];   // clear stale button rects from previous screens
+  _postArcadeRun(gameOverData.score, gameOverData.wave, gameOverData.time);
   _gameOverInputDelay  = 0.5;  // ignore input for first 0.5s
-  // Auto-open keyboard overlay on mobile so it's immediately visible
-  if ('ontouchstart' in window) {
-    _kbdOverlay      = true;
-    _kbdOverlayInput = '';
-    _kbdOverlayCb    = {
-      setValue: v => { initialsInput = v; },
-      submit:   _submitScore,
-    };
-  }
   stopAmbient();
   state = STATES.GAMEOVER;
 }
@@ -397,6 +330,7 @@ function update(dt) {
     case STATES.PAUSED:          updatePaused();           break;
     case STATES.UPGRADE:         updateUpgrade();          break;
     case STATES.GAMEOVER:        updateGameOver();         break;
+    case STATES.NAME_ENTRY:      updateNameEntry();        break;
     case STATES.WIN:             updateWin();              break;
     case STATES.FRAGMENT_RESCUE: updateFragmentRescue();   break;
     case STATES.CLASS_EMERGENCE: updateClassEmergence();   break;
@@ -407,7 +341,7 @@ function update(dt) {
 
 // Shared button rects computed by drawTitle each frame so update can read them
 // story is drawn disabled (coming soon) and never handled in updateTitle
-const _titleBtns = { start: null, story: null, archive: null, admin: null };
+const _titleBtns = { start: null, story: null, archive: null, admin: null, name: null };
 
 function _hitBtn(btn) {
   if (!btn) return false;
@@ -419,12 +353,81 @@ function _hitBtn(btn) {
 let _menuMuted = (() => { try { return localStorage.getItem('chromatic_decay_menu_muted') === '1'; } catch { return false; } })();
 const _muteBtn = { r: null };
 
+let _titleBoard = null;   // last drawn board: arrow hit boxes
+
+// ── Leaderboard name ──────────────────────────────────────────
+// Asked for once, before the first game; changed from the title screen
+
+const NAME_MAX = 10;
+let _nameInput = '';
+let _nameThen  = null;    // what to do once a name is saved
+
+function _withName(fn) { if (playerName()) fn(); else _openName(fn); }
+
+function _openName(then) {
+  _nameInput = playerName();
+  _nameThen  = then;
+  _kbdBtns   = [];
+  if ('ontouchstart' in window) _openKbdOverlay(_nameInput, v => { _nameInput = v; }, _saveName);
+  state = STATES.NAME_ENTRY;
+}
+
+function _saveName() {
+  const n = _nameInput.trim();
+  if (!n) return;
+  setPlayerName(n);
+  syncPlayer();
+  _closeName();
+}
+
+function _closeName() {
+  _kbdOverlay = false;
+  _kbdOverlayCb = null;
+  const then = _nameThen;
+  _nameThen = null;
+  state = STATES.TITLE;
+  if (then && playerName()) then();
+}
+
+function updateNameEntry() {
+  if (!_kbdOverlay) return;   // desktop types (see the keydown handler)
+  if (input.mouseJustClicked && _nameCancelBtn && _hitBtn(_nameCancelBtn)) { _closeName(); return; }
+  _handleKbdTap(_kbdOverlayInput, v => { _nameInput = v; _kbdOverlayInput = v; }, _saveName);
+}
+
+let _nameCancelBtn = null;
+function drawNameEntry(W, H) {
+  if (_kbdOverlay) {
+    drawKbdOverlay(W, H);
+    _nameCancelBtn = null;
+    if (playerName()) {
+      ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#8A8E99';
+      _nameCancelBtn = { x: W / 2 - 50, y: H - 60, w: 100, h: 34 };
+      ctx.fillText('CANCEL', W / 2, H - 38);
+    }
+    return;
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#7ADDD4'; ctx.font = '15px monospace';
+  ctx.fillText(playerName() ? 'CHANGE YOUR NAME' : 'CHOOSE YOUR NAME', W / 2, H * 0.36);
+  ctx.fillStyle = '#5E8C96'; ctx.font = '12px monospace';
+  ctx.fillText('shown on the leaderboards', W / 2, H * 0.36 + 22);
+  ctx.shadowBlur = 10; ctx.shadowColor = '#00E5CC';
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 34px monospace';
+  ctx.fillText(_nameInput + (_nameInput.length < NAME_MAX && Math.floor(Date.now() / 450) % 2 ? '_' : ' '), W / 2, H * 0.36 + 72);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace';
+  ctx.fillText(`letters and numbers, up to ${NAME_MAX}  ·  ENTER to save${playerName() ? '  ·  ESC to cancel' : ''}`, W / 2, H * 0.36 + 108);
+  ctx.textAlign = 'left';
+}
+
 function updateTitle() {
   if (story.active) story.reset();
   hud.minimal = false;
   resumeAudio();
   if (_menuMuted) stopTitleMusic(); else startTitleMusic();
-  if (input.justPressed.space) { _openCharSelect(); return; }
+  if (input.swipe) { cycleBoard(input.swipe < 0 ? 1 : -1); return; }
+  if (input.justPressed.space) { _withName(() => _openCharSelect()); return; }
   if (!input.mouseJustClicked)  return;
 
   if (_hitBtn(_muteBtn.r)) {
@@ -433,8 +436,11 @@ function updateTitle() {
     return;
   }
 
-  if (_hitBtn(_titleBtns.start))   { _openCharSelect();                       return; }
-  if (_hitBtn(_titleBtns.story))   { _prologueDone() ? _openStoryMap() : _startStory(); return; }
+  if (_titleBoard && _hitBtn(_titleBoard.prev)) { cycleBoard(-1); return; }
+  if (_titleBoard && _hitBtn(_titleBoard.next)) { cycleBoard(1); return; }
+  if (_hitBtn(_titleBtns.name))    { _openName(null); return; }
+  if (_hitBtn(_titleBtns.start))   { _withName(() => _openCharSelect()); return; }
+  if (_hitBtn(_titleBtns.story))   { _withName(() => (_prologueDone() ? _openStoryMap() : _startStory())); return; }
   if (_hitBtn(_titleBtns.archive)) { state = STATES.ARCHIVE;                  return; }
   if (_hitBtn(_titleBtns.admin))   { adminPanel.open(); state = STATES.ADMIN; return; }
 }
@@ -526,6 +532,7 @@ function updatePlaying(dt) {
   for (const e of dead) {
     if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
     if (level && !e._levelCounted) { e._levelCounted = true; level.onKill(e); }
+    else if (!level && !story.inTutorial && e.type in CHROMA_VALUE) _runChroma[e.type] = (_runChroma[e.type] || 0) + 1;
     drain.spawn(e);
     hud.flashKill();
     sfxEnemyKill(e.type);
@@ -748,7 +755,7 @@ function updatePaused() {
       pauseQuitConfirm = false;
       stopAmbient();
       story.reset();
-      if (level) { bankChroma(level.chroma, 0.5); level = null; hud.minimal = false; state = STATES.STORY_MAP; return; }
+      if (level) { bankChroma(level.chroma, 0.5); syncPlayer(); level = null; hud.minimal = false; state = STATES.STORY_MAP; return; }
       state = STATES.TITLE;
     } else if (hit(_pauseBtns.confirmNo)) {
       pauseQuitConfirm = false;
@@ -977,7 +984,7 @@ function _handleKbdTap(initials, setFn, submitFn) {
           _kbdOverlayCb = null;
           submitFn();
         }
-      } else if (initials.length < 3) {
+      } else if (initials.length < NAME_MAX) {
         const v = initials + btn.key;
         setFn(v);
         if (_kbdOverlay) _kbdOverlayInput = v;
@@ -996,78 +1003,19 @@ function _openKbdOverlay(currentVal, setFn, submitFn) {
 
 function updateGameOver() {
   // Tick the input guard — ignore all input until it clears
-  if (_gameOverInputDelay > 0) {
-    _gameOverInputDelay -= 0.016; // approximate dt
-    return;
-  }
-  if (!initialsSubmitted) {
-    if (input.justPressed.space && initialsInput.length > 0) _submitScore();
-    if (_kbdOverlay) {
-      _handleKbdTap(_kbdOverlayInput, v => { initialsInput = v; _kbdOverlayInput = v; }, _submitScore);
-    } else {
-      _handleKbdTap(initialsInput, v => { initialsInput = v; }, _submitScore);
-      // Keyboard icon tap — detect via _kbdIconBtn
-      if (input.mouseJustClicked && _kbdIconBtn && 'ontouchstart' in window) {
-        const b = _kbdIconBtn;
-        if (input.mouseX >= b.x && input.mouseX <= b.x+b.w && input.mouseY >= b.y && input.mouseY <= b.y+b.h) {
-          _openKbdOverlay(initialsInput, v => { initialsInput = v; }, _submitScore);
-        }
-      }
-    }
-  } else {
-    if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
-  }
+  if (_gameOverInputDelay > 0) { _gameOverInputDelay -= 0.016; return; }
+  if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
 }
 
 function _enterWin() {
-  winInitials          = '';
-  winInitialsSubmitted = false;
-  _kbdBtns             = [];
-  _kbdOverlay          = false;
-  _kbdIconBtn          = null;
-  _winInputDelay       = 0.5;
-  if ('ontouchstart' in window) {
-    _kbdOverlay      = true;
-    _kbdOverlayInput = '';
-    _kbdOverlayCb    = {
-      setValue: v => { winInitials = v; },
-      submit:   _submitWinScore,
-    };
-  }
+  _winInputDelay = 0.5;
+  _postArcadeRun(waveSystem.finalScore, 15, waveSystem.completionTime);
   state = STATES.WIN;
 }
 
 function updateWin() {
   if (_winInputDelay > 0) { _winInputDelay -= 0.016; return; }
-  if (!winInitialsSubmitted) {
-    if (input.justPressed.space && winInitials.length > 0) _submitWinScore();
-    if (_kbdOverlay) {
-      _handleKbdTap(_kbdOverlayInput, v => { winInitials = v; _kbdOverlayInput = v; }, _submitWinScore);
-    } else {
-      _handleKbdTap(winInitials, v => { winInitials = v; }, _submitWinScore);
-      if (input.mouseJustClicked && _kbdIconBtn && 'ontouchstart' in window) {
-        const b = _kbdIconBtn;
-        if (input.mouseX >= b.x && input.mouseX <= b.x+b.w && input.mouseY >= b.y && input.mouseY <= b.y+b.h) {
-          _openKbdOverlay(winInitials, v => { winInitials = v; }, _submitWinScore);
-        }
-      }
-    }
-  } else {
-    if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
-  }
-}
-
-function _submitWinScore() {
-  const wd = waveSystem;
-  saveScore({
-    initials:  winInitials.padEnd(3, '_').slice(0, 3),
-    score:     wd.finalScore,
-    wave:      15,
-    platform:  _platform,
-    class:     player.classId || null,
-    time:      Math.floor(wd.completionTime),
-  });
-  winInitialsSubmitted = true;
+  if (input.justPressed.space || input.mouseJustClicked) state = STATES.TITLE;
 }
 
 function updateFragmentRescue() {
@@ -1106,19 +1054,6 @@ function updateAdmin() {
   if (!adminPanel.active) { updateZoom(); state = STATES.TITLE; }
 }
 
-function _submitScore() {
-  saveScore({
-    initials:  initialsInput.padEnd(3, '_').slice(0, 3),
-    score:     gameOverData.score,
-    wave:      gameOverData.wave || 0,
-    platform:  _platform,
-    class:     gameOverData.classId || null,
-    time:      Math.floor(gameOverData.time),
-  });
-  initialsSubmitted = true;
-  state = STATES.TITLE;
-}
-
 window.addEventListener('keydown', e => {
   // Admin panel gets first crack at keys when open
   if (state === STATES.ADMIN) {
@@ -1128,19 +1063,13 @@ window.addEventListener('keydown', e => {
     return;
   }
 
-  if (state === STATES.GAMEOVER && !initialsSubmitted) {
-    if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key) && initialsInput.length < 3)
-      initialsInput += e.key.toUpperCase();
-    if (e.key === 'Backspace') initialsInput = initialsInput.slice(0, -1);
-    if (e.key === 'Enter' && initialsInput.length > 0) _submitScore();
+  if (state === STATES.NAME_ENTRY) {
+    if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key) && _nameInput.length < NAME_MAX) _nameInput += e.key.toUpperCase();
+    if (e.key === 'Backspace') _nameInput = _nameInput.slice(0, -1);
+    if (e.key === 'Enter') _saveName();
+    if (e.key === 'Escape' && playerName()) _closeName();
   }
-
-  if (state === STATES.WIN && !winInitialsSubmitted) {
-    if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key) && winInitials.length < 3)
-      winInitials += e.key.toUpperCase();
-    if (e.key === 'Backspace') winInitials = winInitials.slice(0, -1);
-    if (e.key === 'Enter' && winInitials.length > 0) _submitWinScore();
-  }
+  if (state === STATES.TITLE && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) cycleBoard(e.key === 'ArrowLeft' ? -1 : 1);
 });
 
 window.addEventListener('wheel', e => {
@@ -1177,8 +1106,9 @@ function draw() {
     case STATES.PLAYING:         drawGame(W, H);           break;
     case STATES.PAUSED:          drawGame(W, H); drawPaused(W, H); break;
     case STATES.UPGRADE:         drawGame(W, H); upgradeUI.draw(ctx, canvas); break;
-    case STATES.GAMEOVER:        drawGameOver(W, H); if (_kbdOverlay) drawKbdOverlay(W, H); break;
-    case STATES.WIN:             drawWin(W, H);      if (_kbdOverlay) drawKbdOverlay(W, H); break;
+    case STATES.GAMEOVER:        drawGameOver(W, H);       break;
+    case STATES.WIN:             drawWin(W, H);            break;
+    case STATES.NAME_ENTRY:      drawNameEntry(W, H);      break;
     case STATES.FRAGMENT_RESCUE: drawGame(W, H); drawFragmentRescue(W, H); break;
     case STATES.CLASS_EMERGENCE: drawGame(W, H); drawClassEmergence(W, H); break;
     case STATES.ARCHIVE:         drawArchive(W, H);        break;
@@ -1766,6 +1696,7 @@ function _finishLevel() {
   const counts = { ...level.chroma };
   bankChroma(counts, 1);
   const rec = recordClear(level.id, level.agent);
+  syncPlayer();
   _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks, outcome: level.def.outcome };
   level = null;
   _levelEndDelay = 0.6;
@@ -2034,6 +1965,7 @@ function updateDying(dt) {
   if (_death.t < 2.3) return;
   if (level) {
     const kept = bankChroma(level.chroma, 0.5);
+    syncPlayer();
     _levelFail = { id: level.id, name: level.def.name, agent: level.agent, kept };
     level = null;
     _levelFailDelay = 0.4;
@@ -2594,82 +2526,20 @@ function drawTitle(W, H) {
     _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
 
-  // ── Leaderboard panel ─────────────────────────────────────
-  const scores  = loadScores();
-  const panelY  = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 18;
-  const panelW  = mobile ? W * 0.88 : Math.min(560, W * 0.58);
-  // Show as many rows (up to 5) as fit above the bottom of the screen
+  // ── Leaderboards: one at a time, ‹ › or swipe to cycle ──
+  const panelY = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 14;
+  const panelW = mobile ? W * 0.92 : Math.min(600, W * 0.62);
+  const panelX = W / 2 - panelW / 2;
+  // Your name (tap to change), then the board in the space left
+  const nm = playerName();
+  ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  const tag = nm ? `PLAYING AS ${nm}  ·  CHANGE` : 'CHOOSE A NAME';
+  const tw = ctx.measureText(tag).width;
+  _titleBtns.name = { x: W / 2 - tw / 2 - 8, y: panelY - 2, w: tw + 16, h: 20 };
+  ctx.fillStyle = '#7ADDD4';
+  ctx.fillText(tag, W / 2, panelY + 12);
   const bottomLimit = H - (mobile ? 118 : 24);
-  const maxRows = Math.max(0, Math.min(5, scores.length, Math.floor((bottomLimit - panelY - 34 - 20) / 16)));
-  const rowsH   = maxRows > 0 ? 14 + maxRows * 16 + 6 : 0;
-  const panelH  = 34 + rowsH;
-  const panelX  = W / 2 - panelW / 2;
-
-  ctx.fillStyle = 'rgba(7,11,18,0.80)';
-  ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, panelH, 4); ctx.fill();
-  ctx.strokeStyle = tealDim + '44'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, panelH, 4); ctx.stroke();
-  _drawSciFiCorners(panelX, panelY, panelW, panelH, 7, tealDim + '66');
-
-  ctx.fillStyle = tealDim; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(`— ${_platform.toUpperCase()} RECORDS —`, W / 2, panelY + 16);
-
-  // Column x positions (proportional within panel)
-  const _lbCols = {
-    name:  panelX + panelW * 0.04,
-    cls:   panelX + panelW * 0.18,
-    score: panelX + panelW * 0.56,
-    time:  panelX + panelW * 0.72,
-    wave:  panelX + panelW * 0.88,
-  };
-
-  if (maxRows > 0) {
-    // Header row
-    ctx.font      = 'bold 13px monospace';
-    ctx.fillStyle = '#5de8e8';
-    ctx.textAlign = 'left';
-    ctx.fillText('NAME', _lbCols.name,  panelY + 32);
-    ctx.fillText('CLASS',_lbCols.cls,   panelY + 32);
-    ctx.textAlign = 'right';
-    ctx.fillText('SCORE', _lbCols.score, panelY + 32);
-    ctx.fillText('TIME',  _lbCols.time,  panelY + 32);
-    ctx.fillText('WAVE',  _lbCols.wave,  panelY + 32);
-
-    // Underline
-    ctx.strokeStyle = '#5de8e866'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(panelX + 8,          panelY + 37);
-    ctx.lineTo(panelX + panelW - 8, panelY + 37);
-    ctx.stroke();
-
-    // Data rows
-    scores.slice(0, maxRows).forEach((s, i) => {
-      const classLabel = s.subclass ? `${s.class}/${s.subclass}` : (s.class && s.class !== 'Null' ? s.class : 'No Class');
-      const rowY  = panelY + 52 + i * 16;
-      const color = _scoreColor(s.score, i);
-      ctx.fillStyle = color;
-      ctx.font      = i === 0 ? 'bold 11px monospace' : '11px monospace';
-      ctx.textAlign = 'left';
-      const nameLabel = i === 0 ? '♛ ' + s.initials : s.initials;
-      ctx.fillText(nameLabel,                           _lbCols.name,  rowY);
-      // Class is clipped so it never runs into the score column
-      const scoreTxt = s.score.toLocaleString();
-      const clsMaxW  = _lbCols.score - ctx.measureText(scoreTxt).width - 10 - _lbCols.cls;
-      let cls = classLabel.toUpperCase();
-      if (ctx.measureText(cls).width > clsMaxW) {
-        while (cls.length > 1 && ctx.measureText(cls + '…').width > clsMaxW) cls = cls.slice(0, -1);
-        cls += '…';
-      }
-      ctx.fillText(cls,                                 _lbCols.cls,   rowY);
-      ctx.textAlign = 'right';
-      ctx.fillText(scoreTxt,                            _lbCols.score, rowY);
-      ctx.fillText(s.time != null ? formatTime(s.time) : '—', _lbCols.time, rowY);
-      ctx.fillText(s.wave != null ? s.wave : '—',       _lbCols.wave,  rowY);
-    });
-  } else {
-    ctx.fillStyle = '#4A5068'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-    ctx.fillText(scores.length ? '' : 'no records yet', W / 2, panelY + 30);
-  }
+  _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile);
 
   // ── Controls hint box (mobile only) ──────────────────────
   if (mobile) {
@@ -2687,7 +2557,7 @@ function drawTitle(W, H) {
   }
 
   // ── Version ───────────────────────────────────────────────
-  if (panelY + panelH < H - 22) {
+  if (_titleBoard.rect.y + _titleBoard.h < H - 22) {
     ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
     ctx.fillText('v0.3.0', W / 2, H - 8);
   }
@@ -3839,7 +3709,7 @@ function drawWin(W, H) {
   const touch   = 'ontouchstart' in window;
   const titleFs = Math.round(Math.max(24, Math.min(54, W * 0.075, H * 0.08)));
   const lineGap = H < 520 ? 18 : 22;
-  const promptH = winInitialsSubmitted ? 56 : (touch ? 136 : 72);
+  const promptH = 92;
   const blockH  = titleFs + 26 + 32 + lineGap * 3 + 4 + 50 + 30 + promptH;
   const cy      = Math.max(titleFs + 8, (H - blockH) / 2 + titleFs);
 
@@ -3915,57 +3785,37 @@ function drawWin(W, H) {
   ctx.shadowBlur  = 0;
   ly += 50;
 
-  // Class
-  const classLabel = player.subclassId
-    ? `${player.classId || 'Null'} / ${player.subclassId}`
-    : (player.classId || 'Null');
-  ctx.fillStyle = '#C4C8D4';
+  // Agent
+  ctx.fillStyle = AGENT_COLOR[selectedCharacter] || '#C4C8D4';
   ctx.font      = '15px monospace';
-  ctx.fillText(`Class: ${classLabel.toUpperCase()}`, W / 2, ly);
+  ctx.fillText(`${playerName() || 'ANON'}  ·  ${selectedCharacter.toUpperCase()}`, W / 2, ly);
   ly += 30;
 
-  // Initials entry
-  if (!winInitialsSubmitted) {
-    ctx.fillStyle = '#C4C8D4';
-    ctx.font      = '15px monospace';
-    ctx.fillText('ENTER YOUR INITIALS', W / 2, ly);
-    ctx.shadowBlur  = 10;
-    ctx.shadowColor = '#5200ff';
-    ctx.fillStyle   = '#FFFFFF';
-    ctx.font        = 'bold 30px monospace';
-    ctx.fillText(winInitials.padEnd(3, '_').split('').join(' '), W / 2, ly + 36);
-    ctx.shadowBlur  = 0;
-    ctx.fillStyle   = '#C4C8D4';
-    ctx.font        = '12px monospace';
-    if (touch) {
-      ctx.fillText('tap ⌨ to enter initials', W / 2, ly + 64);
-      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = ly + 76;
-      _kbdIconBtn = { x: ibX, y: ibY, w: ibW, h: ibH };
-      ctx.fillStyle   = 'rgba(0,137,123,0.25)';
-      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.fill();
-      ctx.strokeStyle = '#00897B'; ctx.lineWidth = 1.5;
-      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.stroke();
-      ctx.fillStyle = '#00E5CC'; ctx.font = '26px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('⌨', ibX + ibW/2, ibY + ibH/2 + 9);
-      _kbdBtns = [];
-    } else {
-      ctx.fillText('type 3 letters · ENTER to confirm', W / 2, ly + 64);
-      _kbdBtns = [];
-    }
-  } else {
-    ctx.shadowBlur  = 10;
-    ctx.shadowColor = '#00e5ff';
-    ctx.fillStyle   = '#00e5ff';
-    ctx.font        = 'bold 20px monospace';
-    ctx.fillText('SCORE RECORDED', W / 2, ly + 18);
-    ctx.shadowBlur  = 0;
-    ctx.fillStyle = '#5ddbb4';
-    ctx.font      = '15px monospace';
-    ctx.fillText(touch ? 'TAP TO RETURN TO MENU' : 'PRESS SPACE TO RETURN TO MENU', W / 2, ly + 46);
-    _kbdBtns = [];
-  }
-
+  _drawRunResult(W, ly, '#00e5ff');
   ctx.textAlign = 'left';
+}
+
+// Under a finished Arcade run: its rank on this platform (all time and this
+// week) and the personal best, then how to leave
+function _drawRunResult(W, y, accent) {
+  const touch = 'ontouchstart' in window;
+  const r = _arcadeResult, pb = _arcadePB || {};
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 20px monospace';
+  ctx.shadowBlur = 10; ctx.shadowColor = accent; ctx.fillStyle = accent;
+  const plat = PLATFORM.toUpperCase();
+  const rankTxt = !r ? 'RANKING…'
+    : r.offline ? 'SAVED ON THIS DEVICE'
+    : r.rank ? `RANK #${r.rank}  ·  ${plat}` : 'SCORE RECORDED';
+  ctx.fillText(rankTxt, W / 2, y + 14);
+  ctx.shadowBlur = 0;
+  ctx.font = '13px monospace'; ctx.fillStyle = '#A0A4B0';
+  const sub = r && r.offline ? 'leaderboard offline' : r && r.weekRank ? `#${r.weekRank} this week` : '';
+  if (sub) ctx.fillText(sub, W / 2, y + 34);
+  if (pb.isBest) { ctx.fillStyle = '#E8A020'; ctx.font = 'bold 15px monospace'; ctx.fillText('NEW PERSONAL BEST', W / 2, y + 56); }
+  else { ctx.fillStyle = '#C4C8D4'; ctx.font = '13px monospace'; ctx.fillText(`personal best  ${(pb.prev || 0).toLocaleString()}`, W / 2, y + 56); }
+  ctx.fillStyle = '#7A8090'; ctx.font = '12px monospace';
+  ctx.fillText(touch ? 'TAP TO RETURN TO MENU' : 'PRESS SPACE TO RETURN TO MENU', W / 2, y + 82);
 }
 
 // ── Fragment rescue screen ────────────────────────────────────
@@ -4218,12 +4068,14 @@ function drawKbdOverlay(W, H) {
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#7ADDD4'; ctx.font = '13px monospace';
-  ctx.fillText('ENTER YOUR INITIALS', W / 2, H * 0.18);
+  ctx.fillText(playerName() ? 'CHANGE YOUR NAME' : 'CHOOSE YOUR NAME', W / 2, H * 0.18);
+  ctx.fillStyle = '#5E8C96'; ctx.font = '11px monospace';
+  ctx.fillText('shown on the leaderboards', W / 2, H * 0.18 + 16);
 
-  // Initials display
+  // Name so far
   ctx.shadowBlur = 10; ctx.shadowColor = '#00E5CC';
-  ctx.fillStyle  = '#FFFFFF'; ctx.font = 'bold 38px monospace';
-  ctx.fillText(_kbdOverlayInput.padEnd(3, '_').split('').join('  '), W / 2, H * 0.18 + 46);
+  ctx.fillStyle  = '#FFFFFF'; ctx.font = 'bold 30px monospace';
+  ctx.fillText(_kbdOverlayInput + (_kbdOverlayInput.length < NAME_MAX ? '_' : ''), W / 2, H * 0.18 + 52, W - 24);
   ctx.shadowBlur = 0;
 
   // Keyboard
@@ -4267,7 +4119,7 @@ function drawGameOver(W, H) {
   const titleFs = Math.round(Math.max(24, Math.min(52, W * 0.075, H * 0.08)));
   const rowH   = tight ? 18 : 22;
   const statFs = tight ? 13 : 15;
-  const promptH = initialsSubmitted ? 56 : (touch ? 136 : 72);
+  const promptH = 92;
   const blockH = titleFs + 26 + 22 + rowH * 6 + 18 + promptH;
   const cy     = Math.max(titleFs + 8, (H - blockH) / 2 + titleFs);
 
@@ -4276,11 +4128,8 @@ function drawGameOver(W, H) {
   _fitFont('SIGNAL COLLAPSE', W - 32, titleFs, 'bold ');
   ctx.fillText('SIGNAL COLLAPSE', W/2, cy); ctx.shadowBlur = 0;
 
-  const classLabel = gameOverData.subclass
-    ? `${gameOverData.classId || 'None'} / ${gameOverData.subclass}`
-    : (gameOverData.classId || 'None');
-  ctx.fillStyle = '#C4C8D4'; ctx.font = '12px monospace';
-  ctx.fillText(`class: ${classLabel.toUpperCase()}`, W/2, cy + 24);
+  ctx.fillStyle = AGENT_COLOR[gameOverData.agent] || '#C4C8D4'; ctx.font = '12px monospace';
+  ctx.fillText(`${(playerName() || 'ANON')}  ·  ${String(gameOverData.agent || '').toUpperCase()}`, W/2, cy + 24);
 
   const statsY = cy + 24 + 22;
   [['SCORE',    gameOverData.score.toLocaleString()],
@@ -4298,37 +4147,7 @@ function drawGameOver(W, H) {
   });
 
   const iy = statsY + rowH * 6 + 18;
-  ctx.textAlign = 'center';
-  if (!initialsSubmitted) {
-    ctx.fillStyle = '#C4C8D4'; ctx.font = '15px monospace';
-    ctx.fillText('ENTER YOUR INITIALS', W/2, iy);
-    ctx.shadowBlur = 10; ctx.shadowColor = '#FFFFFF';
-    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 30px monospace';
-    ctx.fillText(initialsInput.padEnd(3, '_').split('').join(' '), W/2, iy + 36);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#C4C8D4'; ctx.font = '12px monospace';
-    if (touch) {
-      ctx.fillText('tap ⌨ to enter initials', W/2, iy + 64);
-      const ibW = 52, ibH = 52, ibX = W/2 - ibW/2, ibY = iy + 76;
-      _kbdIconBtn = { x: ibX, y: ibY, w: ibW, h: ibH };
-      ctx.fillStyle   = 'rgba(0,137,123,0.25)';
-      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.fill();
-      ctx.strokeStyle = '#00897B'; ctx.lineWidth = 1.5;
-      _roundRect(ibX, ibY, ibW, ibH, 8); ctx.stroke();
-      ctx.fillStyle = '#00E5CC'; ctx.font = '26px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('⌨', ibX + ibW/2, ibY + ibH/2 + 9);
-      _kbdBtns = [];
-    } else {
-      ctx.fillText('type 3 letters · ENTER to confirm', W/2, iy + 64);
-      _kbdBtns = [];
-    }
-  } else {
-    ctx.fillStyle = '#B8882A'; ctx.font = 'bold 22px monospace';
-    ctx.fillText('SCORE RECORDED', W/2, iy + 18);
-    ctx.fillStyle = '#C4C8D4'; ctx.font = '15px monospace';
-    ctx.fillText(touch ? 'TAP TO RETURN TO MENU' : 'PRESS SPACE TO RETURN TO MENU', W/2, iy + 46);
-    _kbdBtns = [];
-  }
+  _drawRunResult(W, iy, '#B8882A');
   ctx.textAlign = 'left';
 }
 
@@ -4343,4 +4162,4 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(ts => { lastTime = ts; requestAnimationFrame(loop); });
-_refreshScores();
+refreshBoard();

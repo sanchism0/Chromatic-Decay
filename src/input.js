@@ -162,6 +162,11 @@ export class Input {
         const start = this._touchStartPos[t.identifier];
         delete this._touchStartPos[t.identifier];
 
+        // A quick sideways drag is a swipe (menus page through with it)
+        if (start && Math.abs(x - start.x) > 60 && Math.abs(x - start.x) > 1.5 * Math.abs(y - start.y)) {
+          this._swipePending = x < start.x ? -1 : 1;
+        }
+
         // Tap detection: finger didn't move much → treat as mouse click
         if (start && Math.hypot(x - start.x, y - start.y) < 20) {
           this.mouseX = x;
@@ -221,6 +226,8 @@ export class Input {
     this._prevE      = this.keys.e;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
     this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;
+    this.swipe                    = this._swipePending || 0;   // -1 left, 1 right, for one frame
+    this._swipePending            = 0;
 
     this._prevEscape       = this.keys.escape;
     this._prevSpace        = this.keys.space;
