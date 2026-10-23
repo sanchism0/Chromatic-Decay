@@ -43,7 +43,7 @@ function updateZoom() {
 
   // Base zoom by screen size — desktop unchanged
   let z;
-  if      (!mobile)      z = CONFIG.camera_zoom;  // PC always uses config value
+  if      (!mobile)      z = CONFIG.camera_zoom_desktop;  // PC always uses its own config value
   else if (minDim < 400) z = 1.3;
   else if (minDim < 600) z = 1.5;
   else if (minDim < 900) z = 1.65;
@@ -1083,7 +1083,7 @@ function updateArchive() {
 
 function updateAdmin() {
   // Admin panel handles its own input via key/click events
-  if (!adminPanel.active) state = STATES.TITLE;
+  if (!adminPanel.active) { updateZoom(); state = STATES.TITLE; }
 }
 
 function _submitScore() {
@@ -1104,7 +1104,7 @@ window.addEventListener('keydown', e => {
   if (state === STATES.ADMIN) {
     const consumed = adminPanel.handleKey(e);
     if (consumed) return;
-    if (!adminPanel.active) state = STATES.TITLE;
+    if (!adminPanel.active) { updateZoom(); state = STATES.TITLE; }
     return;
   }
 
@@ -1130,7 +1130,7 @@ window.addEventListener('wheel', e => {
 canvas.addEventListener('click', e => {
   if (state === STATES.ADMIN) {
     adminPanel.handleClick(e.offsetX, e.offsetY, canvas);
-    if (!adminPanel.active) state = STATES.TITLE;
+    if (!adminPanel.active) { updateZoom(); state = STATES.TITLE; }
   }
 });
 

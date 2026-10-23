@@ -45,7 +45,7 @@ const FIELD_GROUPS = [
   {
     label: 'CAMERA',
     fields: [
-      { key: 'camera_zoom', label: 'Zoom', type: 'number', min: 1.0, max: 4.0, step: 0.1 },
+      { key: 'camera_zoom_desktop', label: 'Zoom (PC)', type: 'number', min: 1.0, max: 4.0, step: 0.05 },
     ],
   },
   {

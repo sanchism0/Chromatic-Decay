@@ -136,7 +136,8 @@ export const CONFIG = {
   max_particles: 600,
 
   // ── Camera ───────────────────────────────────────────────────
-  camera_zoom: 1.7,   // how many world px = 1 screen px (higher = more zoomed in)
+  camera_zoom: 1.7,   // how many world px = 1 screen px (higher = more zoomed in); large tablets
+  camera_zoom_desktop: 1.95,   // PC: a little closer, so less of the map shows at once
 
   // ── Lore feed ────────────────────────────────────────────────
   lore_hold_duration: 3.5,   // seconds blurb stays visible
