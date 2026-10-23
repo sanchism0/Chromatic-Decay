@@ -5,6 +5,7 @@ import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR } from './level.js';
+import { GrenadeSystem, GRENADE_CD } from './grenade.js';
 import { profile, bankChroma, recordClear, hasSignature, unlockSignature, levelUnlocked, timesCleared } from './profile.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
@@ -101,6 +102,7 @@ let state = STATES.TITLE;
 // ── Systems ───────────────────────────────────────────────────
 
 const input       = new Input(canvas);
+const grenades    = new GrenadeSystem();
 const camera      = new Camera();
 const particles   = new ParticleSystem();
 const drain       = new DrainSystem();
@@ -253,6 +255,7 @@ function startRun(opts = {}) {
   drain.reset();
   echoes.reset();
   projectiles.reset();
+  grenades.reset();
   lore.reset();
   lore.enabled = !tutorial && !levelId;   // the operator does the talking in Story
   upgradeUI.takenIds    = [];
@@ -449,6 +452,18 @@ function updatePlaying(dt) {
   if (input.mouseJustClicked && _hitBtn(_sigBtn.r) && player.signature && player.signatureCooldown <= 0 && !player.beaming) {
     player._useSignature(projectiles);
   }
+  // Stun grenade (Dex, from a Story power-up): right-click / E at the cursor,
+  // or its button on touch, toward where you're aiming
+  player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
+  if (player.grenade && player.grenadeCooldown <= 0 && !player.beaming &&
+      (input.justPressed.throw || (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)))) {
+    const ap = player._aimPoint;
+    const touchAim = 'ontouchstart' in window || !ap;
+    const tx = touchAim ? player.x + Math.cos(player.facing) * 190 : ap.x;
+    const ty = touchAim ? player.y + Math.sin(player.facing) * 190 : ap.y;
+    grenades.throw(player.x, player.y - 8, tx, ty);
+    player.grenadeCooldown = GRENADE_CD;
+  }
   const _px = player.x, _py = player.y;
 
   elapsed += dt;
@@ -537,6 +552,8 @@ function updatePlaying(dt) {
       particles.classEmergence(e.x, e.y, '#fff5c2');
     }
   }
+
+  grenades.update(dt, enemies);
 
   // Projectiles
   projectiles.update(dt, map, player);
@@ -1338,6 +1355,7 @@ function drawGame(W, H) {
     // Echoes behind a rack (inside its footprint or its raised top face)
     echoes.drawHidden(ctx, e => map.obstacles.some(o =>
       e.x > o.x - 10 && e.x < o.x + o.w + 10 && e.y < o.y + o.h + 6 && e.y > o.y - rackHeight(o) - 18));
+
   }
 
   // ── Additive glow pass — halos bloom where they overlap and show through racks ──
@@ -1347,6 +1365,10 @@ function drawGame(W, H) {
   enemies.drawHalos(ctx);
   player.drawHalo(ctx);
   ctx.restore();
+
+  // Grenades fly over the racks, and their smoke has to read over the glow,
+  // so they're drawn last
+  grenades.draw(ctx, enemies.enemies);
 
   // ── Charging zones (pre-spawn indicators) ────────────────
   if (waveSystem && waveSystem.pendingSpawns.length > 0) {
@@ -1398,6 +1420,7 @@ function drawGame(W, H) {
   if (level) level.drawHud(ctx, W, H, 'ontouchstart' in window, (x, y) => [(x - camera.x) * ZOOM, (y - camera.y) * ZOOM]);
   _drawAutoFireBtn(W, H);
   _drawSignature(W, H);
+  _drawGrenade(W, H);
   _drawLastEnemyArrow(W, H);
 
   // ── Off-screen enemy indicators (last 20s of wave) ───────────
@@ -1514,7 +1537,8 @@ input.uiHit = (x, y) => state === STATES.PLAYING &&
   ((_autoBtn.r && x >= _autoBtn.r.x && x <= _autoBtn.r.x + _autoBtn.r.w &&
     y >= _autoBtn.r.y && y <= _autoBtn.r.y + _autoBtn.r.h) || story.radio.hit(x, y) ||
    (level && level.radio.hit(x, y)) ||
-   (_sigBtn.r && x >= _sigBtn.r.x && x <= _sigBtn.r.x + _sigBtn.r.w && y >= _sigBtn.r.y && y <= _sigBtn.r.y + _sigBtn.r.h));
+   (_sigBtn.r && x >= _sigBtn.r.x && x <= _sigBtn.r.x + _sigBtn.r.w && y >= _sigBtn.r.y && y <= _sigBtn.r.y + _sigBtn.r.h) ||
+   (_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h));
 
 function _drawAutoFireBtn(W, H) {
   const touch = 'ontouchstart' in window;
@@ -1926,7 +1950,7 @@ function drawPowerUp(W, H) {
   _drawReward(W, H, {
     color: AGENT_COLOR[level.agent], top: 'THE CHARGE IN YOUR EMITTER SETTLES INTO SOMETHING NEW.',
     label: `POWER UP  ·  ${level.powers.length + 1} / 3`, name: pu.name, desc: pu.desc,
-    hint: 'Lasts for the rest of this level.', button: 'NICE',
+    hint: pu.hint || 'Lasts for the rest of this level.', button: 'NICE',
   });
 }
 
@@ -2101,6 +2125,37 @@ function _signatureEffects(who) {
       e.stunTimer = Math.max(e.stunTimer || 0, 0.8);
     }
   }
+}
+
+// Grenade HUD: beside the signature readout (desktop), or a button above the
+// signature button (touch)
+const _grenadeBtn = { r: null };
+function _drawGrenade(W, H) {
+  _grenadeBtn.r = null;
+  if (!player || !player.grenade) return;
+  const col = '#B6FF2E';
+  const touch = 'ontouchstart' in window;
+  const cd = player.grenadeCooldown || 0, ready = cd <= 0;
+  if (touch) {
+    const w = 100, h = 34, x = (W - w) / 2;
+    const y = H - 34 - 34 - h - 12 - (player.signature ? h + 12 : 0);
+    _grenadeBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'GRENADE' : `${Math.ceil(cd)}s`, {
+      accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
+    });
+    return;
+  }
+  const bw = 120;
+  const x = player.signature ? Math.round(W / 2 + 140) : Math.round(W / 2 - bw / 2 - 30), y = H - 30;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = ready ? col : '#6E7A88';
+  ctx.font = 'bold 13px monospace';
+  ctx.fillText('STUN GRENADE', x, y);
+  ctx.fillStyle = '#1E2130'; ctx.fillRect(x, y + 6, bw, 4);
+  ctx.fillStyle = ready ? col : '#4A5070';
+  ctx.fillRect(x, y + 6, bw * (ready ? 1 : 1 - cd / GRENADE_CD), 4);
+  ctx.fillStyle = ready ? '#FFFFFF' : '#6E7A88';
+  ctx.font = '11px monospace';
+  ctx.fillText(ready ? 'RMB / E' : `${Math.ceil(cd)}s`, x + bw + 8, y + 11);
 }
 
 // Signature HUD: name, cooldown and key (desktop), or a button (touch)

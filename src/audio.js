@@ -479,3 +479,22 @@ export function sfxDeath() {
     for (let i = 0; i < 5; i++) _osc('square', 1800 + i * 260, t + at + 0.06 + i * 0.05, 0.05, 0.025);
   }
 }
+
+// ── Stun grenade ──────────────────────────────────────────────
+export function sfxGrenadeThrow() {
+  const t = _ac().currentTime;
+  _noise(t, 0.18, 0.06, 900, 0.6);          // whoosh
+  _osc('square', 520, t, 0.05, 0.03, 380);  // pin click
+}
+
+// A thump, then electricity crackling for a moment
+export function sfxGrenadeBurst() {
+  const t = _ac().currentTime;
+  _osc('sine', 160, t, 0.35, 0.22, 45);
+  _noise(t, 0.25, 0.14, 700, 0.8);
+  for (let i = 0; i < 9; i++) {
+    const at = t + 0.02 + Math.random() * 0.4;
+    _noise(at, 0.03 + Math.random() * 0.03, 0.09, 3500 + Math.random() * 3000, 2);
+    if (i % 3 === 0) _osc('square', 1200 + Math.random() * 900, at, 0.04, 0.03, 300);
+  }
+}

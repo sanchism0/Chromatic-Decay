@@ -217,6 +217,8 @@ class Enemy {
   }
 
   takeDamage(amount) {
+    // Jammed by a stun grenade: takes 50% more
+    if (this.jammed > 0) amount *= 1.5;
     // Track low-HP state before deducting (used by Frequency Shatter)
     this.wasBelow25 = (this.hp / this.maxHp) < 0.25;
     this.hp -= amount;
@@ -231,6 +233,7 @@ class Enemy {
   update(dt, player, map, projectileSystem) {
     if (!this.alive) return;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
+    if (this.jammed > 0) this.jammed = Math.max(0, this.jammed - dt);
     if (this.forming) { this.spawnT += dt; return; }
 
     // Stun check — skip all movement and firing while stunned

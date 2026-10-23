@@ -23,7 +23,8 @@ const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
 export const POWERUPS = {
   dex: [
     { name: 'HEAVY BURSTS',    desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
-    { name: 'PIERCING ROUNDS', desc: 'Rounds pass through one enemy.',                apply: p => { p.piercingShots += 1; } },
+    { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; },
+      hint: 'Right-click or E to throw it. On a phone, use its button.' },
     { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
   ],
   juno: [
@@ -306,15 +307,19 @@ export class LevelRun {
     this.charge = this.relays.reduce((s, r) => s + (r.done ? 1 : r.charge), 0) / b.count;
     if (charging && Math.random() < dt * 22) this.motes.push({ x: charging.x, y: charging.y - 18, t: 0, s: Math.random() });
 
-    // Interrupters: keep a few Chromatics coming, more as the work goes on
+    // Interrupters: pairs of violets arriving from anywhere on the map (not
+    // at the relays), a little more often after each relay
     const done = this.relays.filter(r => r.done).length;
     const cap = 3 + done;
     this.spawnT -= dt;
     if (this.spawnT <= 0 && es.length < cap) {
-      const target = charging || this.relays.find(r => !r.done) || pl;
-      const type = done > 0 && Math.random() < 0.35 ? 'yellow' : 'violet';
-      this._spawnGroup([[type, Math.random() < 0.4 ? 2 : 1]], target);
-      this.spawnT = 2.6 - done * 0.3;
+      const map = this.api.map();
+      const at = map.randomSpawn(pl.x, pl.y, es.map(e => ({ x: e.x, y: e.y })), 320, 90);
+      for (let i = 0; i < 2; i++) {
+        const p = freeSpot(map, at.x + (i ? 26 : -26), at.y + (Math.random() - 0.5) * 30, 22);
+        this.api.spawnEnemy('violet', p.x, p.y);
+      }
+      this.spawnT = 4.5 - done * 0.4;
     }
     if (done >= b.count) { this.charging = null; this._finishBeat(); }
   }
@@ -457,6 +462,35 @@ export class LevelRun {
     const x = Math.round(e.x), y = Math.round(e.y);
     const pulse = 0.6 + 0.4 * Math.sin(t * 3);
     ctx.save();
+    // Light spilling onto the floor in front of the door, so it stands out
+    // from the room: a soft pool, a fan of rays from the seam, and faint lit
+    // scanlines across the floor
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.save();
+    ctx.translate(e.x, y + 16);
+    ctx.scale(1, 0.42);
+    const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, 80);
+    pool.addColorStop(0, this.color); pool.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.6 * (0.75 + 0.25 * pulse);
+    ctx.fillStyle = pool;
+    ctx.beginPath(); ctx.arc(0, 0, 80, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    for (const [spread, a] of [[-28, 0.22], [0, 0.34], [28, 0.22]]) {
+      const ray = ctx.createLinearGradient(0, y + 4, 0, y + 46);
+      ray.addColorStop(0, this.color); ray.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = a * (0.7 + 0.3 * pulse);
+      ctx.fillStyle = ray;
+      ctx.beginPath(); ctx.moveTo(x - 3, y + 5); ctx.lineTo(x + 3, y + 5);
+      ctx.lineTo(x + spread + 9, y + 46); ctx.lineTo(x + spread - 9, y + 46); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = this.color;
+    for (let k = 0; k < 7; k++) {
+      const ly = y + 9 + k * 5, half = 30 - k * 2.5;
+      ctx.globalAlpha = (0.42 - k * 0.05) * (0.75 + 0.25 * pulse);
+      ctx.fillRect(Math.round(x - half), ly, Math.round(half * 2), 1);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#141B24'; ctx.fillRect(x - 20, y - 40, 40, 46);       // frame
     ctx.fillStyle = '#2C3A48'; ctx.fillRect(x - 17, y - 37, 34, 42);       // door
     ctx.fillStyle = '#3E5163'; ctx.fillRect(x - 17, y - 37, 34, 3);
