@@ -2339,8 +2339,11 @@ function drawCharSelect(W, H) {
   // Arcade: what's in the shared deck. Story: the other one stays on comms.
   let sub = 'The other one stays on the radio.';
   if (_csMode === 'arcade') {
-    const deck = STORY_CARDS.filter(c => hasCard(c.who, c.id)).map(c => c.name);
-    sub = deck.length ? `Story cards in the deck: ${deck.join(' · ')}` : 'No Story cards yet. Earn them in Story Mode.';
+    // X of Y: cards collected out of those the Story levels can award
+    const all = Object.values(LEVEL_CARDS).flatMap(row => Object.entries(row).map(([who, c]) => [who, c.id]));
+    const got = all.filter(([who, id]) => hasCard(who, id)).length;
+    sub = got >= all.length ? `STORY CARDS ${got}/${all.length}  ·  Every custom ability is in your deck`
+                            : `STORY CARDS ${got}/${all.length}  ·  Play Story Mode to add custom abilities`;
   }
   _fitFont(sub, W - 32, short ? 11 : 13, '');
   ctx.fillText(sub, W / 2, headY + (short ? 18 : 26));
