@@ -312,18 +312,18 @@ export class LevelRun {
     if (charging && Math.random() < dt * 22) this.motes.push({ x: charging.x, y: charging.y - 18, t: 0, s: Math.random() });
 
     // Interrupters: pairs of violets arriving from anywhere on the map (not
-    // at the relays), a little more often after each relay
+    // at the relays), never more than 4 on the floor at once, at a steady pace
     const done = this.relays.filter(r => r.done).length;
-    const cap = 3 + done;
+    const cap = 4;
     this.spawnT -= dt;
     if (this.spawnT <= 0 && es.length < cap) {
       const map = this.api.map();
       const at = map.randomSpawn(pl.x, pl.y, es.map(e => ({ x: e.x, y: e.y })), 320, 90);
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < Math.min(2, cap - es.length); i++) {
         const p = freeSpot(map, at.x + (i ? 26 : -26), at.y + (Math.random() - 0.5) * 30, 22);
         this.api.spawnEnemy('violet', p.x, p.y);
       }
-      this.spawnT = 4.5 - done * 0.4;
+      this.spawnT = 4.5;
     }
     if (done >= b.count) { this.charging = null; this._finishBeat(); }
   }
