@@ -268,11 +268,9 @@ export class WaveSystem {
   _onWin() {
     this.gameWon        = true;
     this.completionTime = this.totalTime;
-    const secondsUnder  = CONFIG.target_time_seconds - this.completionTime;
-    this.timeBonus      = secondsUnder > 0
-      ? Math.round(secondsUnder * CONFIG.time_bonus_per_second)
-      : 0;
-    this.finalScore     = this.killScore + this.timeBonus;
+    // No finishing-time bonus for now: the final score is what the run earned
+    this.timeBonus      = 0;
+    this.finalScore     = this.killScore;
     this.active         = false; // stop stopwatch
   }
 

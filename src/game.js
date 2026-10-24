@@ -3793,13 +3793,12 @@ function drawWin(W, H) {
   ctx.globalAlpha = 1;
 
   const wd          = waveSystem;
-  const underTarget = wd.completionTime < CONFIG.target_time_seconds;
   // Everything is centred as one block that fits the screen height
   const touch   = 'ontouchstart' in window;
   const titleFs = Math.round(Math.max(24, Math.min(54, W * 0.075, H * 0.08)));
   const lineGap = H < 520 ? 18 : 22;
   const promptH = 92;
-  const blockH  = titleFs + 26 + 32 + lineGap * 3 + 4 + 50 + 30 + promptH;
+  const blockH  = titleFs + 26 + 32 + lineGap * 2 + 4 + 50 + 30 + promptH;
   const cy      = Math.max(titleFs + 8, (H - blockH) / 2 + titleFs);
 
   // Pulse glow behind title
@@ -3838,19 +3837,6 @@ function drawWin(W, H) {
   ctx.fillStyle = '#C4C8D4';
   ctx.font      = '12px monospace';
   ctx.fillText(`Completion time:  ${_formatMMSS(wd.completionTime)}`, W / 2, ly);
-  ly += lineGap;
-
-  if (underTarget) {
-    const secondsUnder = CONFIG.target_time_seconds - wd.completionTime;
-    ctx.fillStyle = '#B8882A';
-    const bonusTxt = `Time bonus:  +${wd.timeBonus.toLocaleString()} pts  (${_formatMMSS(secondsUnder)} under target)`;
-    _fitFont(bonusTxt, W - 32, 12, '');
-    ctx.fillText(bonusTxt, W / 2, ly);
-    ctx.font = '12px monospace';
-  } else {
-    ctx.fillStyle = '#A0A4B0';
-    ctx.fillText('Time bonus:  —  (target: 15:00)', W / 2, ly);
-  }
   ly += lineGap;
 
   ctx.fillStyle = '#C4C8D4';

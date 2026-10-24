@@ -50,7 +50,7 @@ export const CONFIG = {
       wavelength_nm:        575,
     },
     green: {
-      base_hp:              60,
+      base_hp:              30,       // halved once greens became blinking turrets
       move_speed:           102,      // 3 × 60, −20%, −17%, −15%
       aggro_range:          200,
       projectile_damage:    12,
