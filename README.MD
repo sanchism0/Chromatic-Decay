@@ -33,7 +33,7 @@ touch controls).
 | Move / aim | WASD + mouse | left stick / right stick |
 | Fire | automatic (Q to toggle) | automatic (AUTO to toggle) |
 | Dash | Space or click (toward the cursor) | DASH |
-| Abilities | E, F | ability buttons |
+| Abilities | E, F (grenade lands at the cursor) | ability buttons (press the grenade's and drag to aim) |
 | Comms | Space or Enter | tap the box |
 
 ## Stack

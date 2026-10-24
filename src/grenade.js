@@ -13,7 +13,8 @@ const FLIGHT    = 0.55;           // seconds in the air
 const ARC       = 46;             // peak height of the lob, world px
 const RADIUS    = 75;             // burst radius
 const STUN      = 1.5;            // seconds stunned and jammed (bosses: less)
-const MAX_RANGE = 280, MIN_RANGE = 40;
+export const GRENADE_RANGE = 280, GRENADE_RADIUS = 75;
+const MAX_RANGE = GRENADE_RANGE, MIN_RANGE = 40;
 const COLOR     = '#B6FF2E';      // Dex's green
 
 // A jagged line from (x0, y0) to (x1, y1), as points; seed keeps it steady

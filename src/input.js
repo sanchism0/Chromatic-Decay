@@ -27,6 +27,11 @@ export class Input {
     // On-screen buttons register a hit test here so a touch on them is a tap,
     // not the start of a joystick
     this.uiHit = null;
+    // Buttons you press and drag (the grenade on touch: drag to where it
+    // lands, let go to throw). dragHit(x, y) says whether a touch starts one
+    this.dragHit = null;
+    this._btnDrag = null;           // { id, x0, y0, x, y } while held
+    this.btnDragRelease = null;     // { dx, dy } for one frame when let go
 
     // Mouse state (screen coords)
     this.mouseX = 0;
@@ -125,7 +130,11 @@ export class Input {
         this.mouseY = y;
         this._touchStartPos[t.identifier] = { x, y };
 
-        // On-screen button → leave it to the tap
+        // Drag button → aim it; on-screen button → leave it to the tap
+        if (this.dragHit && !this._btnDrag && this.dragHit(x, y)) {
+          this._btnDrag = { id: t.identifier, x0: x, y0: y, x, y };
+          continue;
+        }
         if (this.uiHit && this.uiHit(x, y)) continue;
 
         // Left half → move joystick
@@ -146,6 +155,7 @@ export class Input {
       e.preventDefault();
       for (const t of e.changedTouches) {
         const { x, y } = getCanvasPos(t);
+        if (this._btnDrag && t.identifier === this._btnDrag.id) { this._btnDrag.x = x; this._btnDrag.y = y; }
         if (this._leftTouch  && t.identifier === this._leftTouch.id)  {
           this._leftTouch.curX  = x; this._leftTouch.curY  = y;
         }
@@ -162,6 +172,13 @@ export class Input {
         const { x, y } = getCanvasPos(t);
         const start = this._touchStartPos[t.identifier];
         delete this._touchStartPos[t.identifier];
+
+        // Letting go of a drag button: report the drag, no tap or swipe
+        if (this._btnDrag && t.identifier === this._btnDrag.id) {
+          this._btnDragDone = { dx: x - this._btnDrag.x0, dy: y - this._btnDrag.y0 };
+          this._btnDrag = null;
+          continue;
+        }
 
         // A quick sideways drag is a swipe (menus page through with it)
         if (start && Math.abs(x - start.x) > 60 && Math.abs(x - start.x) > 1.5 * Math.abs(y - start.y)) {
@@ -185,6 +202,7 @@ export class Input {
     canvas.addEventListener('touchcancel', e => {
       this._leftTouch     = null;
       this._rightTouch    = null;
+      this._btnDrag       = null;
       this._touchStartPos = {};
       this._updateTouchState();
     }, { passive: false });
@@ -229,6 +247,8 @@ export class Input {
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
     this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;
     this.swipe                    = this._swipePending || 0;   // -1 left, 1 right, for one frame
+    this.btnDragRelease           = this._btnDragDone || null;
+    this._btnDragDone             = null;
     this._swipePending            = 0;
 
     this._prevEscape       = this.keys.escape;
@@ -268,6 +288,9 @@ export class Input {
   get fireHeld() {
     return (this.mouseDown && !this._tapJustEnded) || !!this._rightTouch;
   }
+
+  // The drag button being held, or null
+  get btnDrag() { return this._btnDrag; }
 
   // Expose joystick state for HUD drawing
   get leftJoystick()   { return this._leftTouch;  }
