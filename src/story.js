@@ -94,6 +94,54 @@ export const STACKS_INTRO = {
   ],
 };
 
+// Before Level 4: scoreboard banter, until Null cuts in. He explains what
+// they're collecting (Raze's memories, which the Chromatics have been taking
+// from him for years) and why it matters. Keyed by the agent.
+export const WIRE_INTRO = {
+  dex: [   // Dex in the field, Juno on the line
+    { caption: 'BEFORE THE WIRE ROOM  ·  ONE RADIO CHANNEL' },
+    { who: 'dex',  face: 'cocky-grin', text: "Scoreboard check before the next room. I'm up four." },
+    { who: 'juno', face: 'annoyed',    text: "You're counting The Queue as forty." },
+    { who: 'dex',  face: 'laughing',   text: 'It WAS forty. It was a queue.' },
+    { who: 'juno', face: 'smirk',      text: "That's not how queues work, Dex." },
+    { who: 'dex',  face: 'cocky-grin', text: "That's exactly how queues w—" },
+    { caption: 'INCOMING  ·  PRIORITY SIGNAL' },
+    { who: 'null', text: 'Dex. Juno. Listen.' },
+    { who: 'juno', face: 'alarmed',    text: '...Null. Twice in one week.' },
+    { who: 'null', text: "What you pulled out of the Stacks was a memory. One of Raze's. The Chromatics have been taking him apart for years, one memory at a time, and feeding the hoard with them." },
+    { who: 'null', text: 'The rest are in the Wire Room, locked in the old switchboard. Bring them back.' },
+    { who: 'dex',  face: 'worried',    text: 'And if we just go get him?' },
+    { who: 'null', text: "Then you'll find a light that answers to his name and doesn't know it. An Echo that forgets itself is just more colour for them." },
+    { who: 'juno', face: 'focused',    text: 'Why him, Null? Out of everything down there.' },
+    { who: 'null', text: 'Because he remembers the Collapse from the inside. Get his memories. Then get him.' },
+    { who: 'dex',  face: 'determined', text: '...Okay. Scoreboard can wait.' },
+    { who: 'juno', face: 'soft-smile', text: 'It really can\'t. You still owe me three.' },
+    { card: 'WIRE ROOM' },
+  ],
+  juno: [  // Juno in the field, Dex on the line
+    { caption: 'BEFORE THE WIRE ROOM  ·  ONE RADIO CHANNEL' },
+    { who: 'juno', face: 'smirk',      text: "Scoreboard check before the next room. I'm up four." },
+    { who: 'dex',  face: 'shocked',    text: 'You counted The Queue as one?' },
+    { who: 'juno', face: 'focused',    text: 'It was one. A big one.' },
+    { who: 'dex',  face: 'laughing',   text: 'It was forty! It was literally a queue of—' },
+    { caption: 'INCOMING  ·  PRIORITY SIGNAL' },
+    { who: 'null', text: 'Dex. Juno. Listen.' },
+    { who: 'dex',  face: 'worried',    text: '...Null. Twice in one week.' },
+    { who: 'null', text: "What you pulled out of the Stacks was a memory. One of Raze's. The Chromatics have been taking him apart for years, one memory at a time, and feeding the hoard with them." },
+    { who: 'null', text: 'The rest are in the Wire Room, locked in the old switchboard. Bring them back.' },
+    { who: 'juno', face: 'concerned',  text: 'And if we just go get him?' },
+    { who: 'null', text: "Then you'll find a light that answers to his name and doesn't know it. An Echo that forgets itself is just more colour for them." },
+    { who: 'dex',  face: 'neutral',    text: 'Why him, Null? Out of everything down there.' },
+    { who: 'null', text: 'Because he remembers the Collapse from the inside. Get his memories. Then get him.' },
+    { who: 'juno', face: 'focused',    text: 'Memories first. Then Raze.' },
+    { who: 'dex',  face: 'cocky-grin', text: "And then the scoreboard. You're not getting away with 'one'." },
+    { card: 'WIRE ROOM' },
+  ],
+};
+
+// Scenes that open a level, by LEVELS[n].intro
+export const INTROS = { stacks: STACKS_INTRO, wire: WIRE_INTRO };
+
 // Tutorial: each step says its lines, then waits for its condition. A step
 // moves on only once its condition is met AND the operator has finished
 // talking, so nothing is said over the top of a fight. `spawnAfter` holds the

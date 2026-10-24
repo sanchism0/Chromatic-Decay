@@ -98,13 +98,21 @@ export class LoreFeed {
     ctx.font     = font;
 
     const padding = 14;
-    const maxW    = Math.min(700, canvasW * 0.8);
-    // Word-wrap if needed (simple single-line for now — blurbs are short)
-    const textW  = ctx.measureText(text).width;
+    const maxW    = Math.min(700, canvasW - 40);
+    // Word-wrap to fit the screen
+    const lines = [];
+    let line = '';
+    for (const w of text.split(' ')) {
+      const t = line ? line + ' ' + w : w;
+      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
+    }
+    if (line) lines.push(line);
+    const textW  = Math.max(...lines.map(l => ctx.measureText(l).width));
     const pillW  = Math.min(textW, maxW) + padding * 2;
-    const pillH  = 32;
+    const pillH  = 14 + lines.length * 19;
     const pillX  = (canvasW - pillW) / 2;
-    const pillY  = canvasH - 60;
+    // Above the key bar on desktop (it sits at the bottom centre)
+    const pillY  = canvasH - ('ontouchstart' in window ? 28 : 68) - pillH;
 
     // Pill background
     ctx.fillStyle = 'rgba(13,14,18,0.70)';
@@ -116,7 +124,7 @@ export class LoreFeed {
     ctx.fillStyle  = '#C4C8D4';
     ctx.textAlign  = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, canvasW / 2, pillY + pillH / 2);
+    lines.forEach((l, k) => ctx.fillText(l, canvasW / 2, pillY + 7 + 9.5 + k * 19));
 
     ctx.restore();
     ctx.textAlign    = 'left';

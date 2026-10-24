@@ -58,9 +58,9 @@ the ability over sealed pocket walls to turn three mirrors) → boss The Queue
 keeps the thrown ability. 
 ### 2c. Level 4 "Wire Room": built (Oct 25, 2026), awaiting the owner's playtest
 Greens debut → ability (Dex: Arc Round, Juno: Ricochet, kept as cards) →
-six shielded junction boxes (arc jump or bounced round only) → wave →
+six shielded junction boxes holding Raze's memories (arc jump or bounced round only) → wave →
 tuning dials → escape down a corridor with four live wires (dash through),
-22 s, alarm, RETRY ESCAPE on time-out. Next: Level 5 (Raze's Room, boss,
+22 s, alarm; time-out seals the door and restarts the level. Next: Level 5 (Raze's Room, boss,
 rescue, F abilities, Raze unlock).
 
 ### 3. Per-character mechanics

@@ -1,7 +1,7 @@
 // CHROMATIC DECAY — Dash abilities (Story cards earned in Level 2)
 //
-//   Dex  · Shock Dash      every Chromatic he dashes through is stunned and
-//                          jammed (takes 50% more damage) for a moment
+//   Dex  · Shock Dash      every Chromatic he dashes through takes a hit, is
+//                          stunned for 1.8 s and jammed (takes 50% more damage)
 //   Juno · Parting Charge  a light bomb drops where she dashed from and
 //                          bursts a moment later
 //
@@ -11,7 +11,7 @@
 import { drawGlow } from './sprites.js';
 import { sfxShockDash, sfxChargeBurst } from './audio.js';
 
-const SHOCK = { reach: 16, stun: 1.2, jam: 1.6, damage: 4 };
+const SHOCK = { reach: 16, stun: 1.8, jam: 2.4, damage: 5.4 };   // stun and damage raised (owner: the dash is risky)
 const BOMB  = { fuse: 0.6, radius: 72, damage: 28 };
 const DEX = '#B6FF2E', JUNO = '#E58CFF';
 

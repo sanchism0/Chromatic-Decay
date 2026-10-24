@@ -59,6 +59,8 @@ With no options it's an Arcade run.
 | `ui3d.js` | `drawSlab` / `drawSlabButton`: the 3D rack-style panels every menu uses. |
 | `hud.js` | Health bar, Arcade score / wave / timer, near-death tint. Touch gets a slim corner bar. |
 
+Text: `MIN_FONT_PX` (12) in game.js clamps every font set on any canvas; long text wraps with `_wrapLines` rather than shrinking.
+
 Lighting lives in `game.js` `drawGame`: a darkness mask with visibility
 polygons per light (player, enemies, rack LEDs), so racks cast real shadows.
 Angles are normalised to −π..π; mixing ranges once caused black slivers.
@@ -80,7 +82,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 |---|---|
 | `waves.js` | Arcade: 15 waves (`WAVE_DATA`), timers, bonus bank, boss sequencing, kill score, win. |
 | `upgrades.js` | Card offers: `GENERIC_UPGRADES` (white cards), `STORY_CARDS` (earned in Story), legacy `CLASS_TRAITS`. `_generateOffer` builds the deck (shared Story pool, first-offer guarantee, two-ability cap). |
-| `story.js` | Scenes between levels (`playInterlude`, e.g. `STACKS_INTRO` before Level 3, chosen by `intro:` in `LEVELS`). Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
+| `story.js` | Scenes before levels (`playInterlude`; `INTROS` by `intro:` in `LEVELS`: `stacks` before Level 3, `wire` before Level 4, each keyed by agent). Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
 | `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
 | `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. |
@@ -105,9 +107,9 @@ level for now). Beat types:
 | `hold` | Stand in the terminal's ring (`HOLD`) while it pulls; any unstunned Chromatic in the ring pauses it; it never drains |
 | `beam` | Mirrors in sealed pockets (`points.mirrors`), turned by a thrown ability landing on them (`onThrowLand`, from `grenades.onLand` / `decoys.onLand`); the beam runs source → mirrors → vault; all right opens the vault |
 | `boss` | The Queue (`QUEUE`): a big violet `Enemy` with `boss`, `contactDamage` and a capped stun; the level sends its rings (`rings`, dash through them), splits it at thresholds, draws the health bar, and dissolves the rest when it dies |
-| `gather` | Junction boxes (`points.boxes`) that open only to an Arc Round jump (`arcTargets`, `onArcRack`) or a `bounced` round (`_shotsOnTargets`); plain rounds glance off. Each drops a piece of Raze to walk over |
+| `gather` | Junction boxes (`points.boxes`) that open only to an Arc Round jump (`arcTargets`, `onArcRack`) or a `bounced` round (`_shotsOnTargets`); plain rounds glance off. Each drops one of Raze's memories to walk over |
 | `tuning` | Dials (`points.dials`) turned the same way, cycling 0→1→2, to match `pattern` on the display |
-| `escape` | A timer (`time`) to reach `exitPos`; `wires` across the corridor zap and push back unless `player.dashT > 0`; alarm, red edge in `drawHud`; `checkpoint: 'escape'`; timing out sets `failReason` |
+| `escape` | A timer (`time`) to reach `exitPos`; `wires` across the corridor zap and push back unless `player.dashT > 0`; alarm, red edge in `drawHud`; timing out sets `failReason` (DOOR SEALED) |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 

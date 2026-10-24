@@ -886,7 +886,7 @@ export class EnemySystem {
       e.update(dt, player, map, projectileSystem);
     }
     for (const z of this.zaps) z.t += dt;
-    this.zaps = this.zaps.filter(z => z.t < 0.35);
+    this.zaps = this.zaps.filter(z => z.t < 0.45);
 
     // Remove dead enemies; game.js spawns their Colour Drain
     const dead = this.enemies.filter(e => !e.isAlive);
@@ -956,7 +956,7 @@ export class EnemySystem {
               sfxShockDash();
               tgt.hit();
             } else if (best) {
-              best.takeDamage(dmg);
+              best.takeDamage(dmg * 1.1);   // the arc hits 10% harder
               this.zaps.push({ x1: e.x, y1: e.y, x2: best.x, y2: best.y, t: 0, seed: Math.floor(Math.random() * 1e5) });
               sfxShockDash();
               if (!best.isAlive) killed.push(best);
@@ -1010,21 +1010,35 @@ export class EnemySystem {
 
   drawHalos(ctx) {
     for (const e of this.enemies) e.drawHalo(ctx);
-    // Arc Round jumps: a jagged lime bolt that fades fast (no flash)
+    // Arc Round jumps: a thick bolt in Dex's lime with a pale-lime core and a
+    // branch or two, glowing at both ends; it fades out (no flash)
     if (!this.zaps.length) return;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = '#B6FF2E'; ctx.lineWidth = 2;
     for (const z of this.zaps) {
-      const a = 1 - z.t / 0.35;
+      const a = 1 - z.t / 0.45;
       let r = z.seed;
       const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280 - 0.5; };
-      ctx.globalAlpha = 0.9 * a;
-      ctx.beginPath(); ctx.moveTo(z.x1, z.y1);
-      for (let k = 1; k < 5; k++) ctx.lineTo(z.x1 + (z.x2 - z.x1) * k / 5 + rnd() * 10, z.y1 + (z.y2 - z.y1) * k / 5 + rnd() * 10);
-      ctx.lineTo(z.x2, z.y2); ctx.stroke();
-      drawGlow(ctx, '#B6FF2E', z.x1, z.y1, 12, 0.25 * a);
-      drawGlow(ctx, '#B6FF2E', z.x2, z.y2, 16, 0.35 * a);
+      const pts = [[z.x1, z.y1]];
+      for (let k = 1; k < 6; k++) pts.push([z.x1 + (z.x2 - z.x1) * k / 6 + rnd() * 14, z.y1 + (z.y2 - z.y1) * k / 6 + rnd() * 14]);
+      pts.push([z.x2, z.y2]);
+      const stroke = (w, col, al) => { ctx.globalAlpha = al * a; ctx.lineWidth = w; ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke(); };
+      stroke(9, '#B6FF2E', 0.18);
+      // the bolt itself in solid lime, so it stays Dex's colour over any glow
+      ctx.globalCompositeOperation = 'source-over';
+      stroke(4, '#3A5A00', 0.8);
+      stroke(3, '#B6FF2E', 1);
+      stroke(1, '#E2FF8A', 1);
+      ctx.globalCompositeOperation = 'lighter';
+      // two short branches off the middle
+      ctx.lineWidth = 2; ctx.strokeStyle = '#B6FF2E'; ctx.globalAlpha = 0.7 * a;
+      for (const k of [2, 4]) { const [bx, by] = pts[k]; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + rnd() * 30, by + rnd() * 30); ctx.stroke(); }
+      drawGlow(ctx, '#B6FF2E', z.x1, z.y1, 18, 0.35 * a);
+      drawGlow(ctx, '#B6FF2E', z.x2, z.y2, 28, 0.55 * a);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.85 * a; ctx.lineWidth = 2; ctx.strokeStyle = '#B6FF2E';
+      ctx.beginPath(); ctx.arc(z.x2, z.y2, 8 + 18 * (1 - a), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
     }
     ctx.restore();
   }

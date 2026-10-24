@@ -150,7 +150,7 @@ export class GrenadeSystem {
         const pts = bolt(b.x, b.y, b.x + Math.cos(a) * len, b.y + Math.sin(a) * len * 0.6, b.seed + i * 31 + tick * 7);
         ctx.globalAlpha = 0.9 * (1 - k);
         ctx.strokeStyle = COLOR; ctx.lineWidth = 2; strokeBolt(ctx, pts);
-        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; strokeBolt(ctx, pts);
+        ctx.strokeStyle = '#EFFFC8'; ctx.lineWidth = 1; strokeBolt(ctx, pts);
       }
       ctx.restore();
     }
@@ -167,7 +167,7 @@ export class GrenadeSystem {
         const a = ((tick + i * 3 + e.id) * 2.39996) % (Math.PI * 2);
         const pts = bolt(e.x + Math.cos(a) * r * 0.3, e.y - e.lift + Math.sin(a) * r * 0.3,
                          e.x + Math.cos(a + 1.2) * r, e.y - e.lift + Math.sin(a + 1.2) * r, tick * 13 + e.id * 7 + i, 3, 4);
-        ctx.strokeStyle = i ? '#FFFFFF' : COLOR;
+        ctx.strokeStyle = i ? '#EFFFC8' : COLOR;
         strokeBolt(ctx, pts);
       }
     }

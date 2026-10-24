@@ -105,13 +105,32 @@ Chromatics keep taking whatever stops broadcasting. Ends on the flirt (Juno:
 | Beat | Comms (gist) | Play |
 |---|---|---|
 | Wave | Every stream nobody ever played ended up here, on tape. Raze left part of his signal in this. "Hold on, I'm sending you something." | Big violet groups. Then the thrown ability screen |
-| Hold | A stun grenade (Dex) / a decoy beacon (Juno). There's a piece of Raze in that terminal: stand in its ring while it pulls. Keep everything else out. | 22 s in the ring; Chromatics in it stop the pull. Ends: "That's him, a piece of him anyway. The rest is past the vault." |
+| Hold | A stun grenade (Dex) / a decoy beacon (Juno). There's something of Raze's in that terminal: stand in its ring while it pulls. Keep everything else out. | 22 s in the ring; Chromatics in it pause the pull. Ends: "It's a memory. His. I can hear him in it." |
 | Wave | Something heard that. | Violets and yellows |
 | Beam | The vault only opens to light. Throw your grenade/beacon over the pocket walls to turn the mirrors. | Three mirrors; the beam reaches the vault: "Something's coming up out of it." |
 | Boss | "That's not a Chromatic. That's all of them." Dash through the rings. "It's splitting!" | The Queue. "It's gone. The vault's open. Get in." |
-| Exit | "Got you. And a piece of him with you." | Into the vault: beam-out, card, results |
+| Exit | "Got you. And one of his memories with you." | Into the vault: beam-out, card, results |
 
-## Levels 4–5 (planned)
+## Level 4: "Wire Room" (built)
+
+**Before it, a scene** (`WIRE_INTRO` in `story.js`): scoreboard banter (was The
+Queue one kill or forty?) until **Null cuts in**. What they pulled from the
+Stacks was one of Raze's memories; the Chromatics have been taking him apart
+for years, one memory at a time, feeding the hoard. The rest are locked in the
+Wire Room's switchboard. If they just go get him, they'll find "a light that
+answers to his name and doesn't know it". Why him? "Because he remembers the
+Collapse from the inside."
+
+| Beat | Comms (gist) | Play |
+|---|---|---|
+| Wave | The Basement's old switchboard, where they locked up what they took from Raze. Greens: they show up where you're going. | Violets and greens. Then Arc Round / Ricochet |
+| Gather | Six junction boxes have Raze's memories in them; they're shielded: arc into them (Dex) / bounce shots into them (Juno). | Six boxes, then walk over each memory. Ends: "Everything they took from him." |
+| Wave | They felt that. | Greens and yellows |
+| Tuning | His door's locked to a frequency: match the dials to the display. | Three dials |
+| Escape | "The board's overloading. The floor cables just went live! RUN!" | 22 s, four live wires (dash through), alarm, red edge |
+| Exit | "Got you! That was way too close." | Through the far door: card, results |
+
+## Level 5 (planned)
 
 | # | Level | Story beat |
 |---|---|---|

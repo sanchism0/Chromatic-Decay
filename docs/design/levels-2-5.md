@@ -89,7 +89,7 @@ escort lame, so both were replaced.)
 ## Level 3: The Stacks (first boss), built
 
 **Story:** towers of old tape where the streams nobody played pile up. Raze
-left part of his signal in a terminal here, and the vault in the middle holds
+left one of his memories in a terminal here, and the vault in the middle holds
 something huge.
 
 **Map:** eight tall tape towers in a ring round an open centre (the vault and
@@ -102,7 +102,7 @@ granted after the first wave:
 | Beat | Play | Comms (gist) |
 |---|---|---|
 | Wave | Violets in big groups, a few yellows; then the ability screen | "The Stacks. Every stream nobody ever played ended up here." |
-| **Hold** (task) | Stand in the terminal's ring while it pulls Raze's signal (22 s). Any Chromatic in the ring that isn't stunned pauses the pull (progress never drains; you can leave and come back): Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
+| **Hold** (task) | Stand in the terminal's ring while it pulls one of Raze's memories (22 s). Any Chromatic in the ring that isn't stunned pauses the pull (progress never drains; you can leave and come back): Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
 | Wave | Violets and yellows together | "Something heard that." |
 | **Beam** (puzzle) | A beam runs from a wall emitter, above the racks, through three mirrors sealed in the pockets. Land the ability on a mirror (thrown over the walls) to turn it; the beam shows where each one points. All three right and the vault opens. Abilities recharge twice as fast here; up to 3 enemies | "The mirrors are sealed in. Throw your grenade/beacon over the wall." |
 | **Boss: The Queue** | A huge violet (900 health, about 35 s of shooting) rises from the vault and drifts after you. It winds up and sends out rings: dash through them (untouchable mid-dash, and a perfect dodge refunds the dash). At 75%, 50% and 25% it splits off five violets. When it dies, everything left dissolves | "That's not a Chromatic. That's all of them." |
@@ -113,9 +113,9 @@ Code: `hold`, `beam` and `boss` beats in `level.js`, `decoy.js`, the Stacks map
 
 ## Level 4: Wire Room (built, Oct 25, 2026)
 
-**Story:** the Basement's switchboard. Raze's signal shattered here; pieces of
-him are locked in junction boxes all over the room, and the greens are camped
-on them.
+**Story:** the Basement's switchboard, where the Chromatics locked up the
+memories they took from Raze, in junction boxes all over the room. The greens
+are camped on them. Null explains it in a scene before the level.
 
 **Map:** a maze of thick cable bundles with wide junctions and long sightlines
 (good for greens). Junction boxes sit in three-sided alcoves in the cable walls.
@@ -131,10 +131,10 @@ into the box.
 | Beat | Play |
 |---|---|
 | Wave | **Greens debut properly** ("They don't chase. They show up where you're going."). Then the ability screen: Arc Round / Ricochet |
-| **Gather** (task) | Six junction boxes hold pieces of Raze. Open each with an electric jump or a bounce, then walk over the piece that drops out. Nothing un-collects (no fading pieces) |
+| **Gather** (task) | Six junction boxes hold Raze's memories. Open each with an electric jump or a bounce, then walk over the memory that drops out. Nothing un-collects |
 | Wave | Greens and yellows |
 | **Tuning** (puzzle) | Three dials behind cover; each electric jump or bounced hit turns a dial to its next frequency. Match the big display (it lights each dial that's right) to open the door to Raze's room |
-| **Escape** | The board overloads: alarm, a steady red edge that deepens, and the operator yelling RUN. 22 s to reach the far door (the walk is about 9 s), down an L-shaped corridor crossed by **four live wires**: walking into one zaps you (10) and throws you back; mid-dash you go straight through. Enemies keep coming. Out of time: DOOR SEALED, with RETRY ESCAPE (a checkpoint, like the boss) |
+| **Escape** | The board overloads: alarm, a steady red edge that deepens, and the operator yelling RUN. 22 s to reach the far door (the walk is about 9 s), down an L-shaped corridor crossed by **four live wires**: walking into one zaps you (10) and throws you back; mid-dash you go straight through. Enemies keep coming. Out of time: DOOR SEALED, and the level starts over (no checkpoint, owner's call) |
 | Exit | Through the door: beam-out, card, results |
 
 Echoes after each section, as in every level from 2 on.

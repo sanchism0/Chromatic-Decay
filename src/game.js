@@ -13,7 +13,7 @@ import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
-import { StoryMode, STACKS_INTRO } from './story.js';
+import { StoryMode, INTROS } from './story.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
@@ -35,6 +35,18 @@ import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, s
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
+
+// Minimum text size (owner: "everything needs to be easy to read"). Any font
+// set smaller than this, anywhere in the game, is drawn at this size instead.
+const MIN_FONT_PX = 12;
+{
+  const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'font');
+  Object.defineProperty(CanvasRenderingContext2D.prototype, 'font', {
+    configurable: true,
+    get() { return d.get.call(this); },
+    set(v) { d.set.call(this, String(v).replace(/(\d+(?:\.\d+)?)px/, (m, n) => (+n < MIN_FONT_PX ? MIN_FONT_PX : n) + 'px')); },
+  });
+}
 
 // ── Zoom / viewport ───────────────────────────────────────────
 
@@ -1885,8 +1897,11 @@ function drawLevelEnd(W, H) {
   if (!r) return;
   dimBackdrop(ctx, W, H, 0.78);
   const sig = r.unlocks.find(u => u.kind === 'signature');
-  const dy = r.outcome ? 18 : 0;   // room for the mission outcome line
-  const pW = Math.min(460, W - 28), pH = (sig ? 330 : 236) + dy;
+  const pW = Math.min(460, W - 28);
+  ctx.font = '13px monospace';
+  const outL = r.outcome ? _wrapLines(r.outcome, pW - 30) : [];
+  const dy = outL.length ? outL.length * 17 + 4 : 0;   // room for the mission outcome
+  const pH = (sig ? 330 : 236) + dy;
   const pX = (W - pW) / 2, pY = Math.max(16, (H - pH) / 2 - 8);
   const col = AGENT_COLOR[r.agent];
   const top = drawSlab(ctx, pX, pY, pW, pH, { accent: col, depth: 12, screen: 40, glow: 0.35 });
@@ -1897,10 +1912,9 @@ function drawLevelEnd(W, H) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = col; ctx.font = '12px monospace';
   ctx.fillText(`as ${r.agent.toUpperCase()}${r.first ? '  ·  first clear' : ''}`, W / 2, top + 52);
-  if (r.outcome) {
-    ctx.fillStyle = '#C4C8D4';
-    _fitFont(r.outcome, pW - 30, 11, '');
-    ctx.fillText(r.outcome, W / 2, top + 68);
+  if (outL.length) {
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '13px monospace';
+    outL.forEach((l, k) => ctx.fillText(l, W / 2, top + 70 + k * 17));
   }
 
   // Chroma collected, by colour, and the wallet after banking
@@ -1983,7 +1997,9 @@ function drawStoryMap(W, H) {
 
   // Rows: the prologue, then the levels
   const rowW = Math.min(560, W - 28), rowX = (W - rowW) / 2;
-  const rowH = tiny ? 34 : short ? 46 : 58, gap = tiny ? 4 : short ? 6 : 10;
+  // Phones held upright: the blurb wraps to a second line, so rows are taller
+  const twoLine = narrow && !short && !tiny;
+  const rowH = tiny ? 34 : short ? 46 : twoLine ? 72 : 58, gap = tiny ? 4 : short ? 6 : 10;
   let y = headY + (short ? 54 : 66);
   _mapBtns.rows = [];
   const rows = [{ id: 0, name: 'PROLOGUE · THE CALL' }, ...STORY_LEVELS];
@@ -2001,7 +2017,14 @@ function drawStoryMap(W, H) {
     ctx.font = `${narrow ? 10 : 11}px monospace`;
     // Second line of text; on landscape phones (tiny) rows are one line, and
     // only the right-hand status shows
-    const sub = (text, color) => { if (!tiny) { ctx.fillStyle = color; _fitFont(text, rowW - 28, narrow ? 10 : 11, ''); ctx.fillText(text, rowX + 14, top + (short ? 36 : 44)); } };
+    const sub = (text, color) => {
+      if (tiny) return;
+      ctx.fillStyle = color; ctx.font = '12px monospace';
+      let lines = _wrapLines(text, rowW - 28);
+      const max = twoLine ? 2 : 1;
+      if (lines.length > max) { lines = lines.slice(0, max); lines[max - 1] = lines[max - 1].replace(/\s*\S*$/, '') + '…'; }
+      lines.forEach((l, k) => ctx.fillText(l, rowX + 14, top + (short ? 36 : 44) + k * 15));
+    };
     if (row.id === 0) {
       sub('Replay the introduction and tutorial.', '#8A8E99');
     } else if (!built) {
@@ -2085,25 +2108,32 @@ function _drawReward(W, H, o) {
   dimBackdrop(ctx, W, H, 0.8 * k);
   ctx.save();
   ctx.globalAlpha = k;
-  const pW = Math.min(440, W - 28), pH = 250;
-  const pX = (W - pW) / 2, pY = (H - pH) / 2 - 10;
-  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: o.color, depth: 12, screen: 40, glow: 0.5 });
+  // Text wraps rather than shrinking; the panel grows to fit it
+  const pW = Math.min(460, W - 28), tw = pW - 40;
+  ctx.font = '12px monospace';         const topL  = _wrapLines(o.top, pW - 30);
+  ctx.font = '14px monospace';         const descL = _wrapLines(o.desc, tw);
+  ctx.font = '13px monospace';         const hintL = _wrapLines(o.hint, tw);
+  const pH = 196 + (topL.length - 1) * 16 + descL.length * 19 + hintL.length * 17;
+  const pX = (W - pW) / 2, pY = Math.max(8, (H - pH) / 2 - 10);
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: o.color, depth: 12, screen: 24 + topL.length * 16, glow: 0.5 });
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#A9B6C4'; ctx.font = '11px monospace';
-  ctx.fillText(o.top, W / 2, top + 26, pW - 30);
-  ctx.fillStyle = o.color; ctx.font = 'bold 12px monospace';
-  ctx.fillText(o.label, W / 2, top + 58);
+  let y = top + 24;
+  ctx.fillStyle = '#A9B6C4'; ctx.font = '12px monospace';
+  for (const l of topL) { ctx.fillText(l, W / 2, y); y += 16; }
+  y += 18;
+  ctx.fillStyle = o.color; ctx.font = 'bold 13px monospace';
+  ctx.fillText(o.label, W / 2, y); y += 34;
   ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 16; ctx.shadowColor = o.color;
-  _fitFont(o.name, pW - 40, 28, 'bold ');
-  ctx.fillText(o.name, W / 2, top + 92);
+  _fitFont(o.name, tw, 28, 'bold ');
+  ctx.fillText(o.name, W / 2, y); y += 30;
   ctx.shadowBlur = 0;
-  ctx.fillStyle = '#C4C8D4';
-  _fitFont(o.desc, pW - 40, 13, '');
-  ctx.fillText(o.desc, W / 2, top + 122);
-  ctx.fillStyle = '#7ADDD4'; ctx.font = '11px monospace';
-  ctx.fillText(o.hint, W / 2, top + 146, pW - 30);
+  ctx.fillStyle = '#C4C8D4'; ctx.font = '14px monospace';
+  for (const l of descL) { ctx.fillText(l, W / 2, y); y += 19; }
+  y += 6;
+  ctx.fillStyle = '#7ADDD4'; ctx.font = '13px monospace';
+  for (const l of hintL) { ctx.fillText(l, W / 2, y); y += 17; }
   const bw = 170;
-  _unlockBtn.r = drawSlabButton(ctx, W / 2 - bw / 2, top + 170, bw, 42, _unlockT < 0.8 ? '…' : o.button, {
+  _unlockBtn.r = drawSlabButton(ctx, W / 2 - bw / 2, y + 10, bw, 42, _unlockT < 0.8 ? '…' : o.button, {
     accent: o.color, fontSize: 14, glow: 0.4, lift: _hitBtn(_unlockBtn.r) ? 1 : 0,
   });
   ctx.restore();
@@ -2446,9 +2476,10 @@ function _pickCharacter(id) {
   if (_csMode === 'story') { story.picked(id); state = STATES.STORY; return; }
   if (_csMode === 'level') {
     // Some levels open with a short scene first (skippable)
-    const intro = LEVELS[_pendingLevel] && LEVELS[_pendingLevel].intro === 'stacks' ? STACKS_INTRO[id] : null;
+    const key = LEVELS[_pendingLevel] && LEVELS[_pendingLevel].intro;
+    const intro = key && INTROS[key] ? INTROS[key][id] : null;
     if (intro) {
-      const sides = id === 'dex' ? { juno: 'left', dex: 'right' } : { dex: 'left', juno: 'right' };
+      const sides = id === 'dex' ? { juno: 'left', dex: 'right', null: 'left' } : { dex: 'left', juno: 'right', null: 'left' };
       _storyTime = 0;
       story.playInterlude(intro, sides, () => startRun({ level: _pendingLevel }));
       state = STATES.STORY;
@@ -2523,15 +2554,22 @@ function drawCharSelect(W, H) {
 
     // Walking toward the camera on a loop (selected walks, the other stands)
     const col = sel ? WALK_CYCLE[Math.floor(_csTime * 6) % 4] : 1;
-    const spriteH = CELL_H * px;
     const nameFs = cardW < 170 ? 18 : 24;
     const levelMode = _csMode === 'level';
-    const textH  = nameFs + 44 + (levelMode ? 40 : 0);
+    // Story level: the cards this character brings in, wrapped to the card
+    const earned = STORY_CARDS.filter(k => k.who === c.id && hasCard(k.who, k.id)).map(k => k.name.toUpperCase());
+    ctx.font = 'bold 12px monospace';
+    const haveL = levelMode ? _wrapLines(earned.length ? `CARDS: ${earned.join(', ')}` : 'CARDS: NONE YET', cardW - 20) : [];
+    const textH  = nameFs + 44 + (levelMode ? 40 + (haveL.length - 1) * 15 : 0);
+    // Shrink the sprite if the text needs the room (short screens)
+    let spx = px;
+    while (spx > 2 && CELL_H * spx + textH + 14 > cardH) spx--;
+    const spriteH = CELL_H * spx;
     const sy = y + Math.max(10, (cardH - spriteH - textH) / 2);
     ctx.save();
     ctx.globalAlpha = sel ? 1 : 0.55;
-    drawGroundShadow(ctx, x + cardW / 2, sy + spriteH - 2 * px, 12 * px, 3 * px, 0.6);
-    drawCharacterFrame(ctx, c.id, 0, col, x + cardW / 2 - (CELL_W / 2) * px, sy, px);
+    drawGroundShadow(ctx, x + cardW / 2, sy + spriteH - 2 * spx, 12 * spx, 3 * spx, 0.6);
+    drawCharacterFrame(ctx, c.id, 0, col, x + cardW / 2 - (CELL_W / 2) * spx, sy, spx);
     ctx.restore();
 
     // Name, one-liner, emitter
@@ -2551,18 +2589,17 @@ function drawCharSelect(W, H) {
 
     // Story level: what this character brings in, and what the level gives
     if (levelMode) {
-      const earned = STORY_CARDS.filter(k => k.who === c.id && hasCard(k.who, k.id)).map(k => k.name.toUpperCase());
       const reward = (LEVEL_CARDS[_pendingLevel] || {})[c.id];
       ctx.fillStyle = earned.length ? '#E8F0FF' : '#6E7A88';
-      const have = earned.length ? `CARDS: ${earned.join(', ')}` : 'CARDS: NONE YET';
-      _fitFont(have, cardW - 20, 10, 'bold ');
-      ctx.fillText(have, x + cardW / 2, ty + 58);
+      ctx.font = 'bold 12px monospace';
+      haveL.forEach((l, k) => ctx.fillText(l, x + cardW / 2, ty + 58 + k * 15));
+      const ry = ty + 74 + (haveL.length - 1) * 15;
       if (reward) {
         const got = hasCard(c.id, reward.id);
         const line = got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `CLEAR TO KEEP: ${reward.name}`;
         ctx.fillStyle = got ? c.color : '#7ADDD4';
-        _fitFont(line, cardW - 20, 10, '');
-        ctx.fillText(line, x + cardW / 2, ty + 74);
+        _fitFont(line, cardW - 20, 12, '');
+        ctx.fillText(line, x + cardW / 2, ry);
       }
     }
   });
@@ -3319,12 +3356,12 @@ function _drawLoreCard(W, H, type) {
 
 // Set ctx.font to the largest size ≤ px (down to 8) at which text fits maxW
 function _fitFont(text, maxW, px, weight) {
-  for (; px > 8; px--) {
+  for (; px > MIN_FONT_PX; px--) {
     ctx.font = `${weight}${px}px monospace`;
     if (ctx.measureText(text).width <= maxW) return px;
   }
-  ctx.font = `${weight}8px monospace`;
-  return 8;
+  ctx.font = `${weight}${MIN_FONT_PX}px monospace`;
+  return MIN_FONT_PX;
 }
 
 // ── Illustration: World ───────────────────────────────────────

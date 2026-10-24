@@ -14,7 +14,7 @@
 //             the beam from the wall reaches the vault
 //   boss      a big Chromatic with its own health bar and attacks (The Queue)
 //   gather    junction boxes that only open to an Arc Round jump or a bounced
-//             round; each drops a piece to walk over
+//             round; each drops one of Raze's memories to walk over
 //   tuning    dials (turned the same way) to match a display
 //   escape    a timer to reach the far door, past live wires you can only cross
 //             mid-dash
@@ -44,7 +44,7 @@ export const POWERUPS = {
     { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
     { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; p.abilities.push('grenade'); },
       hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
-    { name: 'ARC ROUND',       desc: 'The last round of every burst is electric: it jumps to another enemy close by.', apply: p => { p.arcRound = true; } },
+    { name: 'ARC ROUND',       desc: 'The last round of every burst arcs on to another enemy close by, for 10% more damage.', apply: p => { p.arcRound = true; } },
   ],
   juno: [
     { id: 'hot_barrel', name: 'HOT BARREL', desc: 'The minigun fires 25% faster.',                 apply: p => { p.projCount += 1; } },
@@ -184,9 +184,9 @@ LEVELS[3] = {
   name: 'THE STACKS',
   map: 'stacks',
   exit: 'vault',
-  blurb: "Pull a piece of Raze out of the Stacks; open the vault.",
-  outcome: "A piece of Raze's signal recovered, and The Queue broken. He's deeper still.",
-  intro: 'stacks',   // the lift-down scene (story.js STACKS_INTRO) plays first
+  blurb: "Pull one of Raze's memories out of the Stacks; open the vault.",
+  outcome: "One of Raze's memories recovered, and The Queue broken. He's deeper still.",
+  intro: 'stacks',   // the lift-down scene (story.js INTROS) plays first
   unlockTop: 'THE STACKS GO QUIET. YOU KEEP WHAT YOU THREW.',
   // Where things are, as fractions of the map. mirrors: the sealed pockets,
   // in the order the beam visits them; dead: where each mirror points while
@@ -215,13 +215,13 @@ LEVELS[3] = {
       { type: 'hold',
         lines: [L(f('laughing', 'soft-smile'), dex ? "A stun grenade. Lob it over anything: whatever it lands on freezes up."
                                                    : "A decoy beacon. Throw it and they chase the light instead of you."),
-                L(f('determined', 'focused'), "There's a piece of Raze in that terminal. Stand in its ring while it pulls."),
+                L(f('determined', 'focused'), "There's something of Raze's in that terminal. Stand in its ring while it pulls."),
                 L(f('worried', 'concerned'), dex ? "Anything else in the ring stops the pull. Stunned ones don't count."
                                                  : "Anything else in the ring stops the pull. Lure them out of it.")],
         half: [L(f('determined', 'focused'), 'Halfway. Keep them out.')],
         objective: s => (s.blocked ? `Clear the ring to keep pulling (${s.hold}%)` : `Pull the signal (${s.hold}%)`),
         interrupt: { cap: 5, period: 3, yellow: 0.35 },
-        done: [L(f('shocked', 'alarmed'), "Got it. That's him, a piece of him anyway. The rest is past the vault.")] },
+        done: [L(f('shocked', 'alarmed'), "Got it. It's a memory. His. I can hear him in it.")] },
 
       { type: 'wave',
         lines: [L(f('worried', 'concerned'), "Something heard that. Here they come.")],
@@ -250,7 +250,7 @@ LEVELS[3] = {
       { type: 'exit',
         lines: [],
         objective: () => 'Get into the vault',
-        extract: [L(f('cocky-grin', 'soft-smile'), "Got you. And a piece of him with you.")],
+        extract: [L(f('cocky-grin', 'soft-smile'), "Got you. And one of his memories with you.")],
         done: [] },
     ];
   },
@@ -260,8 +260,9 @@ LEVELS[4] = {
   id: 4,
   name: 'WIRE ROOM',
   map: 'wire',
-  blurb: "Free the pieces of Raze from the switchboard; get out alive.",
-  outcome: "Every piece of Raze recovered, and out by a hair. His room is next.",
+  blurb: "Recover Raze's memories from the switchboard; get out alive.",
+  outcome: "Every one of Raze's memories recovered, and out by a hair. His room is next.",
+  intro: 'wire',     // Null interrupts the banter (story.js INTROS) first
   unlockTop: 'THE BOARD BURNS OUT BEHIND YOU. THE TRICK STAYS.',
   // boxes: the six junction boxes; dials: the three tuning dials; display:
   // the big board they match; door: the far end of the escape corridor
@@ -278,7 +279,7 @@ LEVELS[4] = {
     const dex = agent === 'dex';
     return [
       { type: 'wave',
-        lines: [L(f('neutral', 'focused'), "The Wire Room. The whole Basement's switchboard. Raze's signal blew apart in here."),
+        lines: [L(f('neutral', 'focused'), "The Wire Room. The Basement's old switchboard, and where they locked up what they took from Raze."),
                 L(f('worried', 'concerned'), "And greens. They don't chase you. They show up where you're going.")],
         groups: [[['violet', 3], ['green', 1]], [['green', 2], ['violet', 2]], [['violet', 3], ['green', 2]]],
         objective: s => `Clear the switchboard (${s.left} left)`,
@@ -287,14 +288,14 @@ LEVELS[4] = {
 
       { type: 'gather',
         lines: [L(f('laughing', 'soft-smile'), dex ? "Your last round's arcing now. It jumps to anything close." : "Your rounds bounce off the cables now."),
-                L(f('determined', 'focused'), "Six junction boxes have pieces of Raze locked in them. I've marked them."),
+                L(f('determined', 'focused'), "Six junction boxes have Raze's memories locked in them. I've marked them."),
                 L(f('neutral', 'focused'), dex ? "They're shielded. Hit the cable or a Chromatic right next to one and let the arc jump in."
                                                : "They're shielded. Bounce a shot off the cables into each one.")],
-        eachDone: [[L(f('determined', 'focused'), 'One piece.')], [L(f('cocky-grin', 'smirk'), 'Two.')], [L(f('determined', 'focused'), 'Three. Halfway.')],
+        eachDone: [[L(f('determined', 'focused'), 'One memory.')], [L(f('cocky-grin', 'smirk'), 'Two.')], [L(f('determined', 'focused'), 'Three. Halfway.')],
                    [L(f('cocky-grin', 'smirk'), 'Four.')], [L(f('determined', 'focused'), 'Five. One more.')]],
-        objective: s => `Free the pieces of Raze (${s.pieces}/6)`,
+        objective: s => `Recover Raze's memories (${s.pieces}/6)`,
         interrupt: { cap: 5, period: 3, yellow: 0.2, green: 0.25 },
-        done: [L(f('shocked', 'alarmed'), "That's all six. He's in pieces, but he's all here.")] },
+        done: [L(f('shocked', 'alarmed'), "That's all six. Everything they took from him.")] },
 
       { type: 'wave',
         lines: [L(f('worried', 'concerned'), 'They felt that. Greens and yellows, coming in.')],
@@ -310,7 +311,6 @@ LEVELS[4] = {
         done: [] },
 
       { type: 'escape',
-        checkpoint: 'escape',   // running out of time offers a retry from here
         time: 22,
         lines: [L(f('shocked', 'alarmed'), "It's open! Wait... the board's overloading. The floor cables just went live!"),
                 L(f('angry', 'alarmed'), 'RUN! Down the corridor to the far door. Dash straight through the live wires!')],
@@ -329,7 +329,7 @@ LEVELS[4] = {
 
 // Level 4's abilities: the Level 1 sampler's preview, kept for good
 const WIRE_POWERS = {
-  dex: { id: 'arc_round', name: 'ARC ROUND', desc: 'The last round of every burst is electric: it jumps to a Chromatic or a junction box close by.',
+  dex: { id: 'arc_round', name: 'ARC ROUND', desc: 'The last round of every burst arcs on to a Chromatic or box close by, for 10% more damage.',
          has: p => !!p.arcRound, apply: p => { p.arcRound = true; },
          hint: () => 'Hit a cable or a Chromatic next to a box and the arc jumps in.' },
   juno: { id: 'ricochet', name: 'RICOCHET', desc: 'Rounds bounce once off racks and cables.',
@@ -358,7 +358,7 @@ const HOLD = { r: 72, fill: 22 };   // ring radius, seconds to fill (it never dr
 // Level 2's dash abilities: granted after its first section, kept as a card
 // the first time it's cleared (STORY_CARDS has the Arcade versions)
 const DASH_POWERS = {
-  dex: { id: 'shock_dash', name: 'SHOCK DASH', desc: 'Chromatics you dash through are stunned and take 50% more damage.',
+  dex: { id: 'shock_dash', name: 'SHOCK DASH', desc: 'Chromatics you dash through take a hit, freeze for almost 2 seconds, and take 50% more damage.',
          has: p => !!p.shockDash, apply: p => { p.shockDash = true; },
          hint: touch => (touch ? 'Tap DASH and go straight through them.' : 'Space or click to dash straight through them.') },
   juno: { id: 'parting_charge', name: 'PARTING CHARGE', desc: 'Dashing leaves a light bomb where you started. It bursts a moment later.',
@@ -1323,7 +1323,7 @@ export class LevelRun {
   }
 
   // Level 4: junction boxes (shut, glinting when a plain round glances off;
-  // open, with Raze's piece beside them), the tuning dials and the display
+  // open, with Raze's memory beside them), the tuning dials and the display
   _drawSwitchboard(ctx, t) {
     const b = this.beat;
     const boxes = this.boxes || this.boxPos.map(p => ({ ...p, open: false, got: false, shieldT: 0 }));

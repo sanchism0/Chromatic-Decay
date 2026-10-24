@@ -3,8 +3,8 @@
 // Ricochet), junction boxes that ignore plain rounds and open only to an arc
 // jump (off a cable or a Chromatic) or a bounced round, the pieces, the
 // tuning dials, then the escape: live wires (walking in zaps you back,
-// dashing goes through), the timer running out (DOOR SEALED, retry from the
-// escape), and getting out. Args: <outdir> [desk|phone|land] [dex|juno]
+// dashing goes through), the timer running out (DOOR SEALED; the level starts
+// over), and getting out. Args: <outdir> [desk|phone|land] [dex|juno]
 const ROOT = process.env.REPO || require('path').resolve(__dirname, '../..');
 const { chromium } = require('playwright'); const fs = require('fs'); const path = require('path');
 const out = process.argv[2] + '/lvl4', mode = process.argv[3] || 'desk', who = process.argv[4] || 'dex';
@@ -112,16 +112,19 @@ const tag = mode + '-' + who;
   await p.screenshot({ path: `${out}/${tag}-tuning.png` });
   await waitFor('level.beat.type === "escape"', 3000);
 
-  // Escape: run out of time once
-  console.log('escape: beat', await ev('level.beat.type'), '| checkpoint', await ev('level.checkpointLabel'));
+  // Escape: run out of time once (no checkpoint: the level starts over)
+  console.log('escape: beat', await ev('level.beat.type'), '| checkpoint', await ev('level.checkpointLabel || null'));
   await skipTalk(); await waitFor('level.ready');
   await ev('level.escapeT = 0.2;');
   await waitFor('state === STATES.LEVEL_FAIL', 8000); await p.waitForTimeout(500);
-  console.log('time up: state', await ev('state'), '| reason', await ev('_levelFail.reason'), '| retry', JSON.stringify(await ev('_checkpoint && _checkpoint.label')));
+  console.log('time up: state', await ev('state'), '| reason', await ev('_levelFail.reason'), '| checkpoint offered', !!(await ev('_checkpoint')));
   await p.screenshot({ path: `${out}/${tag}-sealed.png` });
   await key('Space'); if (phone) await ev('updateLevelFail(0)'); await p.waitForTimeout(600);
-  if (await ev('state === STATES.LEVEL_FAIL')) await ev('startRun({ level: 4, from: _checkpoint }); state = STATES.PLAYING;');
-  console.log('retry: beat', await ev('level.beat.type'), '| timer', await ev('Math.round(level.escapeT)'), '| ability kept', await ev(who === 'dex' ? '!!player.arcRound' : 'player.rackBounce > 0'));
+  if (await ev('state === STATES.LEVEL_FAIL')) await ev('startRun({ level: 4 }); state = STATES.PLAYING;');
+  console.log('restart: beat', await ev('level.idx'), await ev('level.beat.type'));
+  // Back to the escape to test the wires (the earlier sections were tested above)
+  await ev(`level.pendingPowerUp = LEVEL_CARDS[4]["${who}"]; level.takePowerUp(player); level._skipTo(4);`);
+  console.log('escape again: timer', await ev('Math.round(level.escapeT)'));
   await skipTalk(); await waitFor('level.ready');
   await ev('level.spawnT = 99'); await killAll();
   // A live wire: walk into it, then dash through it
