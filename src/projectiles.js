@@ -35,7 +35,7 @@ class Projectile {
     this.piercing = piercing;   // hits remaining after first
     this.bounce   = bounce;     // reflect off map edges
     this.rackBounce = 0;        // ricochets left off racks (set after spawn)
-    this.knockback  = 0;        // px to shove an enemy on hit (set after spawn)
+    this.arc        = false;    // Arc Round: jumps to a nearby enemy on hit (set after spawn)
     this.hitIds     = null;     // enemies this round has already hit
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
@@ -224,8 +224,8 @@ export class ProjectileSystem {
     const ux = p.vx / p.speed, uy = p.vy / p.speed;    // travel direction
     const px = -uy, py = ux;                             // across it
     const gold = p.overload;
-    const core = gold ? '#FFE9A8' : '#FFFFFF';
-    const wave = gold ? '255,200,90' : '200,232,255';
+    const core = gold ? '#FFE9A8' : p.arc ? '#F2FFD6' : '#FFFFFF';
+    const wave = gold ? '255,200,90' : p.arc ? '182,255,46' : '200,232,255';
     const coreLen = gold ? 10 : 8, coreW = gold ? 3 : 2;
     const trail = Math.min(gold ? 34 : 28, p.traveled * t.a);   // grows out of the lens
     const base = gold ? 4 : 3, amp = 1.5, lambda = 10;

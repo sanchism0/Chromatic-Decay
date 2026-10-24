@@ -77,7 +77,7 @@ const tag = (land ? 'land' : phone ? 'phone' : 'desk') + '-' + who;
   // Wave 2
   await skipTalk(); await waitFor('level.ready');
   for (let i = 0; i < 120 && await ev('level.idx') === 2; i++) { await ev('player.hp = player.maxHp; enemies.enemies.forEach(e => { if (!e.forming) e.takeDamage(1e9); })'); await p.waitForTimeout(250); await pick(); }
-  console.log('beat', await ev('level.beat.type'), 'power-ups taken', picks, JSON.stringify(await ev('level.powers')), 'player', JSON.stringify(await ev('[player.projCount, player.piercingShots, !!player.kineticFinish, player.rackBounce || 0, !!player.grenade]')));
+  console.log('beat', await ev('level.beat.type'), 'power-ups taken', picks, JSON.stringify(await ev('level.powers')), 'player', JSON.stringify(await ev('[player.projCount, player.piercingShots, !!player.arcRound, player.rackBounce || 0, !!player.grenade]')));
 
   // Servers: shoot each of the four
   const godId = await ev('setInterval(() => { player.hp = player.maxHp; }, 50)');

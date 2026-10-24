@@ -58,7 +58,7 @@ different. Everyone can dash (Space).
 | Character | Gun | Feel | Level 1 power-ups (first one kept as a card) |
 |---|---|---|---|
 | **Juno** | **Minigun**: 5 rounds/s at low damage, with a little spray | Hose the crowd, keep moving | **Hot Barrel** (+25% fire rate), Piercing Stream, Ricochet |
-| **Dex** | **Burst**: three quick rounds per trigger pull | Pick a target, punch it | **Heavy Bursts** (+1 round, +15% damage), Stun Grenade (E), Kinetic Finish |
+| **Dex** | **Burst**: three quick rounds per trigger pull | Pick a target, punch it | **Heavy Bursts** (+1 round, +15% damage), Stun Grenade (E), Arc Round |
 | **Raze** (gold) | **Heavy**: slow, very strong gold rounds | Every shot counts | Not designed yet |
 
 The earlier "signature" abilities (Spin Up, Arc Discharge, Gold Standard) were

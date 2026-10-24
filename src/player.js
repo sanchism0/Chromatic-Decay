@@ -638,7 +638,7 @@ export class Player {
     }
   }
 
-  // finalRound: the last round of a burst (Kinetic Finish knocks back with it)
+  // finalRound: the last round of a burst (Arc Round makes it electric)
   _shoot(projectileSystem, finalRound = false) {
     // Flash Crash: every 10th shot deals 400% damage
     let flashMultiplier = 1;
@@ -682,7 +682,7 @@ export class Player {
       );
       if (shot) {
         shot.rackBounce = this.rackBounce || 0;
-        if (finalRound && this.kineticFinish) shot.knockback = 34;
+        shot.arc = !!(finalRound && this.arcRound);
       }
     }
   }

@@ -36,7 +36,7 @@ Levels also get **longer, with as much interaction as Level 2** from here on.
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
 | 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
 | 3 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
-| 4 | **Chain Arc** (passive, agreed): each hit jumps to the nearest other Chromatic. The owner rates it above Kinetic Finish | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
+| 4 | **To decide.** Chain Arc went into Level 1 instead (Arc Round replaced Kinetic Finish). Option: a stronger version where every round jumps | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
 **Decoy Beacon (Juno, E), defined:**
@@ -54,7 +54,7 @@ Levels also get **longer, with as much interaction as Level 2** from here on.
   of it (beacon pulls them away; Dex's grenade stuns them where they stand),
   and the boss's split-off violets come in rings the beacon can gather.
 
-That makes the Arcade Story deck ten cards (up from three). Level 4's ability is passive because E and F are taken by Levels 3 and 5. Its tasks would then be built around hitting things you can't see directly: signal nodes tucked behind cable runs that only a chained or bounced shot reaches. Kinetic Finish,
+That makes the Arcade Story deck ten cards (up from three). Level 4's ability is passive because E and F are taken by Levels 3 and 5. Its tasks would then be built around hitting things you can't see directly: signal nodes tucked behind cable runs that only a chained or bounced shot reaches. Arc Round,
 Piercing Stream, Ricochet and a possible Chain Arc stay Level 1 sampler
 power-ups for now, and are candidates for later levels or the Workshop.
 
