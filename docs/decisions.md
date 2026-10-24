@@ -195,7 +195,9 @@ roughly even.
 ### Power in Story
 - **Level 1 is a sampler:** clearing each section grants a set power-up for the
   rest of the level, so it's exciting. Dex: Heavy Bursts → Stun Grenade →
-  Kinetic Finish. Juno: Hot Barrel → Piercing Stream → Ricochet.
+  Arc Round. Juno: Hot Barrel → Piercing Stream → Ricochet. (Arc Round replaced
+  Kinetic Finish, the knockback round, on the owner's request: the last round of
+  each burst is electric and jumps to another enemy within 130 px.)
 - **Keep one:** opening the door the first time as a character saves the **first**
   power-up permanently as a Story card for that character, with the unlock tune.
 - **One ability per level, and the level is built around it** (Oct 24, 2026, after playing Level 2: "this was fun"). Every level gives a new ability early (after its first wave) and its tasks and puzzles need that ability, like Level 2's frozen tanks that only the dash ability cracks. Clearing the level keeps it as a Story card. (This replaced a short-lived "card every two levels" plan.) Plan: `docs/design/levels-2-5.md`.

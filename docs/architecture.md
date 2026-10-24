@@ -68,7 +68,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 |---|---|
 | `player.js` | The agent: movement (sub-stepped so it never tunnels into racks), `WEAPONS` per character, firing, dash (`DASH_*`), beam-in/out, death, sprite drawing (`SHEETS`, 32×44 cells, walk cycle, `LENS` per facing for the emitter muzzle). Also legacy class data. |
 | `enemies.js` | The Chromatics: spawning (fade-in), per-type behaviour, the yellow lunge (`LUNGE`), the green blink (`BLINK`: stationary turret that teleports to the far side of a kiting player; `phased` while fading = can't be hit), flow-field pathing (`FLOW`), ghost drawing (wavelength-driven pulse and ripples, health-scaled core). |
-| `projectiles.js` | Player and enemy shots, pulse-shot visuals, rack bounce (Ricochet), knockback (Kinetic Finish), `hitIds` (a round hits each enemy once, for piercing), `rackHits` (racks shot this frame, for Story objectives). |
+| `projectiles.js` | Player and enemy shots, pulse-shot visuals, rack bounce (Ricochet), `arc` (Arc Round: the last round of a Dex burst; `EnemySystem` jumps it to the nearest other enemy within `ARC_RANGE` and draws the bolt in `zaps`), `hitIds` (a round hits each enemy once, for piercing), `rackHits` (racks shot this frame, for Story objectives). |
 | `dashpowers.js` | Dash abilities (Level 2 cards): Dex's Shock Dash (stun + jam everything dashed through) and Juno's Parting Charge (a bomb where the dash started). Detects a dash starting itself; also hits `level.dashTargets`. |
 | `grenade.js` | Dex's stun grenade: arcs over racks, stuns and jams (+50% damage taken), electricity and smoke, 8 s cooldown. |
 | `echoes.js` | Echo health pickups (pixel-art white figure, fog, fade-in, jewel sound). Legacy Fragment echoes too. |

@@ -33,7 +33,7 @@ export const POWERUPS = {
     { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
     { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; p.abilities.push('grenade'); },
       hint: touch => (touch ? 'Tap its button to throw it.' : 'Press E to throw it.') },
-    { name: 'KINETIC FINISH',  desc: 'The last round of every burst knocks its target back.', apply: p => { p.kineticFinish = true; } },
+    { name: 'ARC ROUND',       desc: 'The last round of every burst is electric: it jumps to another enemy close by.', apply: p => { p.arcRound = true; } },
   ],
   juno: [
     { id: 'hot_barrel', name: 'HOT BARREL', desc: 'The minigun fires 25% faster.',                 apply: p => { p.projCount += 1; } },

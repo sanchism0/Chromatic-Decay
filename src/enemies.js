@@ -3,7 +3,11 @@
 import { CONFIG } from './config.js';
 import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } from './utils.js';
 import { haloSprite, drawGlow } from './sprites.js';
-import { sfxLungeWindup, sfxLunge, sfxBlinkOut, sfxBlinkIn } from './audio.js';
+import { sfxLungeWindup, sfxLunge, sfxBlinkOut, sfxBlinkIn, sfxShockDash } from './audio.js';
+
+// Arc Round (Dex): the last round of a burst jumps to the nearest other
+// enemy within this many px, for the same damage
+const ARC_RANGE = 130;
 
 let _nextId = 0;
 
@@ -749,10 +753,12 @@ export class EnemySystem {
     this.spawnTimer       = 0;
     this.elapsedMin       = 0;
     this.manualSpawnMode  = false;  // true = wave system controls spawning
+    this.zaps             = [];     // Arc Round jumps being drawn
   }
 
   reset() {
     this.enemies    = [];
+    this.zaps       = [];
     this.spawnTimer = 0;
     this.elapsedMin = 0;
   }
@@ -847,6 +853,8 @@ export class EnemySystem {
     for (const e of this.enemies) {
       e.update(dt, player, map, projectileSystem);
     }
+    for (const z of this.zaps) z.t += dt;
+    this.zaps = this.zaps.filter(z => z.t < 0.35);
 
     // Remove dead enemies; game.js spawns their Colour Drain
     const dead = this.enemies.filter(e => !e.isAlive);
@@ -899,12 +907,21 @@ export class EnemySystem {
           const wasAlive = e.isAlive;
           e.takeDamage(dmg);
 
-          // Knockback rounds shove the target along the shot (not into a rack)
-          if (proj.knockback && e.isAlive) {
-            const v = Math.hypot(proj.vx, proj.vy) || 1;
-            const nx = e.x + proj.vx / v * proj.knockback, ny = e.y + proj.vy / v * proj.knockback;
-            if (!FLOW.blocked || !FLOW.blocked[FLOW.cell(nx, ny)]) { e.x = nx; e.y = ny; }
-            e.stunTimer = Math.max(e.stunTimer || 0, 0.3);
+          // Arc Round: the charge jumps on to the nearest other enemy
+          if (proj.arc) {
+            proj.arc = false;
+            let best = null, bd = ARC_RANGE * ARC_RANGE;
+            for (const o of this.enemies) {
+              if (o === e || !o.isAlive || o.phased || o.forming) continue;
+              const d2 = (o.x - e.x) ** 2 + (o.y - e.y) ** 2;
+              if (d2 < bd) { bd = d2; best = o; }
+            }
+            if (best) {
+              best.takeDamage(dmg);
+              this.zaps.push({ x1: e.x, y1: e.y, x2: best.x, y2: best.y, t: 0, seed: Math.floor(Math.random() * 1e5) });
+              sfxShockDash();
+              if (!best.isAlive) killed.push(best);
+            }
           }
 
           if (!e.isAlive) {
@@ -954,6 +971,23 @@ export class EnemySystem {
 
   drawHalos(ctx) {
     for (const e of this.enemies) e.drawHalo(ctx);
+    // Arc Round jumps: a jagged lime bolt that fades fast (no flash)
+    if (!this.zaps.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#B6FF2E'; ctx.lineWidth = 2;
+    for (const z of this.zaps) {
+      const a = 1 - z.t / 0.35;
+      let r = z.seed;
+      const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280 - 0.5; };
+      ctx.globalAlpha = 0.9 * a;
+      ctx.beginPath(); ctx.moveTo(z.x1, z.y1);
+      for (let k = 1; k < 5; k++) ctx.lineTo(z.x1 + (z.x2 - z.x1) * k / 5 + rnd() * 10, z.y1 + (z.y2 - z.y1) * k / 5 + rnd() * 10);
+      ctx.lineTo(z.x2, z.y2); ctx.stroke();
+      drawGlow(ctx, '#B6FF2E', z.x1, z.y1, 12, 0.25 * a);
+      drawGlow(ctx, '#B6FF2E', z.x2, z.y2, 16, 0.35 * a);
+    }
+    ctx.restore();
   }
 
   countByType(type) {
