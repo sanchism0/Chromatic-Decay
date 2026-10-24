@@ -197,6 +197,8 @@ roughly even.
   Kinetic Finish. Juno: Hot Barrel → Piercing Stream → Ricochet.
 - **Keep one:** opening the door the first time as a character saves the **first**
   power-up permanently as a Story card for that character, with the unlock tune.
+- **A card every two levels:** Levels 1, 3 and 5 award Story cards; 2 and 4 pay Chroma only (decided Oct 24, 2026). Plan: `docs/design/levels-2-5.md`.
+- **No checkpoints for now:** dying restarts the whole level; revisit if levels get long.
 - **Cards belong to the character who earned them.** From Level 2 on, a character
   starts with only their own cards.
 - Power you draw from the map (relays, server beams) takes **your character's

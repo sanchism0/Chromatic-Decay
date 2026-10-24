@@ -25,27 +25,24 @@ Rules this plan follows (from `docs/decisions.md`):
 
 ## The cards: what each level awards
 
-Each level gives the character who clears it one Story card, the first time.
-Three of Level 1's sampler power-ups come back here as permanent cards, so
-Level 1 really was a preview of where each character is going.
+**One card every two levels** (owner's call): Levels 1, 3 and 5 each give the
+character who clears them one Story card, the first time. Levels 2 and 4 pay
+Chroma (and Story points) only. Each character ends the arc with three cards:
+their gun upgrade and two activated abilities.
 
 | Level | Dex | Juno |
 |---|---|---|
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
-| 2 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
-| 3 | **Kinetic Finish**: built. Last round of each burst knocks back | **Piercing Stream**: built. Rounds pass through one enemy |
-| 4 | **Chain Arc**: new. The last round of a burst arcs to a second enemy nearby | **Ricochet**: built. Rounds bounce once off racks |
+| 3 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
-After Level 5 each character has five cards, including two activated abilities
-(E and F). That's the full Arcade Story deck: ten cards, up from three today.
+That makes the Arcade Story deck six cards (up from three). Kinetic Finish,
+Piercing Stream, Ricochet and a possible Chain Arc stay Level 1 sampler
+power-ups for now, and are candidates for later levels or the Workshop.
 
-Only two cards are wholly new (Decoy Beacon, Chain Arc). The two F abilities
-reuse code that already exists.
-
-**Raze** earns his own cards by replaying Levels 1–5 as him. His set gets
-designed once he's playable (heavy gold rounds suggest pierce, armour-break,
-a slow-time shot).
+**Raze** earns his own cards by replaying Levels 1, 3 and 5 as him. His set
+gets designed once he's playable (heavy gold rounds suggest pierce,
+armour-break, a slow-time shot).
 
 ---
 
@@ -67,7 +64,7 @@ the floor.
 | **Coolant valves** (puzzle) | The lift is frozen. Three valve plates; standing on one opens it for 8 s. Get all three open at once (run between them while a few violets get in the way) | "Three valves. Open them together and the ice lets go." |
 | Exit | Ride the lift: beam-out, card, results | "The Echo knows where he went: The Stacks." |
 
-New code: escort beat, timed-plates beat, the Cold Storage map and palette.
+New code: escort beat, timed-plates beat, the Cold Storage map and palette. No card (Chroma only).
 
 ## Level 3: The Stacks (first boss)
 
@@ -87,7 +84,7 @@ the centre.
 | Exit | Beam-out, card, results | "He was here. And he's still ahead of us." |
 
 New code: hold-zone beat, mirror-beam beat, boss framework, The Queue, the
-Stacks map.
+Stacks map, Decoy Beacon. Card: Stun Grenade / Decoy Beacon.
 
 ## Level 4: Wire Room
 
@@ -105,7 +102,7 @@ turrets.
 | **Tuning** (puzzle) | Three dials (floor switches), each cycling through three frequencies. Match the pattern on the big display; it lights each dial that's right | "Match the signal. When all three are right, the door opens." |
 | Exit | Beam-out, card, results | "Every piece. The door ahead is his." |
 
-New code: gather beat, tuning beat, Wire Room map, Chain Arc card.
+New code: gather beat, tuning beat, Wire Room map. No card (Chroma only).
 
 ## Level 5: Raze's Room (second boss, rescue)
 
@@ -145,8 +142,8 @@ the unlock, Arc Discharge and Spin Up as F abilities.
 1. **Maps per level:** `map.js` takes a layout per level; `pixelmap.js` takes a
    palette. Level 1 and Arcade keep the Basement.
 2. **Start kit:** at a level's start, apply the character's own earned cards.
-3. **Checkpoints:** dying restarts the current section, not the whole level
-   (levels get longer from here). Planned in the design; not built yet.
+3. **Checkpoints:** not for now. Dying restarts the whole level (owner's call);
+   revisit if the levels turn out long.
 4. **The F slot:** a second ability key on desktop and a second round button
    on touch (the HUD already reserves F).
 5. **Boss framework:** health bar at the top, phases, a death sequence.
@@ -155,10 +152,9 @@ the unlock, Arc Discharge and Spin Up as F abilities.
 
 One level at a time, each tested on desktop and phone, then merged:
 
-1. Engineering above, plus **Level 2** (escort, valves, Cold Storage map,
-   Decoy Beacon).
-2. **Level 3** (hold zone, mirror beam, The Queue).
-3. **Level 4** (gather, tuning, Chain Arc).
+1. Engineering above, plus **Level 2** (escort, valves, Cold Storage map).
+2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon).
+3. **Level 4** (gather, tuning).
 4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities, Raze unlock).
 
 Each step also: comms lines for both operators, a playtest script, the docs.
