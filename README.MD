@@ -1,112 +1,53 @@
 # CHROMATIC DECAY
 
-> A top-down arcade shooter set in a world dissolved by signal saturation.
+> A top-down shooter in a world where colour only survives if it's still broadcasting.
 
-You are a Signal Warden — the last analog human in a grayscale void — fighting corrupted data constructs called Chromatics. Rescue fragmented digital consciousnesses, collect Residuals, and evolve into one of five emergent classes before your signal collapses.
-
-Every run ends. Every run tells more of the story.
-
----
+Ten years after the Collapse, the Chromatics (ghosts made of stolen light) have
+taken the colour out of everything. **Dex** and **Juno** fight them with
+hand-built Pulse Emitters that fire coherent light, the one signal a Chromatic
+can't swallow. A voice called **Null** sends them into the Basement to rescue
+**Raze**, an Echo that still knows who he is.
 
 ## Play
 
-**Live:** `https://[username].github.io/chromatic-decay`
+**https://sanchism0.github.io/Chromatic-Decay/**
 
-No install. Open in any browser. Playable on desktop and mobile.
+No install. Works in any modern browser, on desktop and on phones (twin-stick
+touch controls).
 
----
+## Modes
 
-## Status
+- **Story Mode:** pick who goes in; the other one talks you through it on
+  comms. A prologue, a tutorial and Level 1 ("Server Floor") so far. Clearing
+  levels earns Chroma and **Story cards**.
+- **Arcade Mode:** 15 waves of escalating Chromatics with bosses. Every Story
+  card you've earned joins your upgrade deck.
+- **Leaderboards:** Arcade (desktop and mobile, all-time and this week), Story
+  progress and lifetime Chroma.
 
-> 🔴 Pre-build — planning complete, development not yet started
+## Controls
 
----
-
-## What's in This Repo
-
-```
-chromatic-decay/
-├── index.html              # Game entry point (coming soon)
-├── chromatic-decay-gdd.md  # Full game design document
-├── README.md               # This file
-```
-
----
-
-## Game Design
-
-Full design doc lives at [`chromatic-decay-gdd.md`](./chromatic-decay-gdd.md). It covers:
-
-- World & lore — The Collapse, the Chromatics, the Signal Wardens
-- All five enemy types with base stats and behavior
-- Five classes (Warden, Breaker, Ghost, Weaver, Herald) with 10 traits each
-- Five subclasses for split-path builds
-- The Warden Archive — meta-progression via named Fragment rescues
-- Lore feed system — in-game story blurbs triggered by first encounters
-- Stat architecture and scaling formulas
-- Admin config panel spec — tune all balance values without touching code
-- Mobile controls spec — dual stick layout, HUD adjustments, landscape lock
-- Supabase leaderboard spec — shared hi-score board across all players
-
----
+| | Desktop | Phone |
+|---|---|---|
+| Move / aim | WASD + mouse | left stick / right stick |
+| Fire | automatic (Q to toggle) | automatic (AUTO to toggle) |
+| Dash | Space | DASH |
+| Abilities | E, F | ability buttons |
+| Comms | Enter | tap the box |
 
 ## Stack
 
-| Layer | Tool |
-|---|---|
-| Game engine | Vanilla JS + HTML5 Canvas |
-| Hosting | GitHub Pages |
-| Leaderboard | Supabase (free tier) |
-| Multiplayer (future) | Partykit |
-| Dev environment | Claude Code |
+Vanilla JavaScript ES modules and HTML5 Canvas, no build step, hosted on
+GitHub Pages. All sound is synthesized with Web Audio. Leaderboards run on
+Supabase.
 
----
+## For contributors
 
-## Build Order
+Start with [`CLAUDE.md`](./CLAUDE.md), then the docs it lists:
+[`docs/decisions.md`](./docs/decisions.md) (what we want and why),
+[`docs/roadmap.md`](./docs/roadmap.md) (status and next steps),
+[`docs/architecture.md`](./docs/architecture.md) (how the code works).
 
-- [ ] Desktop core — movement, shooting, enemies, Residuals, upgrades
-- [ ] Class system — trait cards, class emergence, visual shifts
-- [ ] Warden Archive — Fragment spawns, permanent unlocks, Archive menu
-- [ ] Lore feed — blurb triggers, subtitle display, on/off toggle
-- [ ] Admin config panel — tunable values, JSON export/import
-- [ ] Supabase leaderboard — score POST on run end, GET on leaderboard screen
-- [ ] Mobile controls — dual stick joysticks, HUD layout, landscape lock
-- [ ] Polish — audio, death animations, class visual effects, performance tuning
-
----
-
-## The Five Classes
-
-| Class | Unlocked By | Identity |
-|---|---|---|
-| **Warden** | Rescuing Sable | Sustain, protection, Echo synergy |
-| **Breaker** | Rescuing Raze | Burst offense, kill-chaining, high risk/reward |
-| **Ghost** | Rescuing Lumen | Mobility, evasion, damage tied to movement |
-| **Weaver** | Rescuing Cord | Map control, traps, area denial |
-| **Herald** | Rescuing Voss | Companion summons, indirect damage |
-
-Classes emerge from trait selections — never chosen directly.
-
----
-
-## The Warden Fragments
-
-Five named digital constructs hidden in the far reaches of each map. Find one for the first time and that class tree unlocks permanently across all future runs.
-
-| Fragment | Was | Unlocks |
-|---|---|---|
-| **Sable** | A server farm load balancer | Warden tree |
-| **Raze** | A decommissioned trading algorithm | Breaker tree |
-| **Lumen** | A VPN service | Ghost tree |
-| **Cord** | A smart home hub | Weaver tree |
-| **Voss** | A social media recommendation engine | Herald tree |
-
----
-
-## Leaderboard
-
-Shared hi-score board via Supabase. All players on any device see the same board. Enter 3 initials at run end. Scores ranked by Frequency Score — a weighted formula factoring kills, Echoes rescued, survival time, and traits taken.
-
----
-
-*Built for the Signal Wardens. You know who you are.*
+To run locally, serve the folder (for example `python3 -m http.server 8766`)
+and open `http://localhost:8766`. Headless playtests live in
+[`tools/playtest/`](./tools/playtest/).

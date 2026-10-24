@@ -1,20 +1,21 @@
 # Core loop: Story unlocks Arcade
 
-A design to react to. Nothing here is built yet. The "Build order" at the end is
-the proposed sequence.
+The game's design. Parts are built (see `docs/roadmap.md` for status); the rest
+is the plan. Where this doc and `docs/decisions.md` disagree, `decisions.md` is
+newer.
 
 ## The loop in one line
 
-**Play Story levels → earn Chroma (colour) and unlock characters, powers and
-skill-tree nodes → those become cards in Arcade → replay Story levels to farm
-more Chroma → buy the rest of each tree in the Workshop.**
+**Play Story levels → earn Chroma (colour) and Story cards, and unlock
+characters → the cards join the Arcade deck → replay Story levels to farm more
+Chroma → (later) buy the rest of each character's tree in the Workshop.**
 
 ```
         ┌──────────── replay levels to farm ────────────┐
         ▼                                                │
   STORY LEVEL ──clear──► Chroma + first-clear unlocks ──► WORKSHOP (skill trees)
         │                                                │
-        └── beat L1 with a character → their signature   │
+        └── beat L1 with a character → their first card   │
             beat L5 → unlock Raze                         ▼
                                               ARCADE card pool per character
 ```
@@ -26,8 +27,8 @@ more Chroma → buy the rest of each tree in the Workshop.**
 | Pace | Slower, structured, checkpoints | Fast, endless pressure, 15 waves |
 | Goal | Clear the level | Survive, score |
 | Colour from kills | **Chroma**: banked to your wallet at the end | Run-only, as now |
-| Levelling in the run | None. Your kit is what you've unlocked | Wave clears → pick cards (as now) |
-| Rewards | Chroma, unlocks | Score (later: a little Chroma) |
+| Levelling in the run | Section power-ups (Level 1 is a sampler); otherwise your earned cards | Wave clears → pick cards |
+| Rewards | Chroma, Story cards, unlocks | Score, and a quarter of the colour drained as Chroma |
 
 ## Chroma (the currency)
 
@@ -50,21 +51,24 @@ more Chroma → buy the rest of each tree in the Workshop.**
 ## Characters
 
 Everyone keeps the emitter (a gun). What sets each character apart is **how
-their gun fires**, plus a **signature ability** (Space / F, with a cooldown)
-and, later, their skill tree. Damage per second is about even; the delivery
-is different.
+their gun fires**, then the **Story cards** they earn (some are activated
+abilities on E and F). Damage per second is about even; the delivery is
+different. Everyone can dash (Space).
 
-| Character | Gun | Feel | Signature (beat L1 as them) |
+| Character | Gun | Feel | Level 1 power-ups (first one kept as a card) |
 |---|---|---|---|
-| **Juno** | **Minigun**: about 5 rounds/s at low damage, with a little spray | Hose the crowd, keep moving | **Spin Up**: fires over twice as fast with a tighter stream for 4 s |
-| **Dex** | **Burst**: three quick rounds per trigger pull | Pick a target, punch it | **Arc Discharge**: a ring of shots that knocks nearby enemies back and stuns them |
-| **Raze** (gold) | **Heavy**: slow, very strong gold rounds | Every shot counts | **Gold Standard**: the next 3 rounds pierce everything and hit twice as hard |
+| **Juno** | **Minigun**: 5 rounds/s at low damage, with a little spray | Hose the crowd, keep moving | **Hot Barrel** (+25% fire rate), Piercing Stream, Ricochet |
+| **Dex** | **Burst**: three quick rounds per trigger pull | Pick a target, punch it | **Heavy Bursts** (+1 round, +15% damage), Stun Grenade (E), Kinetic Finish |
+| **Raze** (gold) | **Heavy**: slow, very strong gold rounds | Every shot counts | Not designed yet |
+
+The earlier "signature" abilities (Spin Up, Arc Discharge, Gold Standard) were
+replaced by this card system; their code is still in `player.js`, unused.
 
 - **Raze** is the market-crash Echo from the lore, the Echo the Basement arc
   is out to rescue, and a **playable gold character** once he's rescued at the
-  end of L5. You then clear L1 as him for his
-  signature. His tree can reuse Arcade's Breaker traits (Short Squeeze,
-  Margin Call, Flash Crash…). He needs a sprite before he's playable.
+  end of L5. You then clear L1 as him for his cards. His tree can reuse
+  Arcade's old Breaker traits (Short Squeeze, Margin Call, Flash Crash…). He
+  needs a sprite (a placeholder first) before he's playable.
 - **Power takes your colour.** Any power you draw from the map (relays now,
   more later) flows into you in your character's colour: green for Dex, pink
   for Juno, gold for Raze. Lock nodes and the exit light up in it too. The
@@ -85,8 +89,9 @@ Slower and readable, with the operator on comms between beats:
 3. **Wave**: harder.
 4. **Puzzle**: no time pressure.
 
-From L3 on, some levels end with a **boss**. Each beat is a checkpoint: if you
-die, you restart that beat, not the level.
+From L3 on, some levels end with a **boss**. Planned: each beat is a
+checkpoint, so dying restarts that beat. For now, dying shows restart or leave
+and restarts the level.
 
 **Levels 1–5 use only violet, yellow and green.**
 
@@ -116,7 +121,7 @@ down to Cold Storage. Sable can be character 4 later.
 
 | # | Level | Wave 1 | Task | Wave 2 | Puzzle | Boss | Unlocks |
 |---|---|---|---|---|---|---|---|
-| 1 | Server Floor | violet | Relays (3) | violet + yellow | Wake 4 servers | none | **Signature** for the character who clears it |
+| 1 | Server Floor | violet | Relays (3) | violet + yellow | Wake 4 servers | none | First power-up as a **Story card**, for the character who clears it (built) |
 | 2 | Cold Storage | violet + yellow | Escort an Echo | yellow | Plates | none | Tree tier 1 (story nodes) |
 | 3 | The Stacks | yellow | Hold the line | violet + yellow | Beam | **The Queue**: a huge violet made of unplayed streams | Tier 2 story node |
 | 4 | Wire Room | green (new) | Gather fragments | yellow + green | Tuning | none | Workshop opens in full |
@@ -143,16 +148,15 @@ Reset option in settings.
 
 ## Build order
 
-1. **Foundation (built)**: save data; the level runner with checkpoints;
-   Chroma banking and a results screen; the Story map; **Level 1** (wave →
-   relays with interrupters → wave → sequence lock → exit).
-2. **Guns and signatures (built)**: Juno's minigun, Dex's burst, Raze's heavy
-   rounds (data only); Spin Up and Arc Discharge, unlocked by clearing L1, and
-   usable in Arcade too.
-3. **Workshop**: skill-tree data and UI, and the Arcade card pool per
-   character.
-4. **Levels 2–5**: the Queue and Signal Hoarder bosses, and Raze.
-5. **Tuning**: costs, farm rates and challenge goals.
+1. **Foundation (built):** save data, the level runner, Chroma banking, results,
+   the Story map, Level 1.
+2. **Character guns and Story cards (built):** Juno's minigun, Dex's burst,
+   Raze's heavy rounds (data only); Level 1 power-ups; the door card.
+3. **Mechanics (built):** dash, E/F abilities, stun grenade, yellow lunge,
+   pathing. **Next:** green blinkers.
+4. **Levels 2–5:** each awards more cards; bosses from L3; Raze at L5.
+5. **Workshop:** skill-tree data and UI.
+6. **Tuning:** costs, farm rates and challenge goals.
 
 ## Arcade (decided)
 

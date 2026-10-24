@@ -1,6 +1,6 @@
 # Characters — Dex & Juno
 
-Two playable characters. The one the player picks is the **operator** (in the field); the other is the **assistant** (in the operator's ear from HQ).
+Two playable characters (Raze, gold, comes later). The one the player picks is the **agent** (in the field); the other is the **operator** (on the comms, in the agent's ear). Either character can take either role.
 
 | | Main colour | Second colour |
 |---|---|---|
@@ -37,7 +37,7 @@ Files are named `<character>-<expression>.png`, e.g. `juno-soft-smile.png`.
 
 ## Facing
 
-In dialogue the assistant's portrait sits bottom-left and the operator's bottom-right. Juno's art faces right and Dex's faces left, so whichever pair is on screen they look toward each other — mirror an image horizontally if a layout ever needs the other side.
+In story scenes the operator's portrait sits on the left and the agent's on the right (the intro scene puts Juno left, Dex right). Juno's art faces right and Dex's faces left, so whichever pair is on screen they look toward each other — mirror an image horizontally if a layout ever needs the other side.
 
 ## Re-cutting
 

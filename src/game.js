@@ -1709,7 +1709,7 @@ const STORY_LEVELS = [
   { id: 2, name: 'COLD STORAGE' },
   { id: 3, name: 'THE STACKS' },
   { id: 4, name: 'WIRE ROOM' },
-  { id: 5, name: "SABLE'S ROOM" },
+  { id: 5, name: "RAZE'S ROOM" },
 ];
 const CHROMA_COLORS = { violet: '#8B5CFF', yellow: '#E9FF6A', green: '#8DFF6A' };
 
