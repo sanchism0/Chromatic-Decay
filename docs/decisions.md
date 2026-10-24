@@ -139,16 +139,16 @@ roughly even.
 | Move | WASD / arrows | left stick |
 | Aim | mouse | right stick |
 | Fire | auto-fire on by default; Q toggles; manual = hold mouse | AUTO button; manual = hold the aim stick |
-| Dash | Space | DASH button |
+| Dash | **click: dashes toward the cursor** (right-click always; left-click when auto-fire is on, since with it off the left button fires) | DASH button (the way you're moving) |
 | Abilities | E = first activated ability, F = second | round buttons next to DASH |
-| Comms | Enter or click the box | tap the box |
+| Comms | **Space**, Enter, or click the box | tap the box |
 | Pause / skip scene | Esc | SKIP button |
 
 - **E is the first activated ability a character gets, F the second.** "If
   there's no ability, then there's no function for E." Every ability gets a key.
   (An earlier fallback that threw a grenade with no ability was rejected
   outright.)
-- **Dash:** any character, Space. 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
+- **Dash:** any character; on desktop a click dashes toward the cursor (changed from Space, Oct 24, 2026). Space now moves comms on. 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
   and cooldown raised on request). Untouchable mid-dash; a perfect dodge refunds
   the cooldown once. Cooldowns must be clearly visible (key bar on desktop,
   rings on touch buttons).
@@ -172,6 +172,7 @@ roughly even.
 - **Few, short lines.** "Tell people what's going on in the story without making
   them click through multiple screens." Cut asides (the coherent-light
   explanation was removed from the tutorial). One press moves to the next line.
+- **Text only while the game is stopped** (Oct 24, 2026): while a comms line is up the agent can't shoot, and if any Chromatic is on the map everything freezes until the line ends or the player presses Space. The comms box sits in the **bottom half** of the screen (above the key bar on desktop, between the sticks in phone landscape, above the touch buttons in portrait); the objective line sits at the top.
 - **Comms must never be missed in a fight.** Briefings hold enemies back until
   they finish; later lines wait for a game event. ("I was caught up killing the
   yellow guys, and I missed everything in the dialogue.")

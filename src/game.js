@@ -527,12 +527,30 @@ function updatePlaying(dt) {
     story.onToggleFire();
   }
   const _radio = level ? level.radio : (story.inTutorial ? story.radio : null);
-  // Comms: Enter or a tap on the box moves on (Space is dash)
-  if (_radio && _radio.busy && (input.justPressed.enter ||
-      (input.mouseJustClicked && _radio.hit(input.mouseX, input.mouseY)))) {
-    _radio.next();
+  // Comms: Space, Enter, or a click / tap on the box moves on
+  const onBox = input.mouseJustClicked && _radio && _radio.hit(input.mouseX, input.mouseY);
+  if (_radio && _radio.busy && (input.justPressed.space || input.justPressed.enter || onBox)) _radio.next();
+
+  // While the operator is talking you can't shoot, and if Chromatics are
+  // around, everything holds still until the line is done (nothing is said
+  // over a fight)
+  const talking = !!(_radio && _radio.cur);
+  player.holdFire = talking;
+  if (talking && enemies.enemies.some(e => e.isAlive)) {
+    _radio.update(dt);
+    camera.follow(player.x, player.y, vw(), vh());
+    return;
   }
+
+  // Dash. Desktop: click to dash toward the cursor (right-click always works;
+  // with auto-fire off, the left button is the trigger). Touch: the DASH button.
+  const touchUI = 'ontouchstart' in window;
   if (input.mouseJustClicked && _hitBtn(_dashBtn.r)) player.dashQueued = true;
+  else if (!touchUI && !talking && (input.justPressed.rightClick ||
+           (input.mouseJustClicked && input.autoFire && !onBox && !_hitBtn(_autoBtn.r)))) {
+    player.dashQueued = true;
+    player.dashToward = input.worldMouse(camera.x, camera.y, ZOOM);
+  }
   // Activated abilities: E is the first the character has, F the second.
   // With none in that slot, the key does nothing. On touch, each has a button.
   player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
@@ -2218,13 +2236,13 @@ function _abilityInfo(id) {
   return null;
 }
 
-// Desktop: a key bar at the bottom centre — SPACE dash, then the E and F
+// Desktop: a key bar at the bottom centre — CLICK dash, then the E and F
 // ability slots. Each shows its key, a fill that rises as it recharges, and
 // the seconds left; ready slots light up in their colour.
 function _drawKeyBar(W, H) {
   if (!player || 'ontouchstart' in window) return;
   const slots = [
-    { key: 'SPACE', name: 'DASH', color: '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
+    { key: 'CLICK', name: 'DASH', color: '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
     { key: 'E', ...(_abilityInfo(player.abilities[0]) || {}) },
     { key: 'F', ...(_abilityInfo(player.abilities[1]) || {}) },
   ];

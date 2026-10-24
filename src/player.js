@@ -410,10 +410,13 @@ export class Player {
     let spd = this.effectiveSpeed;
 
     // Dash: start one, then it overrides movement for DASH_TIME
-    const wantDash = input.justPressed.dash || this.dashQueued;
-    this.dashQueued = false;
+    // (desktop: a click dashes toward the cursor, dashToward; touch: the DASH
+    // button dashes the way you're moving, or the way you face)
+    const wantDash = this.dashQueued, to = this.dashToward;
+    this.dashQueued = false; this.dashToward = null;
     if (wantDash && this.dashCooldown <= 0 && this.dashT <= 0) {
-      this.dashDir = (dx || dy) ? dir : { x: Math.cos(this.facing), y: Math.sin(this.facing) };
+      this.dashDir = to && Math.hypot(to.x - this.x, to.y - this.y) > 4 ? normalize(to.x - this.x, to.y - this.y)
+                   : (dx || dy) ? dir : { x: Math.cos(this.facing), y: Math.sin(this.facing) };
       this.dashT = DASH_TIME;
       this.dashCooldown = this.dashCooldownMax = DASH_CD;
       this._dodged = false;
@@ -457,7 +460,8 @@ export class Player {
     }
 
     // ── Shooting — toward the cursor; auto-fire or while held ─
-    this.firing    = input.autoFire || input.fireHeld;
+    // (not while the operator is talking: holdFire)
+    this.firing    = !this.holdFire && (input.autoFire || input.fireHeld);
     this.justFired = false;
     this.fireTimer -= dt;
     if (!this.firing) this.fireTimer = Math.max(0, this.fireTimer);   // first press fires at once

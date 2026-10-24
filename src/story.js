@@ -67,13 +67,13 @@ function tutorialSteps(agent, touch, api) {
     { lines: [L(f('neutral', 'focused'), touch ? "Comms are up. Drag your left thumb to walk." : 'Comms are up. Walk around with W, A, S, D.')],
       objective: 'Walk around', until: (s, b) => s.moved - b.moved > 200 },
     { lines: [L(f('determined', 'focused'), touch ? 'Tap DASH to burst out of trouble. Nothing can touch you mid-dash.'
-                                                  : 'Press Space to dash. Nothing can touch you mid-dash.')],
-      objective: touch ? 'Dash (DASH button)' : 'Dash (Space)', until: (s, b) => s.dashes > b.dashes },
+                                                  : 'Click to dash toward your cursor. Nothing can touch you mid-dash.')],
+      objective: touch ? 'Dash (DASH button)' : 'Dash (click)', until: (s, b) => s.dashes > b.dashes },
     { lines: [L(f('neutral', 'focused'), touch ? 'Your emitter fires on its own. Drag your right thumb to aim.' : 'Your emitter fires on its own. Aim with the mouse.')],
       objective: 'Fire your emitter', until: (s, b) => s.shots - b.shots >= 6 },
     { highlight: 'autofire',
       lines: [L(f('neutral', 'focused'), touch ? 'Tap AUTO to turn auto-fire off. Then it only fires while you hold the aim stick.'
-                                               : 'Press Q to turn auto-fire off. Then it only fires while you hold the mouse button.')],
+                                               : 'Press Q to turn auto-fire off. Then it fires while you hold the mouse button, and right-click dashes.')],
       objective: touch ? 'Toggle auto-fire (AUTO button)' : 'Toggle auto-fire (Q)', until: (s, b) => s.toggles > b.toggles },
     { lines: [L(f('worried', 'alarmed'), 'Signal ahead. A violet. Take it out before it reaches you.')],
       spawnAfter: [['violet', 1]],
@@ -81,7 +81,7 @@ function tutorialSteps(agent, touch, api) {
     { lines: [L(f('neutral', 'soft-smile'), 'See that? Its colour came loose, and it came to you.')],
       until: () => true },
     { lines: [L(f('worried', 'concerned'), touch ? 'Two yellows. They lunge: when one lights up, get out of its line, or tap DASH.'
-                                                 : 'Two yellows. They lunge: when one lights up, get out of its line, or dash.')],
+                                                 : 'Two yellows. They lunge: when one lights up, get out of its line, or click to dash.')],
       spawnAfter: [['yellow', 2]],
       objective: (s, b) => `Destroy the yellow Chromatics (${Math.min(2, s.kills - b.kills)}/2)`, until: (s, b) => s.kills - b.kills >= 2 },
     { echo: true, highlight: 'echo',

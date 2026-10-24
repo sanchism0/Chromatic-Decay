@@ -31,9 +31,9 @@ touch controls).
 |---|---|---|
 | Move / aim | WASD + mouse | left stick / right stick |
 | Fire | automatic (Q to toggle) | automatic (AUTO to toggle) |
-| Dash | Space | DASH |
+| Dash | click (toward the cursor) | DASH |
 | Abilities | E, F | ability buttons |
-| Comms | Enter | tap the box |
+| Comms | Space or Enter | tap the box |
 
 ## Stack
 
