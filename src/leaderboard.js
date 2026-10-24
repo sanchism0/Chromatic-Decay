@@ -33,6 +33,8 @@ let _idx = PLATFORM === 'mobile' ? 1 : 0;
 const _cache = {};   // board id → { rows, status: 'loading' | 'ok' | 'offline', at }
 
 export const currentBoard = () => BOARDS[_idx];
+// Back to your own platform's Arcade board (each time the title screen opens)
+export function resetBoard() { _idx = PLATFORM === 'mobile' ? 1 : 0; }
 export function cycleBoard(step) {
   _idx = (_idx + step + BOARDS.length) % BOARDS.length;
   refreshBoard();
@@ -156,9 +158,11 @@ export async function syncPlayer() {
 const fmtTime = s => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 const AGENT_LETTER = { d: 'dex', j: 'juno', r: 'raze' };
 
-// Draws the current board in a panel; maxRows fit the space given.
+// Draws the current board in a panel; maxRows fit the space given. On
+// desktop the arrows are big buttons either side of the panel; on phones
+// they sit in the header (and a swipe works too).
 // Returns the arrow hit boxes { prev, next } and the panel rect (for swipes).
-export function drawBoard(ctx, x, y, w, maxH, narrow) {
+export function drawBoard(ctx, x, y, w, maxH, narrow, mouse = null) {
   const b = currentBoard();
   const c = _cache[b.id] || { rows: [], status: 'loading' };
   if (!_cache[b.id]) refreshBoard(b);
@@ -173,15 +177,29 @@ export function drawBoard(ctx, x, y, w, maxH, narrow) {
   ctx.strokeStyle = '#00897B66'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect(x, y, w, h, 4); ctx.stroke();
 
-  // Header: ‹ TITLE ›, and a dot per board
+  // Header: TITLE and a dot per board; arrows either side
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#00E5CC'; ctx.font = `bold ${narrow ? 12 : 13}px monospace`;
+  ctx.fillStyle = '#00E5CC'; ctx.font = `bold ${narrow ? 12 : 14}px monospace`;
   ctx.fillText(b.title, x + w / 2, y + 19);
-  const ar = 26;
-  const prev = { x: x + 4, y: y + 2, w: ar + 10, h: 28 }, next = { x: x + w - ar - 14, y: y + 2, w: ar + 10, h: 28 };
-  ctx.fillStyle = '#7ADDD4'; ctx.font = `bold ${narrow ? 18 : 20}px monospace`;
-  ctx.fillText('‹', prev.x + prev.w / 2, y + 22);
-  ctx.fillText('›', next.x + next.w / 2, y + 22);
+  let prev, next;
+  if (narrow) {
+    prev = { x: x + 2, y: y, w: 44, h: 34 }; next = { x: x + w - 46, y: y, w: 44, h: 34 };
+    ctx.fillStyle = '#7ADDD4'; ctx.font = 'bold 22px monospace';
+    ctx.fillText('‹', prev.x + prev.w / 2, y + 23);
+    ctx.fillText('›', next.x + next.w / 2, y + 23);
+  } else {
+    const bw = 52, bh = Math.min(h, 120), by = y + (h - bh) / 2;
+    prev = { x: x - bw - 12, y: by, w: bw, h: bh }; next = { x: x + w + 12, y: by, w: bw, h: bh };
+    for (const [r, ch] of [[prev, '‹'], [next, '›']]) {
+      const hot = mouse && mouse.x >= r.x && mouse.x <= r.x + r.w && mouse.y >= r.y && mouse.y <= r.y + r.h;
+      ctx.fillStyle = hot ? 'rgba(0,229,204,0.18)' : 'rgba(7,11,18,0.82)';
+      ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 6); ctx.fill();
+      ctx.strokeStyle = hot ? '#00E5CC' : '#00897B'; ctx.lineWidth = hot ? 2 : 1;
+      ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 6); ctx.stroke();
+      ctx.fillStyle = hot ? '#FFFFFF' : '#7ADDD4'; ctx.font = 'bold 40px monospace';
+      ctx.fillText(ch, r.x + r.w / 2, r.y + r.h / 2 + 13);
+    }
+  }
   for (let i = 0; i < BOARDS.length; i++) {
     ctx.fillStyle = i === _idx ? '#00E5CC' : '#2E4A4A';
     ctx.fillRect(Math.round(x + w / 2 + (i - (BOARDS.length - 1) / 2) * 10 - 2), y + 27, 4, 4);

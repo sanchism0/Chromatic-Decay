@@ -680,31 +680,33 @@ export class LevelRun {
     ctx.fillStyle = '#5E8C96';
     ctx.font = `${narrow ? 9 : 10}px monospace`;
     ctx.fillText('CHROMA', W - 14, 40);
-    // Power-ups so far, under the health bar
-    {
-      const y = narrow ? 76 : 72;
-      ctx.textAlign = 'left';
-      ctx.font = `${narrow ? 9 : 11}px monospace`;
-      if (this.powers.length) {
-        ctx.fillStyle = this.color;
-        ctx.fillText(this.powers.map(n => '◆ ' + n).join('  '), 14, y, narrow ? W - 28 : 520);
-      } else {
-        ctx.fillStyle = '#5A6470';
-        ctx.fillText('◇ clear a section to power up', 14, y);
-      }
+    // Power-ups so far, under the health bar. Phones held sideways stack
+    // them in the top-left corner, one per line, clear of the comms box
+    const compact = touch && H < 500;
+    const lx = compact ? 10 : 14;
+    let y = compact ? 32 : narrow ? 76 : 72;
+    ctx.textAlign = 'left';
+    ctx.font = `${narrow || compact ? 9 : 11}px monospace`;
+    if (this.powers.length) {
+      ctx.fillStyle = this.color;
+      if (compact) for (const n of this.powers) { ctx.fillText('◆ ' + n, lx, y); y += 11; }
+      else ctx.fillText(this.powers.map(n => '◆ ' + n).join('  '), lx, y, narrow ? W - 28 : 520);
+    } else {
+      ctx.fillStyle = '#5A6470';
+      ctx.fillText(compact ? '◇ power up: clear a section' : '◇ clear a section to power up', lx, y);
+      if (compact) y += 11;
     }
     // Emitter charge, under that, once relays have started
     if (this.relays) {
-      const y = narrow ? 100 : 96;
-      const bw = narrow ? 120 : 200;
-      ctx.textAlign = 'left';
+      y = compact ? y + 6 : narrow ? 100 : 96;
+      const bw = compact ? 120 : narrow ? 120 : 200;
       ctx.fillStyle = '#8A8E99';
-      ctx.font = `${narrow ? 9 : 11}px monospace`;
-      ctx.fillText('EMITTER CHARGE', 14, y);
+      ctx.font = `${narrow || compact ? 9 : 11}px monospace`;
+      ctx.fillText('EMITTER CHARGE', lx, y);
       ctx.fillStyle = '#1E2130';
-      ctx.fillRect(14, y + 5, bw, 5);
+      ctx.fillRect(lx, y + 5, bw, 5);
       ctx.fillStyle = this.color;
-      ctx.fillRect(14, y + 5, bw * this.charge, 5);
+      ctx.fillRect(lx, y + 5, bw * this.charge, 5);
     }
     ctx.restore();
   }

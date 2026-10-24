@@ -236,15 +236,18 @@ export class Radio {
   // clearLeft: if the box would reach into the top-left HUD column (x < 230),
   // start it at this y instead, below the bars
   draw(ctx, W, H, objective, touch, clearLeft = 0) {
-    const narrow = W < 600;
+    // Phones held sideways: comms and the objective sit at the very top,
+    // between the health bar and the Chroma counts, clear of the action
+    const compact = touch && H < 500;
+    const narrow = W < 600 || compact;
     this.rect = null;
-    const boxW = Math.min(560, W - 24);
+    const boxW = compact ? Math.min(480, W - 340) : Math.min(560, W - 24);
     const bx = (W - boxW) / 2;
-    const by = Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0);
+    const by = compact ? 6 : Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0);
     let bottom = by;
     if (this.cur) {
       const sp = SPEAKERS[this.cur.who] || SPEAKERS.null;
-      const portS = narrow ? 56 : 68;
+      const portS = compact ? 44 : narrow ? 56 : 68;
       ctx.save();
       ctx.font = `${narrow ? 12 : 14}px monospace`;
       const lines = wrap(ctx, this.cur.text.slice(0, Math.floor(this.shown)), boxW - portS - 34);
@@ -295,9 +298,10 @@ export class Radio {
       const label = `▸ ${objective}`;
       const w = ctx.measureText(label).width + 20;
       ctx.fillStyle = 'rgba(7,11,18,0.75)';
-      ctx.fillRect(W / 2 - w / 2, bottom + 4, w, narrow ? 20 : 24);
+      const oy = compact && !this.cur ? bottom - 2 : bottom;
+      ctx.fillRect(W / 2 - w / 2, oy + 4, w, narrow ? 20 : 24);
       ctx.fillStyle = '#00E5CC';
-      ctx.fillText(label, W / 2, bottom + (narrow ? 18 : 21));
+      ctx.fillText(label, W / 2, oy + (narrow ? 18 : 21));
       ctx.restore();
     }
   }
