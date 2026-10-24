@@ -5,6 +5,11 @@ import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } fro
 import { haloSprite, drawGlow } from './sprites.js';
 import { sfxLungeWindup, sfxLunge, sfxBlinkOut, sfxBlinkIn, sfxShockDash } from './audio.js';
 
+// Half-Life (Juno): a Chromatic hit by her rounds while it runs decays: its
+// stolen colour bleeds away, DECAY.dps health a second for DECAY.time seconds.
+// Small on purpose (owner: "so it isn't OP for now").
+const DECAY = { dps: 3, time: 3 };
+
 // Arc Round (Dex): the last round of a burst jumps to the nearest other
 // enemy within this many px, for the same damage
 const ARC_RANGE = 130;
@@ -260,6 +265,14 @@ class Enemy {
   update(dt, player, map, projectileSystem) {
     if (!this.alive) return;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
+    // Decaying (Half-Life): health ticks away; no hit glow for it
+    if (this.decayT > 0 && !this.shielded) {
+      this.decayT = Math.max(0, this.decayT - dt);
+      const hf = this.hitFlash;
+      this.takeDamage(DECAY.dps * dt);
+      this.hitFlash = hf;
+      if (!this.isAlive) return;
+    }
     if (this.jammed > 0) this.jammed = Math.max(0, this.jammed - dt);
     if (this.forming) { this.spawnT += dt; return; }
 
@@ -488,6 +501,7 @@ class Enemy {
     };
     // A turret node (left behind by the Signal Hoarder): never moves, just fires
     if (this.node) {
+      this._aim = Math.atan2(player.y - this.y, player.x - this.x);
       this._losT = (this._losT || 0) - dt;
       if (this._losT <= 0) { this._los = !FLOW.ready || FLOW.clear(this.x, this.y, player.x, player.y); this._losT = 0.12; }
       this._blocked = this._los ? 0 : 1;
@@ -649,6 +663,7 @@ class Enemy {
   // No outline, no eyes, no tail — the shape is carried by brightness alone.
   draw(ctx) {
     if (!this.alive) return;
+    if (this.node) { this._drawNode(ctx); return; }
 
     const cfg   = this.cfg;
     let   r     = this.drawSize;
@@ -768,8 +783,66 @@ class Enemy {
   }
 
   // Additive halo — breathes with the core; drawn in the glow pass after the racks
+  // A Signal Hoarder turret node: not a ghost but a machine it leaves behind.
+  // A squat dark pylon on three legs with a hooded lens that tracks the player,
+  // a green core that brightens before it fires, and a ring on the floor.
+  // Pixel art; the lens glow is soft.
+  _drawNode(ctx) {
+    const form = easeOut(Math.min(1, this.spawnT / SPAWN_IN));
+    const x = Math.round(this.x), y = Math.round(this.y);
+    const t = Date.now() / 1000 + this.id;
+    const charge = Math.max(0, 1 - this.fireTimer * this.cfg.projectile_fire_rate / 1.4);
+    const heat = Math.pow(this.hitFlash / HIT_GLOW_TIME, 2);
+    ctx.save();
+    ctx.globalAlpha = form;
+    // floor ring, turning
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#3dff7a'; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 5]); ctx.lineDashOffset = -t * 12;
+    ctx.globalAlpha = 0.5 * form;
+    ctx.beginPath(); ctx.ellipse(x, y + 3, 15, 8, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = form;
+    // legs
+    ctx.fillStyle = '#05140a';
+    ctx.fillRect(x - 9, y, 3, 4); ctx.fillRect(x + 6, y, 3, 4); ctx.fillRect(x - 1, y + 1, 2, 4);
+    // body
+    ctx.fillStyle = '#05140a'; ctx.fillRect(x - 8, y - 14, 16, 15);
+    ctx.fillStyle = '#123a22'; ctx.fillRect(x - 7, y - 13, 14, 13);
+    ctx.fillStyle = '#1f5a36'; ctx.fillRect(x - 7, y - 13, 14, 2);
+    ctx.fillStyle = '#0a2414'; ctx.fillRect(x - 7, y - 4, 14, 2);
+    // hooded lens on top, pointing at the target
+    const a = this._aim ?? -Math.PI / 2;
+    const lx = Math.round(x + Math.cos(a) * 5), ly = Math.round(y - 15 + Math.sin(a) * 3);
+    ctx.fillStyle = '#05140a'; ctx.fillRect(lx - 4, ly - 3, 8, 6);
+    const lens = heat > 0.05 ? '#ffffff' : charge > 0.75 ? '#c8ffd8' : '#3dff7a';
+    ctx.fillStyle = lens; ctx.fillRect(lx - 2, ly - 1, 4, 3);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(lx - 1, ly - 1, 1, 1);
+    // green core light in the body, brightening as it charges a shot
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(ctx, '#3dff7a', lx, ly, 8 + 8 * charge, (0.35 + 0.5 * charge) * form);
+    drawGlow(ctx, '#3dff7a', x, y - 8, 10, 0.18 * form);
+    ctx.restore();
+  }
+
   drawHalo(ctx) {
     if (!this.alive) return;
+    if (this.node) return;
+    // Decaying: flakes of its colour drift off and up, with a faint sick glow
+    if (this.decayT > 0) {
+      const t = Date.now() / 1000, k = Math.min(1, this.decayT / 0.6);
+      ctx.save();
+      ctx.fillStyle = this.cfg.color;
+      for (let i = 0; i < 6; i++) {
+        const f = (t * 0.7 + i / 6) % 1;
+        const a = this.id * 1.7 + i * 1.05;
+        ctx.globalAlpha = (1 - f) * 0.9 * k;
+        ctx.fillRect(Math.round(this.x + Math.cos(a) * this.drawSize * (0.6 + f)) - 1, Math.round(this.y - this.lift - f * 22 + Math.sin(a) * 4) - 1, 2, 2);
+      }
+      ctx.restore();
+      drawGlow(ctx, '#E58CFF', this.x, this.y - this.lift, this.drawSize * 2.2, 0.14 * k);
+    }
     const form = easeOut(Math.min(1, this.spawnT / SPAWN_IN)) * this.fadeK;
     const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2) * (0.35 + 0.65 * form);
     drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * form * glowStrength(this.type) * (0.85 + 0.15 * (this._pulse ?? 1)));
@@ -951,6 +1024,14 @@ export class EnemySystem {
 
           const wasAlive = e.isAlive;
           e.takeDamage(dmg);
+          // Arc Discharge rounds stun and jam what they pass through
+          if (proj.stunRound && e.isAlive) {
+            const k = e.boss ? 0.3 : e.type === 'pink' ? 0.4 : 1;
+            e.stunTimer = Math.max(e.stunTimer || 0, 1.2 * k);
+            e.jammed = Math.max(e.jammed || 0, 1.6 * k);
+          }
+          // Half-Life rounds make what they hit decay (refreshed, never stacked)
+          if (proj.spun && e.isAlive) e.decayT = DECAY.time;
 
           // Arc Round: the charge jumps on to the nearest other enemy
           if (proj.arc) {

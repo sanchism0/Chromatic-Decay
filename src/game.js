@@ -2292,17 +2292,9 @@ function _signatureEffects(who) {
   player.justSignature = null;
   sfxSignature(who);
   const col = AGENT_COLOR[who];
-  particles.classEmergence(player.x, player.y, col);
-  if (who === 'dex') {
-    // Knock nearby Chromatics back and stun them briefly
-    for (const e of enemies.enemies) {
-      const dx = e.x - player.x, dy = e.y - player.y, d = Math.hypot(dx, dy) || 1;
-      if (d > 120) continue;
-      const push = 36 * (1 - d / 120);
-      e.x += dx / d * push; e.y += dy / d * push;
-      e.stunTimer = Math.max(e.stunTimer || 0, 0.8);
-    }
-  }
+  // Half-Life: a soft ring of her colour; Arc Discharge's blast is its rounds
+  if (who !== 'dex') particles.classEmergence(player.x, player.y, col);
+  // (Arc Discharge's stun rides on its rounds; Half-Life's decay on Juno's)
 }
 
 // Touch grenade aim: the drag from the button, as a landing point. A drag of

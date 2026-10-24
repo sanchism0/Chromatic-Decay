@@ -176,8 +176,10 @@ blink, two rings of slow rounds (dash through). Aimed three-round volleys.
 At 66% and 33% it calls a wave and is shielded until it's cleared (two Echoes
 after each). Its death ends the level; the agent beams out where they stand.
 
-**The ability (F, after the first wave):** Dex's Arc Discharge, Juno's Spin Up
-(as in v2). The anchors only crack while overloaded by it.
+**The ability (F, after the first wave):** Dex's **Arc Discharge** (a shotgun
+blast of piercing, stunning electric rounds) and Juno's **Half-Life** (5 s of
+rounds that make Chromatics decay). Each anchor needs two overloads: two Arc
+Discharges, or about one full Half-Life on target.
 
 | Beat | Play |
 |---|---|

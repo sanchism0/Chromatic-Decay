@@ -38,7 +38,7 @@ class Projectile {
     this.arc        = false;    // Arc Round: jumps to a nearby enemy on hit (set after spawn)
     this.bounced    = false;    // has ricocheted off a rack (Level 4's junction boxes need this)
     this.discharge  = false;    // from Dex's Arc Discharge ring (Level 5's anchors need this)
-    this.spun       = false;    // fired during Juno's Spin Up (Level 5's anchors need this)
+    this.spun       = false;    // fired during Juno's Half-Life (makes enemies decay; fills Level 5's anchors)
     this.hitIds     = null;     // enemies this round has already hit
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
@@ -231,8 +231,9 @@ export class ProjectileSystem {
     const ux = p.vx / p.speed, uy = p.vy / p.speed;    // travel direction
     const px = -uy, py = ux;                             // across it
     const gold = p.overload;
-    const core = gold ? '#FFE9A8' : p.arc ? '#F2FFD6' : '#FFFFFF';
-    const wave = gold ? '255,200,90' : p.arc ? '182,255,46' : '200,232,255';
+    const elec = p.arc || p.stunRound, rad = p.spun;
+    const core = gold ? '#FFE9A8' : elec ? '#F2FFD6' : rad ? '#F6DDFF' : '#FFFFFF';
+    const wave = gold ? '255,200,90' : elec ? '182,255,46' : rad ? '229,140,255' : '200,232,255';
     const coreLen = gold ? 10 : 8, coreW = gold ? 3 : 2;
     const trail = Math.min(gold ? 34 : 28, p.traveled * t.a);   // grows out of the lens
     const base = gold ? 4 : 3, amp = 1.5, lambda = 10;

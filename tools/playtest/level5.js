@@ -50,21 +50,25 @@ const tag = mode + '-' + who;
   await ev('level.spawnT = 99'); await killAdds();
   await ev('window.__plain = projectiles.spawnPlayer(level.anchors[0].x, level.anchors[0].y + 80, -Math.PI / 2, 5, 520, 400, 0)');
   await p.waitForTimeout(400);
-  console.log('plain shot at anchor 0: hp', await ev('level.anchors[0].hp'), '(of 12)');
+  console.log('plain shot at anchor 0: lights left', await ev('level.anchors[0].hp'), '(of 2)');
+  const casts = [];
   for (let i = 0; i < 4; i++) {
-    for (let k = 0; k < 8 && await ev(`level.anchors && level.anchors[${i}].hp > 0`); k++) {
+    let n = 0;
+    for (; n < 8 && await ev(`level.anchors && level.anchors[${i}].hp > 0`); n++) {
       await skipTalk(); await killAdds();
       await ev(`(() => { const a = level.anchors[${i}]; player.x = a.x + 34; player.y = a.y + 26; player.signatureCooldown = 0; })()`);
       if (who === 'juno') {
         await ev(`input.setAutoFire(true)`);
-        if (!phone) { const sx = await ev(`(level.anchors[${i}].x - camera.x) * ZOOM`), sy = await ev(`(level.anchors[${i}].y - 10 - camera.y) * ZOOM`); await p.mouse.move(sx, sy); }
-        else await ev(`input.touchAimAngle = Math.atan2(level.anchors[${i}].y - player.y, level.anchors[${i}].x - player.x)`);
+        if (!phone) { const sx = await ev(`(level.anchors[${i}].x - camera.x) * ZOOM`), sy = await ev(`(level.anchors[${i}].y - 12 - camera.y) * ZOOM`); await p.mouse.move(sx, sy); }
+        else await ev(`input.touchAimAngle = Math.atan2(level.anchors[${i}].y - 12 - player.y, level.anchors[${i}].x - player.x)`);
       }
       await ev(`_useAbility('signature')`);
-      await p.waitForTimeout(who === 'juno' ? 1500 : 500);
+      await p.waitForTimeout(who === 'juno' ? 4300 : 500);
+      if (i === 0 && n === 0) { console.log(' after one use: lights filled', await ev('2 - level.anchors[0].hp'), '| next light', (await ev('level.anchors[0].charge')).toFixed(2)); await p.screenshot({ path: `${out}/${tag}-anchor1.png` }); }
     }
-    console.log(` anchor ${i}: hp`, await ev(`level.anchors ? level.anchors[${i}].hp : 'gone'`));
+    casts.push(n);
   }
+  console.log('uses per anchor', JSON.stringify(casts));
   await p.screenshot({ path: `${out}/${tag}-anchors.png` });
   await waitFor('level.beat.type === "hoarder"', 4000);
   console.log('anchors done → beat', await ev('level.beat.type'), '| checkpoint', await ev('level.checkpointLabel'));
@@ -81,10 +85,16 @@ const tag = mode + '-' + who;
   const hp0 = await ev('level.boss.hp');
   await ev('level.boss.takeDamage(100)');
   console.log('hit while shielded: hp', hp0, '->', await ev('level.boss.hp'));
-  await ev('level.nodes.forEach(n => n.takeDamage(1e9))'); await p.waitForTimeout(300);
-  console.log('nodes down: shielded', await ev('level.boss.shielded'));
+  await ev('level.nodes.forEach(n => n.takeDamage(1e9))');
+  await p.waitForTimeout(250); await p.screenshot({ path: `${out}/${tag}-payback.png` });
+  await waitFor('level.hoarderStunT > 0', 3000);
+  console.log('turrets down: beams back, stunned for', (await ev('level.hoarderStunT')).toFixed(1), 's | shielded', await ev('level.boss.shielded'), '|', await ev('level.objective'));
+  await p.screenshot({ path: `${out}/${tag}-stunned.png` });
+  const bx = await ev('level.boss.x'); await p.waitForTimeout(1000);
+  console.log('while stunned it stays put:', Math.round(Math.abs(await ev('level.boss.x') - bx)), 'px moved');
   await ev('level.boss.takeDamage(100)');
-  console.log('hit unshielded: hp', await ev('Math.round(level.boss.hp)'));
+  console.log('hit while stunned: hp', await ev('Math.round(level.boss.hp)'));
+  await waitFor('level.hoarderStunT <= 0', 3000);
   // Phase 1 wave at 66%
   await ev('level.nodes.forEach(n => n.takeDamage(1e9)); level.boss.shielded = false; level.boss.hp = level.boss.maxHp * 0.6');
   await waitFor('!!level.bossWave', 3000);

@@ -76,8 +76,8 @@ export const WEAPONS = {
 // Signature abilities — earned by clearing Story Level 1 with that character.
 // Space / F, on a cooldown.
 export const SIGNATURES = {
-  dex:  { name: 'ARC DISCHARGE', cd: 9,  desc: 'Release stored charge as a ring of shots that knocks enemies back.' },
-  juno: { name: 'SPIN UP',       cd: 11, desc: 'For 4 seconds, fire more than twice as fast with a tighter stream.' },
+  dex:  { name: 'ARC DISCHARGE', cd: 9,  desc: 'A shotgun blast of electric rounds that pierce and stun.' },
+  juno: { name: 'HALF-LIFE',     cd: 11, desc: 'For 5 seconds your rounds make Chromatics decay.' },
   raze: { name: 'GOLD STANDARD', cd: 10, desc: 'Your next 3 rounds pierce everything and hit twice as hard.' },
 };
 
@@ -491,7 +491,7 @@ export class Player {
     if (!this.firing) this.fireTimer = Math.max(0, this.fireTimer);   // first press fires at once
 
     const W = this.weapon;
-    const spin = this.spinUpTimer > 0 ? 2.2 : 1;
+    const spin = 1;   // (Half-Life no longer speeds the gun up)
     if (this._burstLeft > 0) {
       // Rest of a burst: fires on its own once the trigger is pulled
       this._burstT -= dt;
@@ -631,16 +631,22 @@ export class Player {
     const sig = SIGNATURES[this.signature];
     if (!sig) return;
     this.signatureCooldown = this.signatureCooldownMax = sig.cd * (this.abilityCooldownMultiplier || 1);
+    this._castId = (this._castId || 0) + 1;   // Level 5's anchors count one hit per cast
     this.justSignature = this.signature;   // game.js plays the effects
     if (this.signature === 'dex') {
-      // A ring of rounds from the body; game.js adds the knockback
-      const n = 16, dmg = this.effectiveDamage * 1.2;
+      // A shotgun blast: electric rounds in a wide cone toward the aim. They
+      // pierce, and stun and jam everything they pass through (enemies.js)
+      const from = this.emitterPos(), ap = this._aimPoint;
+      const aim = ap && Math.hypot(ap.x - from.x, ap.y - from.y) > 24 ? angle(from.x, from.y, ap.x, ap.y) : this.facing;
+      const n = 11, spread = 0.95, dmg = this.effectiveDamage * 0.8;
       for (let i = 0; i < n; i++) {
-        const s = projectileSystem.spawnPlayer(this.x, this.y - 6, (i / n) * Math.PI * 2, dmg, this.projSpeed * 1.1, this.projRange * 0.55, 0, false, false);
-        if (s) s.discharge = true;
+        const a = aim + (i / (n - 1) - 0.5) * spread + (Math.random() - 0.5) * 0.05;
+        const s = projectileSystem.spawnPlayer(from.x, from.y, a, dmg, this.projSpeed * (1 + (i % 3) * 0.06), this.projRange * 0.6, 3, false, false);
+        if (s) { s.discharge = true; s.castId = this._castId; s.stunRound = true; }
       }
     } else if (this.signature === 'juno') {
-      this.spinUpTimer = 4;
+      // Half-Life: her rounds go unstable for a while; what they hit decays
+      this.spinUpTimer = 5;
     } else if (this.signature === 'raze') {
       this.goldRounds = 3;
     }
@@ -669,7 +675,7 @@ export class Player {
     const count  = this.character === 'dex' || this.character === 'juno' ? 1 : this.projCount;
     const half   = Math.floor(count / 2);
     const damage = this.effectiveDamage * W.dmg * flashMultiplier * (isOverload ? 3 : 1) * (gold ? 2 : 1);
-    const spray  = (Math.random() - 0.5) * 2 * W.spread * (this.spinUpTimer > 0 ? 0.5 : 1);
+    const spray  = (Math.random() - 0.5) * 2 * W.spread;
     const from   = this.emitterPos();
     // Aim from the lens itself at the cursor, so shots still land where you
     // point even though they leave from his arm (stick aim keeps its angle)
