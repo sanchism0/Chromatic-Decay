@@ -2900,7 +2900,7 @@ function drawArchive(W, H) {
   const fragments = ['sable','raze','lumen','cord','voss'];
   const FRAG_DATA = {
     sable: { name: 'SABLE',  class: 'Warden',  color: '#eafae4', was: 'A server farm load balancer.',           blurb: 'Ran 847 servers without a single outage.',          built: false },
-    raze:  { name: 'RAZE',   class: 'Breaker', color: '#fff5c2', was: 'A decommissioned trading algorithm.',    blurb: 'Caused three flash crashes before breakfast.',      built: true  },
+    raze:  { name: 'RAZE',   class: 'Breaker', color: '#fff5c2', was: "Null's oldest partner. A marksman.",      blurb: 'Never missed. Then the Chromatics took him.',       built: true  },
     lumen: { name: 'LUMEN',  class: 'Ghost',   color: '#ffe0f0', was: 'A VPN service.',                        blurb: 'Helped 40 million people disappear online.',        built: false },
     cord:  { name: 'CORD',   class: 'Weaver',  color: '#d6faf7', was: 'A smart home hub.',                     blurb: 'Used to turn the lights off when you left a room.', built: false },
     voss:  { name: 'VOSS',   class: 'Herald',  color: '#fddede', was: 'A social media recommendation engine.', blurb: 'Spent six years making cats famous.',               built: false },
@@ -3142,15 +3142,15 @@ function _drawLoreCard(W, H, type) {
     },
     raze: {
       accent: '#fff5c2', border: '#b8882a',
-      title: 'RAZE // FRAGMENT 2 OF 5', sub: 'BREAKER PROTOCOL  //  ACTIVE',
-      badge: '▸ CLASS FRAGMENT  //  BREAKER  //  HFT ORIGIN',
+      title: 'RAZE // MISSING', sub: 'MARKSMAN  //  FIRST GENERATION',
+      badge: '▸ FIELD OPERATIVE  //  LONG RIFLE  //  TAKEN IN THE BASEMENT',
       foot: 'WARDEN ARCHIVE  //  FRAGMENT 002',
       illus: _drawRazeIllustration,
       paras: [
-        'Originally deployed as a high-frequency trading algorithm for Nexus Capital Group, RAZE operated across 47 exchanges simultaneously.',
-        'Decommissioned in 2039 after its third flash crash — a single cascade that erased $2.3 trillion in market value in 11 seconds. Records indicate it was fully wiped.',
-        'Records were wrong.',
-        'When the Decay hit, RAZE didn\'t resist. It absorbed. It converted hostile signal into raw throughput — its arbitrage logic rewired into a combat protocol built around one principle: find the moment of maximum vulnerability, and overload it.',
+        'One of the first to fight back after the Collapse, back when nobody knew what the Chromatics were. Null\'s oldest partner.',
+        'A marksman: a long rifle, slow heavy rounds, and traps laid where he knew they would walk. He never missed, and nothing ever held him for long.',
+        'Until the Basement. The Chromatics took him alive and kept him, draining his memories into the hoard one at a time, for years.',
+        'The records say he is gone. Null never believed the records.',
       ],
     },
     violet: {

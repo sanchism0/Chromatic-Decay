@@ -1,6 +1,6 @@
 """Pull walk frames off a generated pixel-art sheet onto a clean pixel grid.
 
-  python tools/clean_sprite_sheet.py <sheet.jpg> <out_dir> [colours]
+  python tools/clean_sprite_sheet.py <sheet.jpg> <out_dir> [colours] [min_pitch]
 
 Finds each sprite against the flat background, detects the art-pixel pitch,
 samples one colour per art pixel (median of the block centre), drops stray
@@ -16,6 +16,9 @@ from scipy.cluster.vq import kmeans2
 
 src, out = sys.argv[1], sys.argv[2]
 K = int(sys.argv[3]) if len(sys.argv) > 3 else 24
+# Smallest art-pixel pitch to consider (raise it if the sheet's pixels are big
+# and a half-size grid gets picked; Raze's sheet needs 9)
+PMIN = float(sys.argv[4]) if len(sys.argv) > 4 else 5.0
 os.makedirs(out, exist_ok=True)
 
 im = np.asarray(Image.open(src).convert('RGB')).astype(float)
@@ -44,7 +47,7 @@ def block_err(crop, p, ox, oy):
 b = boxes[0]
 crop = im[b[0].start - 8:b[0].stop + 8, b[1].start - 8:b[1].stop + 8][:160, :160]
 p = min((block_err(crop, p, ox, oy), p)
-        for p in np.arange(5.0, 12.0, 0.05)
+        for p in np.arange(PMIN, 12.0, 0.05)
         for ox in np.arange(0, p, p / 6) for oy in np.arange(0, p, p / 6))[1]
 print('pixel pitch', round(p, 2))
 

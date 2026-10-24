@@ -17,6 +17,7 @@ import { sfxTextBlip } from './audio.js';
 export const SPEAKERS = {
   dex:  { name: 'DEX',  color: '#B6FF2E', faces: ['neutral', 'determined', 'cocky-grin', 'laughing', 'worried', 'shocked', 'angry', 'hurt'] },
   juno: { name: 'JUNO', color: '#C79BFF', faces: ['neutral', 'focused', 'smirk', 'laughing', 'concerned', 'alarmed', 'annoyed', 'soft-smile'] },
+  raze: { name: 'RAZE', color: '#FFB52E', faces: ['neutral', 'stern', 'smirk', 'laughing', 'uneasy', 'shocked', 'angry', 'snarl'] },
   null: { name: 'NULL', color: '#E8F0FF', faces: [] },
 };
 

@@ -11,16 +11,22 @@ writing any line.
 | **Dex** | Hits it until it works. Magnetron rig, electric "pew". | Loud, cocky, warm underneath. Keeps score. |
 | **Juno** | Reads the signal first. Antenna coil, glass "ping". | Dry, precise, teases him back. Notices everything. |
 | **Null** | The white, faceless leader. Shown only as white light. | Few words. Never explains more than he has to. |
+| **Raze** | The marksman. Long gold coat, mechanical arm, long rifle. | Sharp, menacing, a bit unhinged; dark humour; threatens first. Portraits: neutral, stern, smirk, laughing, uneasy, shocked, angry, snarl |
 
 Dex and Juno used to run districts side by side. Three years ago Juno asked
 for her own district; they still share one radio channel and compare kill
 counts every night. Partners, rivals, something more: it's left open, and
 the story leans on it.
 
-**Raze** is the Echo everyone is trying to reach: a trading algorithm that
-crashed markets, now an Echo that still knows who he is. The Basement arc
-(Levels 1–5) is the mission to rescue him; he becomes playable (gold) once
-rescued. **Sable** (a server load balancer) is kept for a possible fourth
+**Raze** is the man everyone is trying to reach (owner's definition, Oct 25,
+2026): an OG who was fighting the Chromatics long before Dex and Juno, a famous
+marksman (long rifle, powerful shots, long range, a hunter, tricky, gets out of
+anything) and **Null's oldest partner**, so Null's bond with Dex and Juno is
+relatively new. The Chromatics took him alive and have kept him in the
+Basement for years, draining his memories into the hoard; it's left him a bit
+crazy. He threatens people, especially early on, and Dex and Juno are a little
+afraid of him. The Basement arc (Levels 1–5) is the mission to rescue him; he
+becomes playable (gold, `#FFB52E`) after Level 5. **He's a person, not an Echo.** **Sable** (a server load balancer) is kept for a possible fourth
 character.
 
 ## Writing rules (from the owner's feedback)
@@ -55,7 +61,7 @@ every chapter has two versions of its dialogue.
 1. **Intro.** Title cards set the world, then Dex and Juno on the radio from
    two districts apart, comparing scores. It's quick, about a minute.
 2. **Null calls.** A priority signal. Something under the old server farm is
-   calling a name, *Raze*: an Echo that still knows who he is. "I need one of
+   calling a name, *Raze*: the best shot Null ever knew, taken years ago. "I need one of
    you to go in, and the other to stay on the line to keep them alive." They
    argue. "You've had this argument for three years. Settle it."
 3. **Who goes in?** The character select picks the agent.

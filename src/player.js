@@ -9,7 +9,7 @@ import { haloSprite, drawSprite, drawGroundShadow } from './sprites.js';
 // Drawn pixel-perfect (one art pixel = SPRITE_PX canvas pixels), snapped to
 // whole pixels, with feet on the ground under the player.
 const SHEETS = {};
-for (const who of ['dex', 'juno']) {
+for (const who of ['dex', 'juno', 'raze']) {
   const img = new Image();
   img.onload = () => { img._ready = true; };
   img.src = `assets/characters/${who}/sprite/${who}-walk.png`;
@@ -34,6 +34,13 @@ const LENS = {
     [[20.5, 30.5], [20.5, 31.5], [20.5, 31.5]],
     [[10.5, 30.5], [11.5, 31.5], [11.5, 31.5]],
     [[25.5, 29.5], [23.5, 28.5], [23.5, 28.5]],
+  ],
+  // Raze: his rifle hand (printed by tools/build_raze_sprite.py)
+  raze: [
+    [[3.5, 28.5],  [3.5, 28.5],  [3.5, 28.5]],
+    [[9.5, 29.5],  [6.5, 28.5],  [9.5, 28.5]],
+    [[21.5, 28.5], [25.5, 28.5], [21.5, 28.5]],
+    [[15.5, 29.5], [15.5, 28.5], [16.5, 28.5]],
   ],
 };
 

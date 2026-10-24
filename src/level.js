@@ -35,7 +35,7 @@ import { STACKS, WIRE } from './map.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
-export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD15C' };
+export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFB52E' };
 const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
 // Power-ups granted as each section is cleared (wave, relays, wave), per
 // agent. They last for the level and preview where each character is going.

@@ -14,7 +14,7 @@ const BLURBS = {
   echo_consumed:      `Too slow. It finished the feed. You'll be faster next time.`,
   upgrade_first:      `The emitter found a new resonance. You feel it in your hands.`,
   sable_found:        `Ran 847 servers without a single outage. Now it's keeping you alive. Same job really.`,
-  raze_found:         `Caused three flash crashes before breakfast. You're in good hands.`,
+  raze_found:         `Never missed. Not once in ten years. You're in good hands.`,
   lumen_found:        `Helped 40 million people disappear online. Happy to return the favor.`,
   cord_found:         `Used to turn the lights off when you left a room. Now it does that to enemies.`,
   voss_found:         `Spent six years making cats famous. Pivoting to combat felt natural.`,

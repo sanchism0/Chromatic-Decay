@@ -149,58 +149,69 @@ Code: `gather`, `tuning` and `escape` beats in `level.js`, the Wire Room map
 enemies and from cable hits (`projectiles.arcRackHits`); rounds that have
 ricocheted carry `bounced`.
 
-## Level 5: Raze's Room (plan v2, Oct 25, 2026)
+## Level 5: Raze's Room (plan v3, Oct 25, 2026, after the owner defined Raze)
 
-**Story:** the bottom of the Basement. The hoarded signal of everything the
-Chromatics took down here has walled Raze in. Break the hoard, beat what feeds
-on it, and bring him home. He speaks for the first time.
+**Story:** the bottom of the Basement, where the Chromatics have kept Raze
+alive for years, draining his memories into the hoard. He's seen early, caged
+in hoarded light on the raised core; a major boss and wave after wave of
+Chromatics stand between you and him. Kill the boss and the level ends; the
+rescue happens in the scene after.
 
-**Map:** a round vault with a raised core in the middle (Raze, behind the
-wall of hoarded signal) and four signal anchors round the edge, each in its
-own bay. Gold-on-black palette, the hoard drawn as soft drifting colour.
+**Before it: a scene on the way down.** Null tells them what to expect. Gist:
+- Null and Raze go way back ("He was fighting these things before either of
+  you picked up an emitter"). Dex and Juno realise how little they know about
+  Null, and how new they are to this.
+- "He's been alone in the dark a long time. He'll threaten you. Let him. Don't
+  turn your back on him either."
+- Dex and Juno are uneasy; the banter turns nervous.
 
-**Before it: a scene** like the lift one. The last door; Raze's voice coming
-through for the first time, broken up; Dex and Juno on what they'll do if he's
-"just another Echo".
+**Map:** a round vault, the raised core in the middle with Raze in a cage of
+hoarded colour; four signal anchors round the edge. Gold-on-black.
 
-**The ability, after the first wave: the F slot.**
-- **Dex: Arc Discharge (F).** A ring of electric rounds out from him, all
-  directions at once: stuns and knocks back. About 9 s cooldown.
-- **Juno: Spin Up (F).** 4 s of more than double fire rate with a tight stream.
-  About 11 s cooldown.
-(Both exist in the code from the old signature system.)
-
-**Built around it:** the anchors and the boss's nodes are wrapped in hoarded
-signal that plain fire can't crack.
+**The ability (F, after the first wave):** Dex's Arc Discharge, Juno's Spin Up
+(as in v2). The anchors only crack while overloaded by it.
 
 | Beat | Play |
 |---|---|
-| Wave | All three types; the biggest wave yet. Then the F ability screen |
-| **Break the hoard** (task) | Four anchors. Each is shielded until it's **overloaded**: caught in Dex's discharge ring, or hit by Juno's rounds while Spin Up is running. Then it takes damage (progress is kept, never lost). F recharges faster here, like the thrown abilities in Level 3's puzzle. Greens blink around you |
-| Wave | All three, heavier |
-| **Boss: the Signal Hoarder** (checkpoint) | A giant green that blinks round the vault and leaves a **turret node** where it was. It's untouchable while any node is up. Nodes go down to normal fire, but they come in clusters: Dex's discharge clears a ring of them, Juno's Spin Up melts them. With the nodes down it turns solid for a few seconds: burn it. Each third of its health adds a node per blink. Echoes as it weakens |
-| **Rescue** | The hoard falls; walk up the core to Raze's Echo, a gold light. A short scene: Raze speaks for the first time (gold light, no portrait). Who he was (the trading algorithm that crashed markets), that he remembers, and one line that shows he knows Null |
-| Exit | Beam out together: card, results, then **RAZE UNLOCKED** |
+| Arrival | You walk in and **see Raze**: gold, caged on the core. His first words, over the open channel, are a threat ("Another of Null's errand kids. Stay out of my sightline."). The cage keeps you out |
+| Wave | All three types. Then the F ability screen |
+| **Break the hoard** (task) | Four anchors feed his cage; plain fire glances off until they're overloaded (Dex's discharge, Juno's Spin Up). Raze heckles from the cage, now and then usefully ("Left one. Are you blind?") |
+| **Boss: the Signal Hoarder** (checkpoint) | The thing feeding on him: a giant green that blinks round the vault leaving turret nodes, untouchable while any stand. Between its phases, **waves** of violets, yellows and greens pour in. Three phases, an Echo or two each |
+| Level end | It dies: results, card, then the scene |
 
-New code: overload targets, the Signal Hoarder (blink + node spawning +
-solid windows), the F slot (key bar and a second round touch button), Raze
-as a speaker and his gold light figure, the unlock screen, Raze in character
-select.
+**After it: two scenes.**
+1. **Meeting Raze.** The cage drops. He's twitchy, sharp, half wild, and points
+   his rifle at the agent before anything else. Dex and Juno clash with him
+   (Dex's bluster vs his menace; Juno's precision vs his contempt). He doesn't
+   say thank you.
+2. **Raze and Null.** The first conversation in years. Raze is bitter ("You
+   took your time"); Null is quieter than we've ever heard him. A hint of their
+   history, and that Null needs what Raze remembers about the Collapse.
+Then **RAZE UNLOCKED**.
 
-**Open questions:** whether Raze is playable in Story straight away (every
-level needs a third set of operator lines, or a "Raze in the field" version)
-or Arcade first; and how much Raze gives away about Null.
+## Raze (owner's definition, Oct 25, 2026)
 
-## Raze as a playable character
-
-- **Art:** no new art for now. He's a gold light figure (the owner's earlier
-  rule: characters without art are drawn as light). Real sprites later.
-- **Gun:** Heavy, already defined in `WEAPONS.raze`: slow, strong gold rounds.
-- **Unlocks:** clearing Level 5 adds him to character select (Arcade and
-  Story). Story points and the D/J/R leaderboard column already count him.
-- In Story, when Raze is the agent, Dex or Juno (player's choice) is on comms.
-
----
+- **Who:** an OG. Fighting the Chromatics long before Dex and Juno; a well
+  known marksman: powerful shots, long range, a hunter, and tricky; he can get
+  out of anything. Null's oldest partner, which makes Null's relationship with
+  Dex and Juno relatively new.
+- **Now:** captive for years, and a bit crazy for it. Dex and Juno are a little
+  afraid of him and their personalities clash. He threatens people, especially
+  early on.
+- **Look:** a long gold-and-black coat, a mechanical left arm, dreadlocks with
+  glowing gold tips, a headband and headset, a long rifle on his back. Colour
+  `#FFB52E`. Art: `assets/characters/raze/` (walk sheet, eight portraits:
+  neutral, stern, smirk, laughing, uneasy, shocked, angry, snarl; turnaround).
+- **Kit (proposal, think Caitlyn):**
+  - **Gun: Long Rifle.** Slow rate of fire, heavy rounds that pierce, long range.
+  - **Slow on his feet** (about 85% of Dex and Juno's speed); the gun makes up for it.
+  - **E: Snare Trap.** Set a trap on the floor; the first Chromatics over it are
+    held and slowed.
+  - **Passive: Hunter's Mark.** Every fifth round is a heavy gold round (double
+    damage, pierces everything).
+  - **Dash: Slip.** Longer than the others' dash and leaves a puff of smoke
+    that enemies lose him in for a moment ("he can escape anything").
+- **Unlock:** clearing Level 5. Arcade first; Story levels need lines for him.
 
 ## Engineering, done once before Level 2
 
