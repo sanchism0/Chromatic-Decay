@@ -25,20 +25,21 @@ Rules this plan follows (from `docs/decisions.md`):
 
 ## The cards: what each level awards
 
-Levels 1, 2, 3 and 5 each give the character who clears them one Story card,
-the first time. Level 4 pays Chroma (and Story points) only. (The first plan
-was 1, 3 and 5; Level 2's dash abilities were added on the owner's request "to
-give people a reason to dash".) Each character ends the arc with four cards:
-a gun upgrade, a dash ability and two activated abilities.
+**One ability per level, and the level is built around it** (owner's call
+after playing Level 2). Each level hands the agent its new ability after the
+first wave, and the task and puzzle need it. Clearing the level keeps it as a
+Story card for that character. Each character ends the arc with five cards.
+Levels also get **longer, with as much interaction as Level 2** from here on.
 
 | Level | Dex | Juno |
 |---|---|---|
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
 | 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
 | 3 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
+| 4 | **To decide.** Suggestion: **Chain Arc** (passive): each hit jumps to the nearest other Chromatic | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
-That makes the Arcade Story deck eight cards (up from three). Kinetic Finish,
+That makes the Arcade Story deck ten cards (up from three). Level 4's ability is passive because E and F are taken by Levels 3 and 5. Its tasks would then be built around hitting things you can't see directly: signal nodes tucked behind cable runs that only a chained or bounced shot reaches. Kinetic Finish,
 Piercing Stream, Ricochet and a possible Chain Arc stay Level 1 sampler
 power-ups for now, and are candidates for later levels or the Workshop.
 
@@ -106,7 +107,7 @@ turrets.
 | **Tuning** (puzzle) | Three dials (floor switches), each cycling through three frequencies. Match the pattern on the big display; it lights each dial that's right | "Match the signal. When all three are right, the door opens." |
 | Exit | Beam-out, card, results | "Every piece. The door ahead is his." |
 
-New code: gather beat, tuning beat, Wire Room map. No card (Chroma only).
+New code: gather beat, tuning beat, Wire Room map, the Level 4 ability (to decide). To be reshaped around that ability.
 
 ## Level 5: Raze's Room (second boss, rescue)
 

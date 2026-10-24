@@ -144,7 +144,8 @@ LEVELS[2] = {
         done: [L(f('shocked', 'alarmed'), "That's all three, and there's his trail. Raze went down: The Stacks.")] },
 
       { type: 'wave',
-        lines: [L(f('worried', 'concerned'), "They heard the ice crack. Here they come.")],
+        lines: [L(f('worried', 'concerned'), "They heard the ice crack. Here they come."),
+                L(f('cocky-grin', 'smirk'), "Tip: dash through a hit just as it lands. A perfect dash, and your dash comes straight back.")],
         groups: [[['yellow', 2]], [['yellow', 2], ['violet', 2]], [['yellow', 3]]],
         objective: s => `Hold them off (${s.left} left)`,
         done: [L(f('neutral', 'soft-smile'), "That's the last of them. Now the lift.")] },
