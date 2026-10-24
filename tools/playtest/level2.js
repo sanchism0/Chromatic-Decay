@@ -79,7 +79,7 @@ const tag = mode + '-' + who;
   await p.screenshot({ path: `${out}/${tag}-ice.png` });
   for (const [x, y] of drives) { await ev(`player.x = ${x}; player.y = ${y}; enemies.enemies.forEach(e => e.takeDamage(1e9));`); await p.waitForTimeout(300); }
   await waitFor('level.beat.type !== "drives"', 4000);
-  console.log('drives done → beat', await ev('level.beat.type'));
+  console.log('drives done → beat', await ev('level.beat.type'), '| Echoes on the floor', await ev('echoes.echoes.length'));
 
   // Wave 2
   await skipTalk(); await waitFor('level.ready');

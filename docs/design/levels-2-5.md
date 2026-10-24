@@ -35,7 +35,7 @@ Levels also get **longer, with as much interaction as Level 2** from here on.
 |---|---|---|
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
 | 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
-| 3 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
+| 3 (built) | **Stun Grenade (E)** | **Decoy Beacon (E)**: throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
 | 4 | **To decide.** Chain Arc went into Level 1 instead (Arc Round replaced Kinetic Finish). Option: a stronger version where every round jumps | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
@@ -86,25 +86,30 @@ Built: drives and freezers beats, ice, `dashpowers.js`, the Cold Storage map.
 (The first build had an Echo escort and coolant valves; the owner found the
 escort lame, so both were replaced.)
 
-## Level 3: The Stacks (first boss)
+## Level 3: The Stacks (first boss), built
 
 **Story:** towers of old tape where the streams nobody played pile up. Raze
-left part of his signal here, and something huge is guarding it.
+left part of his signal in a terminal here, and the vault in the middle holds
+something huge.
 
-**Map:** tall tower stacks in a ring around an open centre; the boss arena is
-the centre.
+**Map:** eight tall tape towers in a ring round an open centre (the vault and
+the boss arena), gaps facing up, down, left and right. Three **sealed pockets**
+(racks on all four sides) hold the beam mirrors. Sepia floor, amber lights.
+
+**Built around the thrown ability** (Dex: Stun Grenade, Juno: Decoy Beacon),
+granted after the first wave:
 
 | Beat | Play | Comms (gist) |
 |---|---|---|
-| Wave | Violets in big groups | "The Stacks. Every stream nobody played ended up here." |
-| **Hold the line** (task) | Stand in a terminal's zone to pull Raze's signal fragment; progress only fills while you're inside, and yellows lunge into the zone. Dash out and back in to dodge | "There's a piece of him in that terminal. Stay close while it pulls." |
-| Wave | Violets and yellows together | |
-| **Beam** (puzzle) | A light beam must reach the vault door. Three mirrors turn 90° each time you walk over their floor switch; the beam is drawn live, so you see where it goes | "Bounce the light to the door. Step on a switch to turn its mirror." |
-| **Boss: The Queue** | A huge violet made of unplayed streams (about 1,200 health). It drifts after you and sends out slow rings you **dash through** (untouchable mid-dash). At 75%, 50% and 25% health it splits off a ring of violets | "That's not a Chromatic. That's all of them." |
-| Exit | Beam-out, card, results | "He was here. And he's still ahead of us." |
+| Wave | Violets in big groups, a few yellows; then the ability screen | "The Stacks. Every stream nobody ever played ended up here." |
+| **Hold** (task) | Stand in the terminal's ring while it pulls Raze's signal (22 s). Any Chromatic in the ring that isn't stunned pauses the pull (progress never drains; you can leave and come back): Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
+| Wave | Violets and yellows together | "Something heard that." |
+| **Beam** (puzzle) | A beam runs from a wall emitter, above the racks, through three mirrors sealed in the pockets. Land the ability on a mirror (thrown over the walls) to turn it; the beam shows where each one points. All three right and the vault opens. Abilities recharge twice as fast here; up to 3 enemies | "The mirrors are sealed in. Throw your grenade/beacon over the wall." |
+| **Boss: The Queue** | A huge violet (900 health, about 35 s of shooting) rises from the vault and drifts after you. It winds up and sends out rings: dash through them (untouchable mid-dash, and a perfect dodge refunds the dash). At 75%, 50% and 25% it splits off five violets. When it dies, everything left dissolves | "That's not a Chromatic. That's all of them." |
+| Exit | Walk into the open vault: beam-out, card, results | "Got you. And a piece of him with you." |
 
-New code: hold-zone beat, mirror-beam beat, boss framework, The Queue, the
-Stacks map, Decoy Beacon. Card: Stun Grenade / Decoy Beacon.
+Code: `hold`, `beam` and `boss` beats in `level.js`, `decoy.js`, the Stacks map
+(`STACKS` in `map.js`) and palette.
 
 ## Level 4: Wire Room
 
@@ -162,8 +167,7 @@ the unlock, Arc Discharge and Spin Up as F abilities.
 1. **Maps per level:** `map.js` takes a layout per level; `pixelmap.js` takes a
    palette. Level 1 and Arcade keep the Basement.
 2. **Start kit:** at a level's start, apply the character's own earned cards.
-3. **Checkpoints:** not for now. Dying restarts the whole level (owner's call);
-   revisit if the levels turn out long.
+3. **Checkpoints:** only at bosses (owner's call): dying at the boss offers a retry from the fight; going back to the map or menu starts the level over. Built for Level 3.
 4. **The F slot:** a second ability key on desktop and a second round button
    on touch (the HUD already reserves F).
 5. **Boss framework:** health bar at the top, phases, a death sequence.
@@ -173,7 +177,7 @@ the unlock, Arc Discharge and Spin Up as F abilities.
 One level at a time, each tested on desktop and phone, then merged:
 
 1. Engineering above, plus **Level 2** (dash abilities, ice, drives, frozen tanks, Cold Storage map). Built.
-2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon).
+2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon). Built.
 3. **Level 4** (gather, tuning).
 4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities, Raze unlock).
 

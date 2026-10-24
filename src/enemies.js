@@ -261,6 +261,8 @@ class Enemy {
     if (this.jammed > 0) this.jammed = Math.max(0, this.jammed - dt);
     if (this.forming) { this.spawnT += dt; return; }
 
+    // Bosses shrug stuns off quickly
+    if (this.boss && this.stunTimer > 0.5) this.stunTimer = 0.5;
     // Stun check — skip all movement and firing while stunned
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
@@ -281,6 +283,24 @@ class Enemy {
     this.trapSlow       = 0;
     this.trapSuppressed = false;
 
+    // Decoy Beacon: violets and yellows in its reach go for it instead of the
+    // player (yellows lunge at it); greens stand and shoot at it
+    const lure = EnemySystem.lure;
+    if (lure && !this.boss && this.type !== 'pink' && Math.hypot(this.x - lure.x, this.y - lure.y) < lure.r) {
+      const bait = { x: lure.x, y: lure.y, bait: true };
+      if (this.type === 'green') {
+        if (this.blink === 'fade' || this.volleyLeft > 0) { this._updateGreen(dt, player, map, projectileSystem); return; }
+        this.fireTimer -= dt;
+        if (this.fireTimer <= 0 && projectileSystem) {
+          projectileSystem.spawnEnemy(this.x, this.y, Math.atan2(bait.y - this.y, bait.x - this.x), this.cfg.projectile_damage, this.cfg.projectile_speed, 500, this.cfg.color);
+          this.fireTimer = 1 / this.cfg.projectile_fire_rate;
+        }
+        return;
+      }
+      if (this.type === 'violet') { this._updateViolet(dt, bait, map); return; }
+      if (this.type === 'yellow') { this._updateYellow(dt, bait, map); return; }
+    }
+
     switch (this.type) {
       case 'violet': this._updateViolet(dt, player, map); break;
       case 'yellow': this._updateYellow(dt, player, map); break;
@@ -294,7 +314,13 @@ class Enemy {
   // Toward (tx, ty), but bent by this enemy's flank angle while still far
   // away (straightening out inside ~90px), plus a push away from neighbours.
   // With a rack between it and (tx, ty), it follows the flow field instead.
-  _approach(tx, ty) {
+  _approach(tx, ty, bait = false) {
+    if (bait) {
+      // Toward the beacon: straight in (the flow field leads to the player)
+      this._flowing = false;
+      const dx = tx - this.x, dy = ty - this.y, d = Math.hypot(dx, dy) || 1;
+      return [dx / d, dy / d];
+    }
     if (FLOW.ready) {
       this._losT = (this._losT || 0) - 1 / 60;
       if (this._losT <= 0) { this._los = FLOW.clear(this.x, this.y, tx, ty); this._losT = 0.12; }
@@ -406,7 +432,9 @@ class Enemy {
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)
   _updateViolet(dt, player, map) {
-    const [ax, ay] = this._approach(player.x, player.y);
+    // At the beacon: hover round it rather than pile onto one spot
+    if (player.bait && Math.hypot(player.x - this.x, player.y - this.y) < 26) return;
+    const [ax, ay] = this._approach(player.x, player.y, player.bait);
     this._move(dt, ax, ay, map);
   }
 
@@ -419,7 +447,7 @@ class Enemy {
     if (this.lunge === undefined) { this.lunge = 'chase'; this.lungeT = 1 + Math.random() * 2; }
     this.lungeT -= dt;
     if (this.lunge === 'chase') {
-      const [ax, ay] = this._approach(player.x, player.y);
+      const [ax, ay] = this._approach(player.x, player.y, player.bait);
       this._move(dt, ax, ay, map);
       const dx = player.x - this.x, dy = player.y - this.y, d = Math.hypot(dx, dy);
       if (this.lungeT <= 0 && d < LUNGE.range && d > 40 && (!FLOW.ready || FLOW.clear(this.x, this.y, player.x, player.y))) {
@@ -534,6 +562,7 @@ class Enemy {
         const x = player.x + Math.cos(a) * d, y = player.y + Math.sin(a) * d;
         if (x < r || y < r || x > CONFIG.map_width - r || y > CONFIG.map_height - r) continue;
         if (map.obstacles.some(o => circleVsRect(x, y, r, o.x, o.y, o.w, o.h))) continue;
+        if ((map.noSpawn || []).some(o => circleVsRect(x, y, r, o.x, o.y, o.w, o.h))) continue;
         if (FLOW.ready && !FLOW.clear(x, y, player.x, player.y)) continue;
         let gap = Infinity;
         for (const [ox, oy] of others) gap = Math.min(gap, Math.hypot(ox - x, oy - y));
@@ -754,11 +783,13 @@ export class EnemySystem {
     this.elapsedMin       = 0;
     this.manualSpawnMode  = false;  // true = wave system controls spawning
     this.zaps             = [];     // Arc Round jumps being drawn
+    this.lure             = null;   // Decoy Beacon point, set by decoy.js
   }
 
   reset() {
     this.enemies    = [];
     this.zaps       = [];
+    this.lure       = null;
     this.spawnTimer = 0;
     this.elapsedMin = 0;
   }
@@ -830,6 +861,7 @@ export class EnemySystem {
     }
     this._lastPX = player.x; this._lastPY = player.y;
     EnemySystem.all = this.enemies;   // greens check each other's blink spots
+    EnemySystem.lure = this.lure || null;   // Decoy Beacon (decoy.js sets this.lure)
 
     // Personal space: each enemy is pushed gently away from close neighbours,
     // so a crowd spreads into a loose swarm instead of a queue
@@ -955,7 +987,7 @@ export class EnemySystem {
       const dx = e.x - player.x, dy = e.y - player.y;
       const minDist = e.size + player.size / 2;
       if (dx * dx + dy * dy < minDist * minDist) {
-        const damage = e.type === 'green' ? 7 : (e.type === 'yellow' ? 14 : 4);
+        const damage = e.contactDamage || (e.type === 'green' ? 7 : (e.type === 'yellow' ? 14 : 4));
         if (player.takeDamage(damage)) {
           particles.playerHit(player.x, player.y);
         }

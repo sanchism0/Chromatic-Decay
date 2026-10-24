@@ -26,7 +26,7 @@ says where things stand and what to do next.
 from Level 1), Stun Grenade (Dex, activated; defined but **no level awards it
 yet**). So the Arcade Story deck is tiny: this is the biggest gap in the core loop.
 
-**Story map:** Levels 2–5 show as coming soon (Cold Storage, The Stacks, Wire
+**Story map:** Levels 1–3 are playable; Levels 4–5 show as coming soon (Wire
 Room, Raze's Room).
 
 ## Recommended next steps
@@ -50,7 +50,14 @@ crack three frozen coolant tanks (only the dash ability hurts them, two hits
 each) → ride the lift. Cold Storage map and icy palette. Clearing it keeps the
 dash ability as a Story card. (The first version's escort and valves were
 replaced on the owner's request.)
-Next: Level 3 (hold zone, mirror beam, The Queue, Decoy Beacon).
+
+### 2b. Level 3 "The Stacks": built (Oct 25, 2026), awaiting the owner's playtest
+Wave → thrown ability granted (Dex: Stun Grenade, Juno: Decoy Beacon) → hold the
+terminal's ring (stun or lure Chromatics out of it) → wave → beam puzzle (throw
+the ability over sealed pocket walls to turn three mirrors) → boss The Queue
+(rings you dash through, splits at 75/50/25%) → into the vault. Clearing it
+keeps the thrown ability. Next: Level 4 (Wire Room; Juno's ability to decide,
+Dex's too since Arc Round took Chain Arc's place).
 
 ### 3. Per-character mechanics
 "Focusing on what the next 3 to 5 improvements will be per character." Each

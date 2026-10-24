@@ -91,12 +91,23 @@ Section power-ups (Level 1 only) and the kept card are in `docs/decisions.md`.
 | Tanks | The lift's frozen; three coolant tanks are why. Bullets won't touch the ice: dash through it (Dex) / dash away from it (Juno). | Two dash-ability hits per tank; a few violets get in the way |
 | Exit | "The lift's moving! Get on." / "Hold on. Going down." | Ride the lift: beam-out, card (first time), results |
 
-## Levels 3–5 (planned)
+## Level 3: "The Stacks" (built)
+
+| Beat | Comms (gist) | Play |
+|---|---|---|
+| Wave | Every stream nobody ever played ended up here, on tape. Raze left part of his signal in this. "Hold on, I'm sending you something." | Big violet groups. Then the thrown ability screen |
+| Hold | A stun grenade (Dex) / a decoy beacon (Juno). There's a piece of Raze in that terminal: stand in its ring while it pulls. Keep everything else out. | 22 s in the ring; Chromatics in it stop the pull. Ends: "That's him, a piece of him anyway. The rest is past the vault." |
+| Wave | Something heard that. | Violets and yellows |
+| Beam | The vault only opens to light. Throw your grenade/beacon over the pocket walls to turn the mirrors. | Three mirrors; the beam reaches the vault: "Something's coming up out of it." |
+| Boss | "That's not a Chromatic. That's all of them." Dash through the rings. "It's splitting!" | The Queue. "It's gone. The vault's open. Get in." |
+| Exit | "Got you. And a piece of him with you." | Into the vault: beam-out, card, results |
+
+## Levels 4–5 (planned)
 
 | # | Level | Story beat |
 |---|---|---|
 | 2 | Cold Storage | Raze's trail goes colder. Dash abilities, ice, frozen drives and tanks (built) |
-| 3 | The Stacks | Hold the line; first boss, The Queue |
+| 3 | The Stacks | Thrown abilities, terminal hold, mirror beam, first boss The Queue (built) |
 | 4 | Wire Room | Greens arrive in force; gather fragments; tuning puzzle |
 | 5 | Raze's Room | Boss: Signal Hoarder. Rescue Raze; he becomes playable |
 

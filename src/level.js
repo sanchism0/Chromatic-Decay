@@ -8,6 +8,11 @@
 //   drives    grab items frozen into ice patches (you slide on ice)
 //   freezers  crack frozen tanks that only a dash ability can damage
 //   valves    stand on plates to open them for a few seconds; all open at once
+//   hold      stand in a terminal's ring while it pulls a signal; anything else
+//             in the ring stops it (stun them, lure them out, or shoot them)
+//   beam      turn sealed-in mirrors (by landing a thrown ability on them) until
+//             the beam from the wall reaches the vault
+//   boss      a big Chromatic with its own health bar and attacks (The Queue)
 //   exit      reach the door: the agent beams out, and the
 //             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
@@ -20,7 +25,8 @@ import { Radio } from './dialogue.js';
 import { CONFIG } from './config.js';
 import { drawGlow } from './sprites.js';
 import { rackHeight } from './pixelmap.js';
-import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack } from './audio.js';
+import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack, sfxQueueRing } from './audio.js';
+import { STACKS } from './map.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
@@ -168,6 +174,99 @@ LEVELS[2] = {
   },
 };
 
+LEVELS[3] = {
+  id: 3,
+  name: 'THE STACKS',
+  map: 'stacks',
+  exit: 'vault',
+  blurb: "Pull a piece of Raze out of the Stacks; open the vault.",
+  outcome: "A piece of Raze's signal recovered, and The Queue broken. He's deeper still.",
+  unlockTop: 'THE STACKS GO QUIET. YOU KEEP WHAT YOU THREW.',
+  // Where things are, as fractions of the map. mirrors: the sealed pockets,
+  // in the order the beam visits them; dead: where each mirror points while
+  // it's turned wrong; source: the emitter on the wall
+  points: {
+    terminal: [0.80, 0.20],
+    vault:    [0.5, 0.5],
+    source:   [0.12, 0.05],
+    mirrors:  STACKS.pockets.map(p => [...p]),
+    dead:     [[0.03, 0.95], [0.97, 0.97], [0.97, 0.05]],
+  },
+  beats: (op, agent) => {
+    const L = (face, text) => ({ who: op, face, text });
+    const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
+    const dex = agent === 'dex';
+    const thing = dex ? 'grenade' : 'beacon';
+    return [
+      { type: 'wave',
+        lines: [L(f('neutral', 'focused'), "The Stacks. Every stream nobody ever played ended up here, on tape."),
+                L(f('determined', 'focused'), "Raze left part of his signal somewhere in this. Clear the floor first.")],
+        groups: [[['violet', 4]], [['violet', 3], ['yellow', 1]], [['violet', 4], ['yellow', 1]]],
+        objective: s => `Clear the floor (${s.left} left)`,
+        grant: true,   // the level's thrown ability, after this section
+        done: [L(f('cocky-grin', 'smirk'), "Clear. Hold on, I'm sending you something.")] },
+
+      { type: 'hold',
+        lines: [L(f('laughing', 'soft-smile'), dex ? "A stun grenade. Lob it over anything: whatever it lands on freezes up."
+                                                   : "A decoy beacon. Throw it and they chase the light instead of you."),
+                L(f('determined', 'focused'), "There's a piece of Raze in that terminal. Stand in its ring while it pulls."),
+                L(f('worried', 'concerned'), dex ? "Anything else in the ring stops the pull. Stunned ones don't count."
+                                                 : "Anything else in the ring stops the pull. Lure them out of it.")],
+        half: [L(f('determined', 'focused'), 'Halfway. Keep them out.')],
+        objective: s => (s.blocked ? `Clear the ring to keep pulling (${s.hold}%)` : `Pull the signal (${s.hold}%)`),
+        interrupt: { cap: 5, period: 3, yellow: 0.35 },
+        done: [L(f('shocked', 'alarmed'), "Got it. That's him, a piece of him anyway. The rest is past the vault.")] },
+
+      { type: 'wave',
+        lines: [L(f('worried', 'concerned'), "Something heard that. Here they come.")],
+        groups: [[['violet', 3], ['yellow', 1]], [['yellow', 2], ['violet', 2]], [['violet', 3], ['yellow', 2]]],
+        objective: s => `Hold them off (${s.left} left)`,
+        done: [L(f('neutral', 'soft-smile'), "Clear. Now the vault in the middle.")] },
+
+      { type: 'beam',
+        lines: [L(f('neutral', 'focused'), "The vault only opens to light. Bounce the beam from that wall emitter into it."),
+                L(f('determined', 'neutral'), `The mirrors are sealed in. Throw your ${thing} over the wall to turn one.`)],
+        eachDone: [[L(f('determined', 'focused'), 'One mirror.')], [L(f('cocky-grin', 'smirk'), 'Two. One more.')]],
+        objective: s => `Turn the mirrors to the vault (${s.mirrors}/3)`,
+        interrupt: { cap: 3, period: 5, yellow: 0.2 },
+        done: [L(f('shocked', 'alarmed'), "It's open. Wait... something's coming up out of it.")] },
+
+      { type: 'boss',
+        checkpoint: true,   // dying here offers a retry from this fight
+        lines: [L(f('shocked', 'alarmed'), "That's not a Chromatic. That's all of them. Every stream nobody played."),
+                L(f('determined', 'focused'), "Those rings it sends out: dash straight through them.")],
+        split: [L(f('worried', 'concerned'), dex ? "It's splitting! Stun the pack and burn it down."
+                                                : "It's splitting! Bunch them up with the beacon.")],
+        objective: () => 'Bring down The Queue',
+        done: [L(f('laughing', 'soft-smile'), "It's breaking up... it's gone."),
+               L(f('determined', 'focused'), "The vault's open. Get in, I'll pull you out.")] },
+
+      { type: 'exit',
+        lines: [],
+        objective: () => 'Get into the vault',
+        extract: [L(f('cocky-grin', 'soft-smile'), "Got you. And a piece of him with you.")],
+        done: [] },
+    ];
+  },
+};
+
+// Level 3's thrown abilities: granted after its first section, kept as a card
+// the first time it's cleared (STORY_CARDS has the Arcade versions)
+const THROW_POWERS = {
+  dex: { id: 'stun_grenade', name: 'STUN GRENADE', desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.',
+         has: p => !!p.grenade, apply: p => { p.grenade = true; p.abilities.push('grenade'); },
+         hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
+  juno: { id: 'decoy_beacon', name: 'DECOY BEACON', desc: 'Throw it over the racks: nearby Chromatics chase its light for 3 seconds.',
+          has: p => !!p.decoy, apply: p => { p.decoy = true; p.abilities.push('decoy'); },
+          hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
+};
+
+// The Queue (Level 3's boss)
+const QUEUE = { hp: 900, size: 38, speed: 34, contact: 14,
+                ringEvery: 3.2, ringEveryLow: 2.4, windup: 0.6, ringSpeed: 120, ringMax: 560, ringDamage: 12,
+                splits: [0.75, 0.5, 0.25], splitCount: 5 };
+const HOLD = { r: 72, fill: 22 };   // ring radius, seconds to fill (it never drains)
+
 // Level 2's dash abilities: granted after its first section, kept as a card
 // the first time it's cleared (STORY_CARDS has the Arcade versions)
 const DASH_POWERS = {
@@ -184,13 +283,13 @@ const TANK_HITS  = 2;     // dash-ability hits to crack a frozen tank
 
 // What opening each level's door unlocks for keeps, per agent: the first
 // power-up, as a card in that character's Arcade upgrade offers
-export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS };
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS, 3: THROW_POWERS };
 
 // ── Helpers ───────────────────────────────────────────────────
 
 function freeSpot(map, x, y, pad = 46) {
   const clear = (px, py) => px > 60 && py > 60 && px < CONFIG.map_width - 60 && py < CONFIG.map_height - 60 &&
-    !map.obstacles.some(o => px + pad > o.x && px - pad < o.x + o.w && py + pad > o.y && py - pad < o.y + o.h);
+    ![...map.obstacles, ...(map.noSpawn || [])].some(o => px + pad > o.x && px - pad < o.x + o.w && py + pad > o.y && py - pad < o.y + o.h);
   if (clear(x, y)) return { x, y };
   for (let r = 12; r < 400; r += 12) {
     for (let k = 0; k < 16; k++) {
@@ -206,7 +305,8 @@ function freeSpot(map, x, y, pad = 46) {
 
 export class LevelRun {
   // api: { player(), enemies, map(), spawnEnemy(type, x, y), spawnEcho(x, y), clearField(), touch() }
-  constructor(id, agent, api) {
+  // from: { idx } restarts at a checkpoint beat (the earlier beats count as done)
+  constructor(id, agent, api, from = null) {
     this.def   = LEVELS[id];
     this.id    = id;
     this.agent = agent;
@@ -224,11 +324,32 @@ export class LevelRun {
     this.kills    = 0;
     this.powers   = [];       // power-ups granted so far (names)
     this.pendingPowerUp = null;   // one waiting to be shown by game.js
+    this.granted  = [];       // level abilities taken so far (kept for a checkpoint restart)
+    this.checkpointIdx = null;    // the last checkpoint beat reached
     this._powerIdx = 0;
     this.charge = 0;          // emitter charge drawn from relays, 0..1
     this.motes  = [];         // essence flowing into the agent
     this._spawnDir = Math.random() * Math.PI * 2;
     this._layout();
+    if (from) this._skipTo(from.idx);
+    else this._next();
+  }
+
+  // Restart at a checkpoint: every beat before it is set up and marked done
+  // (terminal full, mirrors turned, ...), then the checkpoint beat begins
+  _skipTo(idx) {
+    for (let i = 0; i < idx; i++) {
+      this.idx = i;
+      const b = this.beat;
+      this._enter(b);
+      if (b.type === 'hold') { this.hold.p = 1; this.charge = 1; }
+      else if (b.type === 'beam') { for (const m of this.mirrors) m.ok = true; this._chainSaid = this.mirrors.length; }
+      else if (b.type === 'drives') for (const d of this.drives) d.got = true;
+      else if (b.type === 'freezers') for (const t of this.tanks) t.hp = 0;
+      else if (b.type === 'relays') for (const r of this.relays) { r.done = true; r.charge = 1; }
+      else if (b.type === 'servers') for (const s of this.servers) s.lit = true;
+    }
+    this.idx = idx - 1;
     this._next();
   }
 
@@ -239,7 +360,12 @@ export class LevelRun {
     const pts = this.def.points;
     if (pts) {
       const at = ([fx, fy], pad = 30) => freeSpot(map, W * fx, H * fy, pad);
-      this.exitPos  = pts.lift ? at(pts.lift, 40) : map.playerSpawn();
+      this.exitPos  = pts.lift ? at(pts.lift, 40) : pts.vault ? { x: W * pts.vault[0], y: H * pts.vault[1] } : map.playerSpawn();
+      if (pts.terminal) this.terminalPos = at(pts.terminal, 40);
+      if (pts.mirrors) {
+        this.sourcePos = { x: W * pts.source[0], y: H * pts.source[1] };
+        this.mirrorPos = pts.mirrors.map(([fx, fy], i) => ({ x: W * fx, y: H * fy, dead: { x: W * pts.dead[i][0], y: H * pts.dead[i][1] } }));
+      }
       if (pts.valves) this.valvePos = pts.valves.map(v => at(v, 26));
       if (pts.tanks) this.tankPos = pts.tanks.map(v => at(v, 26));
       if (pts.drives) this.drivePos = pts.drives.map(([fx, fy]) => ({ x: W * fx, y: H * fy }));
@@ -271,6 +397,7 @@ export class LevelRun {
     const b = this.beat;
     if (!b) return;
     this._enter(b);
+    if (b.checkpoint) this.checkpointIdx = this.idx;
     this.radio.say(b.lines);
   }
 
@@ -288,6 +415,13 @@ export class LevelRun {
       if (!this.drives) this.drives = this.drivePos.map(p => ({ x: p.x, y: p.y, got: false }));
     } else if (b.type === 'freezers') {
       if (!this.tanks) this.tanks = this.tankPos.map(p => ({ x: p.x, y: p.y, hp: TANK_HITS, hitT: 0 }));
+    } else if (b.type === 'hold') {
+      if (!this.hold) this.hold = { ...this.terminalPos, p: 0, crowd: 0, said: false };
+    } else if (b.type === 'beam') {
+      // Every mirror starts turned the wrong way
+      if (!this.mirrors) this.mirrors = this.mirrorPos.map(m => ({ ...m, ok: false, turnT: 0, ang: null }));
+    } else if (b.type === 'boss') {
+      this.rings = []; this.boss = null; this.ringT = 2; this.windT = 0; this.splitIdx = 0;
     } else if (b.type === 'valves') {
       if (!this.valves) this.valves = this.valvePos.map(p => ({ x: p.x, y: p.y, open: 0 }));
     } else if (b.type === 'servers') {
@@ -320,6 +454,7 @@ export class LevelRun {
     if (!pu) return;
     pu.apply(player);
     this.powers.push(pu.name);
+    this.granted.push(pu);
     this.pendingPowerUp = null;
   }
 
@@ -370,6 +505,9 @@ export class LevelRun {
       const list = this.def.powerups ? (POWERUPS[this.agent] || []) : [];
       if (this._powerIdx < list.length) this.pendingPowerUp = list[this._powerIdx++];
     }
+    // Health: from Level 2 on, a couple of Echoes appear near the agent after
+    // each finished section (Level 1's come out of its relays)
+    if (this.id > 1 && b.type !== 'exit' && b.type !== 'boss') this._dropEchoes(2);
     // The level's ability (Level 2: a dash ability), unless they have it already
     const card = b.grant && (LEVEL_CARDS[this.id] || {})[this.agent];
     if (card && card.has && !card.has(this.api.player())) this.pendingPowerUp = card;
@@ -397,6 +535,9 @@ export class LevelRun {
     else if (b.type === 'drives') this._updateDrives(dt, b, pl);
     else if (b.type === 'freezers') this._updateFreezers(dt, b);
     else if (b.type === 'valves') this._updateValves(dt, b, pl);
+    else if (b.type === 'hold') this._updateHold(dt, b, pl);
+    else if (b.type === 'beam') this._updateBeam(dt, b, pl);
+    else if (b.type === 'boss') this._updateBoss(dt, b, pl);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
     else if (b.type === 'exit') {
@@ -538,6 +679,127 @@ export class LevelRun {
     } }));
   }
 
+  // n Echoes on open floor a short walk from the agent
+  _dropEchoes(n, near = null) {
+    const pl = near || this.api.player(), map = this.api.map();
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = a0 + i * 2.4;
+      const p = freeSpot(map, pl.x + Math.cos(a) * 110, pl.y + Math.sin(a) * 110, 22);
+      this.api.spawnEcho(p.x, p.y);
+    }
+  }
+
+  // Hold: stand in the terminal's ring while it pulls the signal. Any
+  // Chromatic in the ring that isn't stunned pauses the pull (a decoy thrown
+  // outside the ring pulls them out of it); it never drains. Chromatics keep
+  // coming (the beat's interrupt).
+  _updateHold(dt, b, pl) {
+    const h = this.hold;
+    const crowd = this.api.enemies.enemies.filter(e => e.isAlive && !e.forming && !(e.stunTimer > 0) &&
+      Math.hypot(e.x - h.x, e.y - h.y) < HOLD.r).length;
+    h.crowd = crowd;
+    const inside = Math.hypot(pl.x - h.x, pl.y - h.y) < HOLD.r;
+    this.charging = null;
+    // Progress only ever goes up: a Chromatic in the ring pauses it, and you
+    // can step out and come back without losing any (owner's rule)
+    if (crowd === 0 && inside) {
+      h.p = Math.min(1, h.p + dt / HOLD.fill);
+      this.charging = h;
+      if (Math.random() < dt * 18) this.motes.push({ x: h.x, y: h.y - 18, t: 0, s: Math.random() });
+    }
+    this.charge = h.p;
+    if (!h.said && h.p >= 0.5) { h.said = true; this.radio.say(b.half || []); }
+    if (h.p >= 1) { this.charging = null; sfxRelayCharged(); this._finishBeat(); }
+  }
+
+  // Beam: the thrown abilities turn the mirrors (onThrowLand). The beam runs
+  // from the wall emitter through each mirror that's turned right; when it
+  // reaches the vault, the vault opens. Abilities recharge twice as fast here.
+  _updateBeam(dt, b, pl) {
+    pl.grenadeCooldown = Math.max(0, (pl.grenadeCooldown || 0) - dt);
+    pl.decoyCooldown   = Math.max(0, (pl.decoyCooldown || 0) - dt);
+    for (const m of this.mirrors) m.turnT = Math.max(0, m.turnT - dt);
+    if (this.mirrors.every(m => m.ok)) { sfxRelayCharged(); this._finishBeat(); }
+  }
+
+  // A thrown ability (grenade burst, beacon landing) came down at (x, y)
+  onThrowLand(x, y) {
+    const b = this.beat;
+    if (!b || b.type !== 'beam' || !this.ready || !this.mirrors) return;
+    const m = this.mirrors.find(mm => Math.hypot(mm.x - x, mm.y - y) < 52);
+    if (!m || m.turnT > 0) return;
+    m.ok = !m.ok; m.turnT = 0.4;
+    const chain = this._beamChain();
+    sfxNode(this.mirrors.indexOf(m));
+    if (m.ok && chain < this.mirrors.length && chain > (this._chainSaid || 0)) {
+      this._chainSaid = chain;
+      this.radio.clear(); this.radio.say(b.eachDone[chain - 1] || []);
+    }
+  }
+
+  // How many mirrors in a row, from the emitter, send the beam on correctly
+  _beamChain() {
+    let n = 0;
+    while (n < this.mirrors.length && this.mirrors[n].ok) n++;
+    return n;
+  }
+
+  // Boss: The Queue rises from the vault, drifts after the player and sends
+  // out rings (a dash goes straight through: untouchable mid-dash). At 75%,
+  // 50% and 25% health it splits off a ring of violets. When it dies,
+  // everything left dissolves with it.
+  _updateBoss(dt, b, pl) {
+    const es = this.api.enemies;
+    if (!this.boss) {
+      const v = this.exitPos;
+      const e = es.spawnEnemyAt('violet', v.x, v.y);
+      e.boss = 'queue';
+      e.cfg = { ...e.cfg, size: QUEUE.size, move_speed: QUEUE.speed };
+      e.maxHp = e.hp = QUEUE.hp;
+      e.contactDamage = QUEUE.contact;
+      this.boss = e;
+      return;
+    }
+    const q = this.boss;
+    if (!q.isAlive) {
+      for (const e of es.enemies) if (e.isAlive) e.takeDamage(1e9);
+      this.rings = [];
+      sfxRelayCharged();
+      this._finishBeat();
+      return;
+    }
+    // Splits
+    const frac = q.hp / q.maxHp;
+    if (this.splitIdx < QUEUE.splits.length && frac <= QUEUE.splits[this.splitIdx]) {
+      this.splitIdx++;
+      const map = this.api.map();
+      for (let i = 0; i < QUEUE.splitCount; i++) {
+        const a = i / QUEUE.splitCount * Math.PI * 2;
+        const p = freeSpot(map, q.x + Math.cos(a) * 70, q.y + Math.sin(a) * 70, 20);
+        es.spawnEnemyAt('violet', p.x, p.y);
+      }
+      if (this.splitIdx === 1) this.radio.say(b.split || []);
+      this._dropEchoes(1);   // a little health each time it splits
+    }
+    // Rings: a short windup (it draws in), then a ring rolls outward
+    if (!q.forming) {
+      if (this.windT > 0) {
+        this.windT -= dt;
+        if (this.windT <= 0) { this.rings.push({ x: q.x, y: q.y, r: q.size, hit: false }); sfxQueueRing(); }
+      } else {
+        this.ringT -= dt;
+        if (this.ringT <= 0) { this.windT = QUEUE.windup; this.ringT = frac < 0.5 ? QUEUE.ringEveryLow : QUEUE.ringEvery; }
+      }
+    }
+    for (const r of this.rings) {
+      r.r += QUEUE.ringSpeed * dt;
+      const d = Math.hypot(pl.x - r.x, pl.y - r.y);
+      if (!r.hit && Math.abs(d - r.r) < 6 + pl.size / 2) { r.hit = true; pl.takeDamage(QUEUE.ringDamage); }
+    }
+    this.rings = this.rings.filter(r => r.r < QUEUE.ringMax);
+  }
+
   // Valves: standing on one opens it (and keeps it open); stepped off, it
   // closes after VALVE_OPEN seconds. All open at once finishes the beat.
   _updateValves(dt, b, pl) {
@@ -588,7 +850,10 @@ export class LevelRun {
     const valvesOpen = this.valves ? this.valves.filter(v => v.open > 0).length : 0;
     const drives = this.drives ? this.drives.filter(d => d.got).length : 0;
     const tanks = this.tanks ? this.tanks.filter(t => t.hp <= 0).length : 0;
-    return b.objective({ left, done, servers, valvesOpen, drives, tanks });
+    const hold = this.hold ? Math.floor(this.hold.p * 100) : 0;
+    const blocked = !!(this.hold && this.hold.crowd > 0 && b.type === 'hold');
+    const mirrors = this.mirrors ? this._beamChain() : 0;
+    return b.objective({ left, done, servers, valvesOpen, drives, tanks, hold, blocked, mirrors });
   }
 
   // ── Drawing ─────────────────────────────────────────────────
@@ -602,7 +867,10 @@ export class LevelRun {
     }
     if (this.seq) this._drawLock(ctx, t);
     if (this.def.exit === 'lift') this._drawLift(ctx, t, b && b.type === 'exit');
+    else if (this.def.exit === 'vault') this._drawVault(ctx, t);
     else if (b && b.type === 'exit') this._drawExit(ctx, t);
+    if (this.terminalPos) this._drawTerminal(ctx, this.hold || { ...this.terminalPos, p: 0, crowd: 0 }, t, b && b.type === 'hold' && this.ready);
+    if (this.rings) this._drawRings(ctx, t);
     if (this.valves || (b && b.type === 'valves')) {
       (this.valves || this.valvePos.map(p => ({ ...p, open: 0 }))).forEach((v, i) => this._drawValve(ctx, v, i, t));
     }
@@ -836,6 +1104,142 @@ export class LevelRun {
     ctx.restore();
   }
 
+  // The terminal and its ring: a console on the floor; the ring fills in the
+  // agent's colour as the signal is pulled, and dims amber while blocked
+  _drawTerminal(ctx, h, t, live) {
+    const x = Math.round(h.x), y = Math.round(h.y);
+    const blocked = live && h.crowd > 0;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = blocked ? '#C07A2A' : live ? this.color : '#5A4A38';
+    ctx.globalAlpha = live ? 0.55 : 0.3;
+    ctx.beginPath(); ctx.ellipse(x, y, HOLD.r, HOLD.r * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    if (h.p > 0) {
+      ctx.lineWidth = 3; ctx.strokeStyle = this.color; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.ellipse(x, y, HOLD.r, HOLD.r * 0.55, 0, -Math.PI / 2, -Math.PI / 2 + h.p * Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.12 * h.p; ctx.fillStyle = this.color;
+      ctx.beginPath(); ctx.ellipse(x, y, HOLD.r, HOLD.r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    if (live) drawGlow(ctx, blocked ? '#C07A2A' : this.color, x, y - 12, 26, 0.3 + 0.1 * Math.sin(t * 3));
+    ctx.restore();
+    // Console: pixel art
+    ctx.fillStyle = '#0B0806'; ctx.fillRect(x - 11, y - 20, 22, 21);
+    ctx.fillStyle = '#3E3226'; ctx.fillRect(x - 10, y - 19, 20, 19);
+    ctx.fillStyle = '#7A644A'; ctx.fillRect(x - 10, y - 19, 20, 2);
+    ctx.fillStyle = live ? '#1E3A2A' : '#1A1510'; ctx.fillRect(x - 7, y - 15, 14, 8);
+    if (live) { ctx.fillStyle = this.color; ctx.fillRect(x - 6, y - 12, Math.round(12 * h.p), 2); }
+    ctx.fillStyle = '#ffc46a'; ctx.fillRect(x - 6, y - 4, 2, 2); ctx.fillRect(x + 4, y - 4, 2, 2);
+  }
+
+  // The vault: a round hatch in the floor at the centre. Shut (bolted, dark)
+  // until the beam reaches it; open, it's a pit of the agent's light
+  _drawVault(ctx, t) {
+    const v = this.exitPos;
+    const x = Math.round(v.x), y = Math.round(v.y);
+    const open = !!(this.mirrors && this.mirrors.every(m => m.ok));
+    const exiting = this.beat && this.beat.type === 'exit';
+    const R = 34;
+    ctx.save();
+    ctx.fillStyle = '#0B0806';
+    ctx.beginPath(); ctx.ellipse(x, y, R + 3, (R + 3) * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = open ? '#050403' : '#3E3226';
+    ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+    if (!open) {
+      ctx.strokeStyle = '#7A644A'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(x, y, R * 0.65, R * 0.65 * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#8A7256';
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * R * 0.85) - 1, Math.round(y + Math.sin(a) * R * 0.85 * 0.55) - 1, 2, 2); }
+      ctx.fillStyle = '#ffc46a'; ctx.fillRect(x - 2, y - 1, 4, 3);
+    } else {
+      ctx.globalCompositeOperation = 'lighter';
+      const pulse = 0.6 + 0.4 * Math.sin(t * 3);
+      drawGlow(ctx, this.color, x, y, R * 1.4, (exiting ? 0.6 : 0.3) * pulse);
+      ctx.globalAlpha = exiting ? 0.7 : 0.35;
+      ctx.strokeStyle = this.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // The Queue's rings rolling outward, and its windup (a ring drawing in)
+  _drawRings(ctx, t) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const r of this.rings) {
+      const a = 1 - r.r / QUEUE.ringMax;
+      ctx.strokeStyle = '#8B5CFF';
+      ctx.globalAlpha = 0.25 * a; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.8 * a; ctx.lineWidth = 2; ctx.strokeStyle = '#C4A8FF';
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.stroke();
+    }
+    const q = this.boss;
+    if (q && q.isAlive && this.windT > 0) {
+      const k = 1 - this.windT / QUEUE.windup;
+      ctx.globalAlpha = 0.6 * k; ctx.lineWidth = 2; ctx.strokeStyle = '#C4A8FF';
+      ctx.beginPath(); ctx.arc(q.x, q.y, q.size + 50 * (1 - k), 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // The beam puzzle, drawn over the racks (the beam runs above them): the
+  // emitter on the wall, the beam through each mirror turned right, out to a
+  // dead spot from the first one turned wrong, and the mirrors themselves
+  _drawBeam(ctx, t) {
+    const mirrors = this.mirrors || this.mirrorPos.map(m => ({ ...m, ok: false, ang: null }));
+    const live = !!this.mirrors;
+    const H = 14;   // the beam runs this high above the floor
+    const pts = [this.sourcePos];
+    let end = null;
+    if (live) {
+      for (let i = 0; i < mirrors.length; i++) {
+        pts.push(mirrors[i]);
+        if (!mirrors[i].ok) { end = mirrors[i].dead; break; }
+      }
+      if (!end) end = this.exitPos;
+      pts.push(end);
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    // Emitter
+    const s = this.sourcePos;
+    drawGlow(ctx, '#FFD9A0', s.x, s.y - H, 18, live ? 0.6 : 0.2);
+    // Beam segments
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      ctx.strokeStyle = '#FFB060'; ctx.globalAlpha = 0.16; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y - H); ctx.lineTo(b.x, b.y - H); ctx.stroke();
+      ctx.strokeStyle = '#FFE9C4'; ctx.globalAlpha = 0.85; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y - H); ctx.lineTo(b.x, b.y - H); ctx.stroke();
+    }
+    if (live && end) drawGlow(ctx, end === this.exitPos ? this.color : '#FFB060', end.x, end.y - H, end === this.exitPos ? 30 : 12, 0.5);
+    ctx.restore();
+    // Mirrors: a pedestal with a pane of glass turned to bisect the beam
+    mirrors.forEach((m, i) => {
+      const prev = i === 0 ? this.sourcePos : mirrors[i - 1];
+      const next = m.ok ? (mirrors[i + 1] || this.exitPos) : m.dead;
+      const ain = Math.atan2(prev.y - m.y, prev.x - m.x), aout = Math.atan2(next.y - m.y, next.x - m.x);
+      const want = Math.atan2(Math.sin(ain) + Math.sin(aout), Math.cos(ain) + Math.cos(aout)) + Math.PI / 2;
+      if (m.ang == null) m.ang = want;
+      let d = want - m.ang; d = Math.atan2(Math.sin(d), Math.cos(d));
+      m.ang += d * Math.min(1, 0.2);
+      const x = Math.round(m.x), y = Math.round(m.y);
+      ctx.fillStyle = '#0B0806'; ctx.fillRect(x - 5, y - 6, 10, 7);
+      ctx.fillStyle = '#4E3F30'; ctx.fillRect(x - 4, y - 5, 8, 5);
+      const cx = m.x, cy = m.y - H, L = 11;
+      ctx.strokeStyle = '#0B0806'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(cx - Math.cos(m.ang) * L, cy - Math.sin(m.ang) * L * 0.6); ctx.lineTo(cx + Math.cos(m.ang) * L, cy + Math.sin(m.ang) * L * 0.6); ctx.stroke();
+      ctx.strokeStyle = live && (i === 0 || mirrors.slice(0, i).every(mm => mm.ok)) ? '#FFF2DA' : '#9AA4B0'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx - Math.cos(m.ang) * L, cy - Math.sin(m.ang) * L * 0.6); ctx.lineTo(cx + Math.cos(m.ang) * L, cy + Math.sin(m.ang) * L * 0.6); ctx.stroke();
+      if (live && this.beat && this.beat.type === 'beam' && !m.ok) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        drawGlow(ctx, this.color, m.x, m.y - 4, 22, 0.25 + 0.15 * Math.sin(t * 3 + i));
+        ctx.restore();
+      }
+    });
+  }
+
   // A frozen archive drive: a dark box with a blinking light, crusted in ice
   _drawDrive(ctx, d, t) {
     const x = Math.round(d.x), y = Math.round(d.y);
@@ -905,6 +1309,8 @@ export class LevelRun {
     if (b.type === 'freezers' && this.tanks) return this.tanks.filter(t => t.hp > 0);
     if (b.type === 'valves' && this.valves) return this.valves.filter(v => v.open <= 0);
     if (b.type === 'sequence') return [this.lockCenter];
+    if (b.type === 'hold' && this.hold) return [this.hold];
+    if (b.type === 'beam' && this.mirrors) { const n = this._beamChain(); return n < this.mirrors.length ? [this.mirrors[n]] : []; }
     if (b.type === 'exit') return [this.exitPos];
     return [];
   }
@@ -912,6 +1318,7 @@ export class LevelRun {
   // Drawn over the racks: the marker on each server (dim until woken, then a
   // beam of the agent's colour rising from it)
   drawOverRacks(ctx) {
+    if (this.mirrorPos) this._drawBeam(ctx, this.t);
     if (!this.servers) return;
     const t = this.t;
     ctx.save();
@@ -953,7 +1360,21 @@ export class LevelRun {
   // toScreen maps world → screen coordinates.
   drawHud(ctx, W, H, touch, toScreen) {
     // Keep comms clear of the Resonance / Emitter bars on narrow screens
-    this.radio.draw(ctx, W, H, this.objective, touch, (W < 600 ? 100 : 96) + (this.relays ? 22 : 0));
+    this.radio.draw(ctx, W, H, this.objective, touch, (W < 600 ? 100 : 96) + (this.relays || this.hold ? 22 : 0));
+    // Boss health, under the objective
+    const q = this.boss;
+    if (q && q.isAlive && this.beat && this.beat.type === 'boss') {
+      const bw = Math.min(420, W - 60), bx = Math.round(W / 2 - bw / 2), by = (this.radio.objBottom || 40) + 8;
+      ctx.save();
+      ctx.fillStyle = 'rgba(7,11,18,0.8)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
+      ctx.fillStyle = '#2A1F48'; ctx.fillRect(bx, by, bw, 8);
+      ctx.fillStyle = '#8B5CFF'; ctx.fillRect(bx, by, Math.round(bw * q.hp / q.maxHp), 8);
+      ctx.fillStyle = '#0B0806';
+      for (const s of QUEUE.splits) ctx.fillRect(bx + Math.round(bw * s), by, 1, 8);
+      ctx.fillStyle = '#C4A8FF'; ctx.font = `bold ${W < 600 ? 10 : 11}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText('THE QUEUE', W / 2, by + 22);
+      ctx.restore();
+    }
     for (const tg of (toScreen ? this.targets : [])) {
       const [sx, sy] = toScreen(tg.x, tg.y);
       if (sx < 0 || sx > W || sy < 0 || sy > H) {
@@ -1003,13 +1424,13 @@ export class LevelRun {
       ctx.fillText(compact ? '◇ power up: clear a section' : '◇ clear a section to power up', lx, y);
       if (compact) y += 11;
     }
-    // Emitter charge, under that, once relays have started
-    if (this.relays) {
+    // Emitter charge, under that, once relays (or the terminal) have started
+    if (this.relays || this.hold) {
       y = compact ? y + 6 : narrow ? 100 : 96;
       const bw = compact ? 120 : narrow ? 120 : 200;
       ctx.fillStyle = '#8A8E99';
       ctx.font = `${narrow || compact ? 9 : 11}px monospace`;
-      ctx.fillText('EMITTER CHARGE', lx, y);
+      ctx.fillText(this.hold ? 'SIGNAL PULLED' : 'EMITTER CHARGE', lx, y);
       ctx.fillStyle = '#1E2130';
       ctx.fillRect(lx, y + 5, bw, 5);
       ctx.fillStyle = this.color;

@@ -6,6 +6,7 @@ import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD, GRENADE_RANGE, GRENADE_RADIUS } from './grenade.js';
+import { DecoySystem, DECOY_CD, DECOY_RADIUS } from './decoy.js';
 import { DashPowers } from './dashpowers.js';
 import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE } from './profile.js';
 import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
@@ -108,6 +109,7 @@ let state = STATES.TITLE;
 
 const input       = new Input(canvas);
 const grenades    = new GrenadeSystem();
+const decoys      = new DecoySystem();
 const dashPowers  = new DashPowers();
 const camera      = new Camera();
 const particles   = new ParticleSystem();
@@ -181,9 +183,16 @@ function getUnlockedClasses() {
 
 let level = null;   // the Story level being played, if any
 
+// A Story level's checkpoint, reached this attempt: { id, agent, idx, granted }.
+// Only the level-failed screen offers it; any fresh start clears it, so going
+// back to the map or the menu means starting the level over.
+let _checkpoint = null;
+
 function startRun(opts = {}) {
   const tutorial = !!opts.tutorial;
   const levelId  = opts.level || null;
+  const from     = opts.from || null;   // restart at a checkpoint
+  if (!from) _checkpoint = null;
   map = new GameMap(levelId && LEVELS[levelId] ? (LEVELS[levelId].map || 'basement') : 'basement');
   pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
@@ -202,6 +211,9 @@ function startRun(opts = {}) {
   echoes.reset();
   projectiles.reset();
   grenades.reset();
+  decoys.reset();
+  // A thrown ability landing (Level 3's mirror switches react to it)
+  grenades.onLand = decoys.onLand = (x, y) => { if (level && level.onThrowLand) level.onThrowLand(x, y); };
   dashPowers.reset();
   lore.reset();
   lore.enabled = !tutorial && !levelId;   // the operator does the talking in Story
@@ -243,10 +255,16 @@ function startRun(opts = {}) {
     waveSystem.active = false;
     echoes.spawnTimer = Infinity;
     player.cannotDie  = true;
-    level = new LevelRun(levelId, selectedCharacter, levelApi);
+    level = new LevelRun(levelId, selectedCharacter, levelApi, from);
     // After Level 1 (the sampler), a character starts with the cards they
     // have earned — and only theirs
     if (levelId > 1) for (const c of STORY_CARDS) if (c.who === selectedCharacter && hasCard(c.who, c.id)) { c.apply(player); level.powers.push(c.name.toUpperCase()); }
+    // From a checkpoint: the level abilities already taken this attempt
+    if (from) for (const pu of from.granted) {
+      if (!pu.has || !pu.has(player)) pu.apply(player);
+      if (!level.powers.includes(pu.name)) level.powers.push(pu.name);
+      level.granted.push(pu);
+    }
   } else if (tutorial) {
     // Story tutorial: no waves, no fragment, no random Echoes, and the
     // player can't die — the story director spawns everything
@@ -561,14 +579,15 @@ function updatePlaying(dt) {
   // Activated abilities: E is the first the character has, F the second.
   // With none in that slot, the key does nothing. On touch, each has a button.
   player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
+  player.decoyCooldown   = Math.max(0, (player.decoyCooldown || 0) - dt);
   if (input.justPressed.e) _useAbility(player.abilities[0]);
   if (input.justPressed.f) _useAbility(player.abilities[1]);
-  if (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)) _useAbility('grenade');
+  if (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)) _useAbility(_throwId());
   // Touch: drag from the grenade button to where it should land, let go to
   // throw. A tap with no drag (or dragging back onto the button) cancels
   if (input.btnDragRelease) {
     const aim = _grenadeDragAim(input.btnDragRelease);
-    if (aim) _useAbility('grenade', aim);
+    if (aim) _useAbility(_throwId(), aim);
   }
   if (input.mouseJustClicked && _hitBtn(_sigBtn.r)) _useAbility('signature');
   const _px = player.x, _py = player.y;
@@ -674,6 +693,7 @@ function updatePlaying(dt) {
   }
 
   grenades.update(dt, enemies);
+  decoys.update(dt, enemies);
   dashPowers.update(dt, player, enemies, level ? level.dashTargets : null);
 
   // Projectiles
@@ -1417,6 +1437,7 @@ function drawGame(W, H) {
   // Grenades fly over the racks, and their smoke has to read over the glow,
   // so they're drawn last
   grenades.draw(ctx, enemies.enemies);
+  decoys.draw(ctx);
   _drawGrenadeAim(ctx);
   dashPowers.draw(ctx);
   if (level) level.drawOverRacks(ctx);
@@ -2108,6 +2129,7 @@ function updateDying(dt) {
     const kept = bankChroma(level.chroma, 0.5);
     syncPlayer();
     _levelFail = { id: level.id, name: level.def.name, agent: level.agent, kept };
+    if (level.checkpointIdx != null) _checkpoint = { id: level.id, agent: level.agent, idx: level.checkpointIdx, granted: level.granted.slice() };
     level = null;
     _levelFailDelay = 0.4;
     state = STATES.LEVEL_FAIL;
@@ -2148,7 +2170,8 @@ function drawDeath(W, H) {
 
 function updateLevelFail(dt) {
   if (_levelFailDelay > 0) { _levelFailDelay -= dt; return; }
-  const restart = () => startRun({ level: _levelFail.id });
+  const cp = _checkpoint && _checkpoint.id === _levelFail.id ? _checkpoint : null;
+  const restart = () => startRun(cp ? { level: _levelFail.id, from: cp } : { level: _levelFail.id });
   const leave   = () => { stopAmbient(); hud.minimal = false; _openStoryMap(); };
   if (input.justPressed.space || input.justPressed.enter) { restart(); return; }
   if (input.justPressed.escape) { leave(); return; }
@@ -2182,8 +2205,13 @@ function drawLevelFail(W, H) {
     ctx.fillText(`+${f.kept[k] || 0}`, Math.round(cx - 11), top + 108);
     ctx.textAlign = 'center';
   });
+  const cp = _checkpoint && _checkpoint.id === f.id;
+  if (cp) {
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '11px monospace';
+    ctx.fillText('Retry starts at the boss. Leave, and you start over.', W / 2, top + 136, pW - 30);
+  }
   const bw = (pW - 60) / 2, by = top + 150;
-  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
+  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, cp ? 'RETRY BOSS' : 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
   _failBtns.map     = drawSlabButton(ctx, pX + 40 + bw, by, bw, 40, 'STORY MAP', { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_failBtns.map) ? 1 : 0 });
   ctx.textAlign = 'left';
 }
@@ -2236,7 +2264,14 @@ function _grenadeDragAim(d) {
   const r = Math.min(GRENADE_RANGE, len / GRENADE_DRAG_PX * GRENADE_RANGE);
   return { x: player.x + d.dx / len * r, y: player.y + d.dy / len * r };
 }
-input.dragHit = (x, y) => state === STATES.PLAYING && !!player && player.grenade && player.grenadeCooldown <= 0 &&
+// Thrown abilities (lobbed over racks, aimed at the cursor or by dragging on
+// touch): Dex's grenade, Juno's Decoy Beacon. A character has at most one
+const THROWS = {
+  grenade: { name: 'GRENADE', color: '#B6FF2E', cd: () => player.grenadeCooldown || 0, max: GRENADE_CD, radius: GRENADE_RADIUS },
+  decoy:   { name: 'DECOY',   color: '#E58CFF', cd: () => player.decoyCooldown || 0,   max: DECOY_CD,   radius: DECOY_RADIUS * 0.5 },
+};
+function _throwId() { return player ? player.abilities.find(id => THROWS[id]) || null : null; }
+input.dragHit = (x, y) => state === STATES.PLAYING && !!player && !!_throwId() && THROWS[_throwId()].cd() <= 0 &&
   !!_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h;
 
 // While dragging: a ring where it will land and a dotted lob to it
@@ -2244,14 +2279,15 @@ function _drawGrenadeAim(ctx) {
   const d = input.btnDrag;
   if (!d || !player) return;
   const aim = _grenadeDragAim({ dx: d.x - d.x0, dy: d.y - d.y0 });
-  if (!aim) return;
+  const th = THROWS[_throwId()];
+  if (!aim || !th) return;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.strokeStyle = '#B6FF2E'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = th.color; ctx.lineWidth = 1.5;
   ctx.globalAlpha = 0.75;
-  ctx.beginPath(); ctx.ellipse(aim.x, aim.y, GRENADE_RADIUS, GRENADE_RADIUS * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.globalAlpha = 0.18; ctx.fillStyle = '#B6FF2E'; ctx.fill();
-  ctx.globalAlpha = 0.7; ctx.fillStyle = '#B6FF2E';
+  ctx.beginPath(); ctx.ellipse(aim.x, aim.y, th.radius, th.radius * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 0.18; ctx.fillStyle = th.color; ctx.fill();
+  ctx.globalAlpha = 0.7; ctx.fillStyle = th.color;
   for (let k = 1; k < 10; k++) {
     const f = k / 10;
     ctx.fillRect(Math.round(player.x + (aim.x - player.x) * f) - 1, Math.round(player.y - 8 + (aim.y - player.y + 8) * f - Math.sin(f * Math.PI) * 46) - 1, 2, 2);
@@ -2269,6 +2305,14 @@ function _useAbility(id, at) {
     const ty = at ? at.y : ap ? ap.y : player.y + Math.sin(player.facing) * 190;
     grenades.throw(player.x, player.y - 8, tx, ty);
     player.grenadeCooldown = GRENADE_CD;
+  } else if (id === 'decoy' && player.decoy && player.decoyCooldown <= 0) {
+    // Decoy Beacon: thrown the same way as the grenade
+    const ap = player._aimPoint;
+    if (!at && 'ontouchstart' in window) return;
+    const tx = at ? at.x : ap ? ap.x : player.x + Math.cos(player.facing) * 190;
+    const ty = at ? at.y : ap ? ap.y : player.y + Math.sin(player.facing) * 190;
+    decoys.throw(player.x, player.y - 8, tx, ty);
+    player.decoyCooldown = DECOY_CD;
   } else if (id === 'signature' && player.signature && player.signatureCooldown <= 0) {
     player._useSignature(projectiles);
   }
@@ -2276,7 +2320,7 @@ function _useAbility(id, at) {
 
 // What each activated ability looks like in the HUD
 function _abilityInfo(id) {
-  if (id === 'grenade') return { name: 'GRENADE', color: '#B6FF2E', cd: player.grenadeCooldown || 0, max: GRENADE_CD };
+  if (THROWS[id]) return { name: THROWS[id].name, color: THROWS[id].color, cd: THROWS[id].cd(), max: THROWS[id].max };
   if (id === 'signature' && player.signature) {
     const sig = SIGNATURES[player.signature];
     return { name: sig.name.split(' ')[0], color: AGENT_COLOR[player.signature], cd: player.signatureCooldown || 0, max: player.signatureCooldownMax || sig.cd };
@@ -2345,15 +2389,15 @@ function _drawDashBtn(W, H) {
     { cdFrac: cd / (player.dashCooldownMax || DASH_CD) });
 }
 
-// Touch: the grenade's button, above the signature button if there is one
-// (desktop shows it in the key bar)
+// Touch: the thrown ability's button (grenade or decoy), next to DASH; press
+// and drag to aim (desktop shows it in the key bar)
 const _grenadeBtn = { r: null };
 function _drawGrenade(W, H) {
   _grenadeBtn.r = null;
-  if (!player || !player.grenade || !('ontouchstart' in window)) return;
-  const col = '#B6FF2E';
-  const cd = player.grenadeCooldown || 0, ready = cd <= 0;
-  _grenadeBtn.r = _roundBtn(_btnSlotX(W, 1), _btnRowY(H), ready ? 'GRENADE' : cd.toFixed(1), col, { cdFrac: cd / GRENADE_CD });
+  const th = THROWS[_throwId()];
+  if (!th || !('ontouchstart' in window)) return;
+  const cd = th.cd(), ready = cd <= 0;
+  _grenadeBtn.r = _roundBtn(_btnSlotX(W, 1), _btnRowY(H), ready ? th.name : cd.toFixed(1), th.color, { cdFrac: cd / th.max });
 }
 
 // Touch: the signature's button (desktop shows it in the key bar)

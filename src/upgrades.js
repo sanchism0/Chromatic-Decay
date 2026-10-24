@@ -135,7 +135,9 @@ export const STORY_CARDS = [
     apply: p => { p.shockDash = true; } },
   { id: 'parting_charge', who: 'juno', name: 'Parting Charge', desc: 'Dashing leaves a light bomb where you started; it bursts a moment later.', baseWeight: 5, cap: 1,
     apply: p => { p.dashBomb = true; } },
-  // Not awarded by any level yet; listed so it slots in once one does
+  // Level 3's thrown abilities
+  { id: 'decoy_beacon', who: 'juno', active: true, name: 'Decoy Beacon', desc: 'Activated: throw a beacon that pulls nearby Chromatics to it for 3 s.', baseWeight: 5, cap: 1,
+    apply: p => { p.decoy = true; p.abilities.push('decoy'); } },
   { id: 'stun_grenade', who: 'dex', active: true, name: 'Stun Grenade', desc: 'Activated: lob a grenade that stuns and jams enemies.', baseWeight: 5, cap: 1,
     apply: p => { p.grenade = true; p.abilities.push('grenade'); } },
 ];
