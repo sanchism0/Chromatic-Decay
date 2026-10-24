@@ -111,7 +111,7 @@ granted after the first wave:
 Code: `hold`, `beam` and `boss` beats in `level.js`, `decoy.js`, the Stacks map
 (`STACKS` in `map.js`) and palette.
 
-## Level 4: Wire Room (plan, Oct 25, 2026)
+## Level 4: Wire Room (built, Oct 25, 2026)
 
 **Story:** the Basement's switchboard. Raze's signal shattered here; pieces of
 him are locked in junction boxes all over the room, and the greens are camped
@@ -134,15 +134,20 @@ into the box.
 | **Gather** (task) | Six junction boxes hold pieces of Raze. Open each with an electric jump or a bounce, then walk over the piece that drops out. Nothing un-collects (no fading pieces) |
 | Wave | Greens and yellows |
 | **Tuning** (puzzle) | Three dials behind cover; each electric jump or bounced hit turns a dial to its next frequency. Match the big display (it lights each dial that's right) to open the door to Raze's room |
-| **Escape** | The door only holds for so long, and the way to it is blocked by two **live wires** across the corridor that you can only get through mid-dash (untouchable). Plus a timer that's tight without dashing |
+| **Escape** | The board overloads: alarm, a steady red edge that deepens, and the operator yelling RUN. 22 s to reach the far door (the walk is about 9 s), down an L-shaped corridor crossed by **four live wires**: walking into one zaps you (10) and throws you back; mid-dash you go straight through. Enemies keep coming. Out of time: DOOR SEALED, with RETRY ESCAPE (a checkpoint, like the boss) |
 | Exit | Through the door: beam-out, card, results |
 
 Echoes after each section, as in every level from 2 on.
 
-**Escape timing note:** a dash covers 88 px in 0.16 s, where walking takes
-0.37 s, so each dash saves only about 0.2 s. A pure timer of "walk time minus
-one dash" would leave about 0.3 s of slack on a perfect route. The live wires
-make "you must dash twice" a rule of the layout instead.
+**Escape timing note:** a dash only saves about 0.2 s over walking, so a pure
+"walk time minus a dash" timer would be near impossible. The live wires make
+dashing a rule of the layout instead, and the timer is generous (owner's call:
+"ample time to walk out, but stressful with the wires and enemies").
+
+Code: `gather`, `tuning` and `escape` beats in `level.js`, the Wire Room map
+(`WIRE` in `map.js`) and palette; Arc Rounds jump to `level.arcTargets` from
+enemies and from cable hits (`projectiles.arcRackHits`); rounds that have
+ricocheted carry `bounced`.
 
 ## Level 5: Raze's Room (second boss, rescue)
 
@@ -193,7 +198,7 @@ One level at a time, each tested on desktop and phone, then merged:
 
 1. Engineering above, plus **Level 2** (dash abilities, ice, drives, frozen tanks, Cold Storage map). Built.
 2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon). Built.
-3. **Level 4** (gather, tuning).
+3. **Level 4** (gather, tuning, escape). Built.
 4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities, Raze unlock).
 
 Each step also: comms lines for both operators, a playtest script, the docs.

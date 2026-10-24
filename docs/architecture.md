@@ -51,7 +51,7 @@ With no options it's an Arcade run.
 ### World and drawing
 | File | Role |
 |---|---|
-| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2; `stacks` for Level 3, with `STACKS` giving its ring and sealed pockets), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
+| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2; `stacks` for Level 3, with `STACKS` giving its ring and sealed pockets; `wire` for Level 4, with `WIRE` giving the corridor and live wires), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
 | `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. A palette per room (`THEMES`: colours, LED colours, floor labels, pits, frost). Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
 | `sprites.js` | Cached glow and halo sprites (offscreen canvases) so glows are one `drawImage`. |
 | `particles.js` | Pooled particles (hit sparks, bullet clashes). |
@@ -105,6 +105,9 @@ level for now). Beat types:
 | `hold` | Stand in the terminal's ring (`HOLD`) while it pulls; any unstunned Chromatic in the ring pauses it; it never drains |
 | `beam` | Mirrors in sealed pockets (`points.mirrors`), turned by a thrown ability landing on them (`onThrowLand`, from `grenades.onLand` / `decoys.onLand`); the beam runs source → mirrors → vault; all right opens the vault |
 | `boss` | The Queue (`QUEUE`): a big violet `Enemy` with `boss`, `contactDamage` and a capped stun; the level sends its rings (`rings`, dash through them), splits it at thresholds, draws the health bar, and dissolves the rest when it dies |
+| `gather` | Junction boxes (`points.boxes`) that open only to an Arc Round jump (`arcTargets`, `onArcRack`) or a `bounced` round (`_shotsOnTargets`); plain rounds glance off. Each drops a piece of Raze to walk over |
+| `tuning` | Dials (`points.dials`) turned the same way, cycling 0→1→2, to match `pattern` on the display |
+| `escape` | A timer (`time`) to reach `exitPos`; `wires` across the corridor zap and push back unless `player.dashT > 0`; alarm, red edge in `drawHud`; `checkpoint: 'escape'`; timing out sets `failReason` |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 

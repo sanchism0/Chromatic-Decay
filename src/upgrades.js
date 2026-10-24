@@ -135,6 +135,11 @@ export const STORY_CARDS = [
     apply: p => { p.shockDash = true; } },
   { id: 'parting_charge', who: 'juno', name: 'Parting Charge', desc: 'Dashing leaves a light bomb where you started; it bursts a moment later.', baseWeight: 5, cap: 1,
     apply: p => { p.dashBomb = true; } },
+  // Level 4's trick shots
+  { id: 'arc_round', who: 'dex', name: 'Arc Round', desc: 'The last round of every burst jumps to another enemy close by.', baseWeight: 5, cap: 1,
+    apply: p => { p.arcRound = true; } },
+  { id: 'ricochet', who: 'juno', name: 'Ricochet', desc: 'Rounds bounce once off racks.', baseWeight: 5, cap: 1,
+    apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; } },
   // Level 3's thrown abilities
   { id: 'decoy_beacon', who: 'juno', active: true, name: 'Decoy Beacon', desc: 'Activated: throw a beacon that pulls nearby Chromatics to it for 3 s.', baseWeight: 5, cap: 1,
     apply: p => { p.decoy = true; p.abilities.push('decoy'); } },

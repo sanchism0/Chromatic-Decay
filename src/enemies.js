@@ -948,7 +948,14 @@ export class EnemySystem {
               const d2 = (o.x - e.x) ** 2 + (o.y - e.y) ** 2;
               if (d2 < bd) { bd = d2; best = o; }
             }
-            if (best) {
+            // A Story target in reach (Level 4's junction boxes) takes the arc first
+            let tgt = null, td = ARC_RANGE * ARC_RANGE;
+            for (const t of this.arcTargets || []) { const d2 = (t.x - e.x) ** 2 + (t.y - e.y) ** 2; if (d2 < td) { td = d2; tgt = t; } }
+            if (tgt) {
+              this.zaps.push({ x1: e.x, y1: e.y, x2: tgt.x, y2: tgt.y, t: 0, seed: Math.floor(Math.random() * 1e5) });
+              sfxShockDash();
+              tgt.hit();
+            } else if (best) {
               best.takeDamage(dmg);
               this.zaps.push({ x1: e.x, y1: e.y, x2: best.x, y2: best.y, t: 0, seed: Math.floor(Math.random() * 1e5) });
               sfxShockDash();

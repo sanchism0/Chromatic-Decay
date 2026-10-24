@@ -667,3 +667,11 @@ export function sfxQueueRing() {
   _osc('triangle', 440, t, 0.5, 0.03, 220);
   _noise(t, 0.4, 0.03, 500, 0.7);
 }
+
+// Escape alarm (Level 4): a two-tone electric warble, urgent but not shrill
+export function sfxAlarm() {
+  const t = _ac().currentTime;
+  _osc('square', 660, t, 0.22, 0.035, 620);
+  _osc('square', 495, t + 0.26, 0.22, 0.035, 470);
+  _noise(t, 0.08, 0.02, 3000, 2);
+}

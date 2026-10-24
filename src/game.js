@@ -698,6 +698,9 @@ function updatePlaying(dt) {
 
   // Projectiles
   projectiles.update(dt, map, player);
+  // Arc Rounds that hit a cable can jump to a Level 4 junction box or dial
+  if (level && projectiles.arcRackHits.length) level.onArcRack(projectiles.arcRackHits);
+  projectiles.arcRackHits.length = 0;
   if (level) level.onRackHits(projectiles.rackHits);
   projectiles.rackHits.length = 0;
   projectiles.checkBulletCollisions(particles);
@@ -710,6 +713,7 @@ function updatePlaying(dt) {
   enemies.checkPlayerContact(player, particles);
 
   // Projectile → enemy hits
+  enemies.arcTargets = level ? level.arcTargets : null;   // an Arc Round can jump to these too
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
   for (const e of projKilled) {
     if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
@@ -1824,6 +1828,7 @@ const levelApi = {
     return enemies.spawnEnemyAt(type, x, y);
   },
   spawnEcho:  (x, y) => echoes.echoes.push(new Echo(x, y)),
+  projectiles: () => projectiles,
   clearField: () => { enemies.reset(); projectiles.reset(); },
   touch:      () => 'ontouchstart' in window,
   beamOut: () => sfxBeamOut(),
@@ -2129,7 +2134,8 @@ function updateDying(dt) {
     const kept = bankChroma(level.chroma, 0.5);
     syncPlayer();
     _levelFail = { id: level.id, name: level.def.name, agent: level.agent, kept };
-    if (level.checkpointIdx != null) _checkpoint = { id: level.id, agent: level.agent, idx: level.checkpointIdx, granted: level.granted.slice() };
+    _levelFail.reason = level.failReason || null;
+    if (level.checkpointIdx != null) _checkpoint = { id: level.id, agent: level.agent, idx: level.checkpointIdx, label: level.checkpointLabel || 'boss', granted: level.granted.slice() };
     level = null;
     _levelFailDelay = 0.4;
     state = STATES.LEVEL_FAIL;
@@ -2190,7 +2196,7 @@ function drawLevelFail(W, H) {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 12; ctx.shadowColor = '#F85A8A';
   ctx.font = 'bold 24px monospace';
-  ctx.fillText('SIGNAL LOST', W / 2, top + 32);
+  ctx.fillText(f.reason === 'escape' ? 'DOOR SEALED' : 'SIGNAL LOST', W / 2, top + 32);
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#A9B6C4'; ctx.font = '12px monospace';
   ctx.fillText(`${f.name}  ·  ${f.agent.toUpperCase()}`, W / 2, top + 54);
@@ -2208,10 +2214,10 @@ function drawLevelFail(W, H) {
   const cp = _checkpoint && _checkpoint.id === f.id;
   if (cp) {
     ctx.fillStyle = '#7ADDD4'; ctx.font = '11px monospace';
-    ctx.fillText('Retry starts at the boss. Leave, and you start over.', W / 2, top + 136, pW - 30);
+    ctx.fillText(`Retry starts at the ${_checkpoint.label}. Leave, and you start over.`, W / 2, top + 136, pW - 30);
   }
   const bw = (pW - 60) / 2, by = top + 150;
-  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, cp ? 'RETRY BOSS' : 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
+  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, cp ? 'RETRY ' + _checkpoint.label.toUpperCase() : 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
   _failBtns.map     = drawSlabButton(ctx, pX + 40 + bw, by, bw, 40, 'STORY MAP', { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_failBtns.map) ? 1 : 0 });
   ctx.textAlign = 'left';
 }

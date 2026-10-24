@@ -13,6 +13,11 @@
 //   beam      turn sealed-in mirrors (by landing a thrown ability on them) until
 //             the beam from the wall reaches the vault
 //   boss      a big Chromatic with its own health bar and attacks (The Queue)
+//   gather    junction boxes that only open to an Arc Round jump or a bounced
+//             round; each drops a piece to walk over
+//   tuning    dials (turned the same way) to match a display
+//   escape    a timer to reach the far door, past live wires you can only cross
+//             mid-dash
 //   exit      reach the door: the agent beams out, and the
 //             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
@@ -25,8 +30,8 @@ import { Radio } from './dialogue.js';
 import { CONFIG } from './config.js';
 import { drawGlow } from './sprites.js';
 import { rackHeight } from './pixelmap.js';
-import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack, sfxQueueRing } from './audio.js';
-import { STACKS } from './map.js';
+import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack, sfxQueueRing, sfxShockDash, sfxAlarm } from './audio.js';
+import { STACKS, WIRE } from './map.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
@@ -233,7 +238,7 @@ LEVELS[3] = {
         done: [L(f('shocked', 'alarmed'), "It's open. Wait... something's coming up out of it.")] },
 
       { type: 'boss',
-        checkpoint: true,   // dying here offers a retry from this fight
+        checkpoint: 'boss',   // dying here offers a retry from this fight
         lines: [L(f('shocked', 'alarmed'), "That's not a Chromatic. That's all of them. Every stream nobody played."),
                 L(f('determined', 'focused'), "Those rings it sends out: dash straight through them.")],
         split: [L(f('worried', 'concerned'), dex ? "It's splitting! Stun the pack and burn it down."
@@ -250,6 +255,88 @@ LEVELS[3] = {
     ];
   },
 };
+
+LEVELS[4] = {
+  id: 4,
+  name: 'WIRE ROOM',
+  map: 'wire',
+  blurb: "Free the pieces of Raze from the switchboard; get out alive.",
+  outcome: "Every piece of Raze recovered, and out by a hair. His room is next.",
+  unlockTop: 'THE BOARD BURNS OUT BEHIND YOU. THE TRICK STAYS.',
+  // boxes: the six junction boxes; dials: the three tuning dials; display:
+  // the big board they match; door: the far end of the escape corridor
+  points: {
+    boxes:   [[0.19, 0.255], [0.54, 0.225], [0.375, 0.34], [0.18, 0.475], [0.655, 0.56], [0.35, 0.575]],
+    dials:   [[0.75, 0.595], [0.59, 0.435], [0.47, 0.535]],
+    display: [0.74, 0.27],
+    door:    WIRE.door,
+    wires:   WIRE.wires,
+  },
+  beats: (op, agent) => {
+    const L = (face, text) => ({ who: op, face, text });
+    const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
+    const dex = agent === 'dex';
+    return [
+      { type: 'wave',
+        lines: [L(f('neutral', 'focused'), "The Wire Room. The whole Basement's switchboard. Raze's signal blew apart in here."),
+                L(f('worried', 'concerned'), "And greens. They don't chase you. They show up where you're going.")],
+        groups: [[['violet', 3], ['green', 1]], [['green', 2], ['violet', 2]], [['violet', 3], ['green', 2]]],
+        objective: s => `Clear the switchboard (${s.left} left)`,
+        grant: true,   // the level's ability, after this section
+        done: [L(f('shocked', 'alarmed'), "Clear. Huh. Your emitter's pulling something off the board...")] },
+
+      { type: 'gather',
+        lines: [L(f('laughing', 'soft-smile'), dex ? "Your last round's arcing now. It jumps to anything close." : "Your rounds bounce off the cables now."),
+                L(f('determined', 'focused'), "Six junction boxes have pieces of Raze locked in them. I've marked them."),
+                L(f('neutral', 'focused'), dex ? "They're shielded. Hit the cable or a Chromatic right next to one and let the arc jump in."
+                                               : "They're shielded. Bounce a shot off the cables into each one.")],
+        eachDone: [[L(f('determined', 'focused'), 'One piece.')], [L(f('cocky-grin', 'smirk'), 'Two.')], [L(f('determined', 'focused'), 'Three. Halfway.')],
+                   [L(f('cocky-grin', 'smirk'), 'Four.')], [L(f('determined', 'focused'), 'Five. One more.')]],
+        objective: s => `Free the pieces of Raze (${s.pieces}/6)`,
+        interrupt: { cap: 5, period: 3, yellow: 0.2, green: 0.25 },
+        done: [L(f('shocked', 'alarmed'), "That's all six. He's in pieces, but he's all here.")] },
+
+      { type: 'wave',
+        lines: [L(f('worried', 'concerned'), 'They felt that. Greens and yellows, coming in.')],
+        groups: [[['green', 2], ['yellow', 1]], [['yellow', 2], ['green', 1]], [['green', 2], ['yellow', 2]]],
+        objective: s => `Hold them off (${s.left} left)`,
+        done: [L(f('neutral', 'soft-smile'), 'Clear. Now the door to his room.')] },
+
+      { type: 'tuning',
+        lines: [L(f('neutral', 'focused'), "His door's locked to a frequency. Match the three dials to the big display."),
+                L(f('determined', 'neutral'), dex ? 'Arc into a dial to turn it.' : 'Bounce a shot into a dial to turn it.')],
+        objective: s => `Tune the dials to the display (${s.tuned}/3)`,
+        interrupt: { cap: 4, period: 4, yellow: 0.2, green: 0.3 },
+        done: [] },
+
+      { type: 'escape',
+        checkpoint: 'escape',   // running out of time offers a retry from here
+        time: 22,
+        lines: [L(f('shocked', 'alarmed'), "It's open! Wait... the board's overloading. The floor cables just went live!"),
+                L(f('angry', 'alarmed'), 'RUN! Down the corridor to the far door. Dash straight through the live wires!')],
+        objective: s => `RUN! Get to the far door (0:${String(s.secs).padStart(2, '0')})`,
+        interrupt: { cap: 6, period: 2, yellow: 0.35, green: 0.2 },
+        done: [] },
+
+      { type: 'exit',
+        lines: [],
+        objective: () => 'Get through the door',
+        extract: [L(f('laughing', 'soft-smile'), dex ? "Got you! Breathe. That was way too close." : "Got you! That was way, way too close.")],
+        done: [] },
+    ];
+  },
+};
+
+// Level 4's abilities: the Level 1 sampler's preview, kept for good
+const WIRE_POWERS = {
+  dex: { id: 'arc_round', name: 'ARC ROUND', desc: 'The last round of every burst is electric: it jumps to a Chromatic or a junction box close by.',
+         has: p => !!p.arcRound, apply: p => { p.arcRound = true; },
+         hint: () => 'Hit a cable or a Chromatic next to a box and the arc jumps in.' },
+  juno: { id: 'ricochet', name: 'RICOCHET', desc: 'Rounds bounce once off racks and cables.',
+          has: p => (p.rackBounce || 0) > 0, apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; },
+          hint: () => 'Bounce shots off the cables to reach what you can\'t hit straight on.' },
+};
+const ESCAPE_ZAP = 10;   // damage from walking into a live wire (dashing through is safe)
 
 // Level 3's thrown abilities: granted after its first section, kept as a card
 // the first time it's cleared (STORY_CARDS has the Arcade versions)
@@ -284,7 +371,7 @@ const TANK_HITS  = 2;     // dash-ability hits to crack a frozen tank
 
 // What opening each level's door unlocks for keeps, per agent: the first
 // power-up, as a card in that character's Arcade upgrade offers
-export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS, 3: THROW_POWERS };
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS, 3: THROW_POWERS, 4: WIRE_POWERS };
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -349,6 +436,8 @@ export class LevelRun {
       else if (b.type === 'freezers') for (const t of this.tanks) t.hp = 0;
       else if (b.type === 'relays') for (const r of this.relays) { r.done = true; r.charge = 1; }
       else if (b.type === 'servers') for (const s of this.servers) s.lit = true;
+      else if (b.type === 'gather') for (const x of this.boxes) { x.open = true; x.got = true; }
+      else if (b.type === 'tuning') this.dials.forEach((d, k) => { d.v = this.pattern[k]; });
     }
     this.idx = idx - 1;
     this._next();
@@ -363,6 +452,14 @@ export class LevelRun {
       const at = ([fx, fy], pad = 30) => freeSpot(map, W * fx, H * fy, pad);
       this.exitPos  = pts.lift ? at(pts.lift, 40) : pts.vault ? { x: W * pts.vault[0], y: H * pts.vault[1] } : map.playerSpawn();
       if (pts.terminal) this.terminalPos = at(pts.terminal, 40);
+      if (pts.boxes) {
+        const raw = ([fx, fy]) => freeSpot(map, W * fx, H * fy, 12);
+        this.boxPos = pts.boxes.map(raw);
+        this.dialPos = pts.dials.map(raw);
+        this.displayPos = { x: W * pts.display[0], y: H * pts.display[1] };
+        this.exitPos = { x: W * pts.door[0], y: H * pts.door[1] };
+        this.wires = pts.wires.map(([a, b, c, d]) => ({ x1: W * a, y1: H * b, x2: W * c, y2: H * d, side: 0 }));
+      }
       if (pts.mirrors) {
         this.sourcePos = { x: W * pts.source[0], y: H * pts.source[1] };
         this.mirrorPos = pts.mirrors.map(([fx, fy], i) => ({ x: W * fx, y: H * fy, dead: { x: W * pts.dead[i][0], y: H * pts.dead[i][1] } }));
@@ -398,7 +495,7 @@ export class LevelRun {
     const b = this.beat;
     if (!b) return;
     this._enter(b);
-    if (b.checkpoint) this.checkpointIdx = this.idx;
+    if (b.checkpoint) { this.checkpointIdx = this.idx; this.checkpointLabel = b.checkpoint === true ? b.type : b.checkpoint; }
     this.radio.say(b.lines);
   }
 
@@ -421,6 +518,16 @@ export class LevelRun {
     } else if (b.type === 'beam') {
       // Every mirror starts turned the wrong way
       if (!this.mirrors) this.mirrors = this.mirrorPos.map(m => ({ ...m, ok: false, turnT: 0, ang: null }));
+    } else if (b.type === 'gather') {
+      if (!this.boxes) this.boxes = this.boxPos.map(p => ({ ...p, r: 13, open: false, got: false, piece: null, shieldT: 0 }));
+    } else if (b.type === 'tuning') {
+      if (!this.dials) {
+        this.dials = this.dialPos.map(p => ({ ...p, r: 13, v: 0, hitT: 0, shieldT: 0 }));
+        this.pattern = this.dials.map(() => 1 + Math.floor(Math.random() * 2));   // every dial needs turning
+      }
+    } else if (b.type === 'escape') {
+      this.escapeT = b.time; this.escapeMax = b.time; this.alarmT = 0;
+      for (const w of this.wires) w.side = 0;
     } else if (b.type === 'boss') {
       this.rings = []; this.boss = null; this.ringT = 2; this.windT = 0; this.splitIdx = 0;
     } else if (b.type === 'valves') {
@@ -508,7 +615,7 @@ export class LevelRun {
     }
     // Health: from Level 2 on, a couple of Echoes appear near the agent after
     // each finished section (Level 1's come out of its relays)
-    if (this.id > 1 && b.type !== 'exit' && b.type !== 'boss') this._dropEchoes(2);
+    if (this.id > 1 && b.type !== 'exit' && b.type !== 'boss' && b.type !== 'escape') this._dropEchoes(2);
     // The level's ability (Level 2: a dash ability), unless they have it already
     const card = b.grant && (LEVEL_CARDS[this.id] || {})[this.agent];
     if (card && card.has && !card.has(this.api.player())) this.pendingPowerUp = card;
@@ -531,7 +638,7 @@ export class LevelRun {
     // Beats with an interrupt setting keep Chromatics coming while you work
     // (Level 1's last stretch brings a swarm: not all of them need killing)
     const it = b.interrupt;
-    if (it) this._interrupt(dt, it.cap, it.period, () => (Math.random() < (it.yellow || 0) ? 'yellow' : 'violet'));
+    if (it) this._interrupt(dt, it.cap, it.period, () => { const r = Math.random(); return r < (it.green || 0) ? 'green' : r < (it.green || 0) + (it.yellow || 0) ? 'yellow' : 'violet'; });
     if (b.type === 'wave') this._updateWave(dt, b);
     else if (b.type === 'drives') this._updateDrives(dt, b, pl);
     else if (b.type === 'freezers') this._updateFreezers(dt, b);
@@ -539,6 +646,9 @@ export class LevelRun {
     else if (b.type === 'hold') this._updateHold(dt, b, pl);
     else if (b.type === 'beam') this._updateBeam(dt, b, pl);
     else if (b.type === 'boss') this._updateBoss(dt, b, pl);
+    else if (b.type === 'gather') this._updateGather(dt, b, pl);
+    else if (b.type === 'tuning') this._updateTuning(dt, b);
+    else if (b.type === 'escape') this._updateEscape(dt, b, pl);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
     else if (b.type === 'exit') {
@@ -678,6 +788,108 @@ export class LevelRun {
       t.hp--; t.hitT = 0.3;
       sfxIceCrack(t.hp <= 0);
     } }));
+  }
+
+  // ── Level 4: shielded targets ──
+  // Junction boxes and dials ignore plain rounds (a dull spark), grenades,
+  // beacons, dashes and walking. They react to an Arc Round jumping to them
+  // (arcTargets, from enemies.js or onArcRack) or a round that has bounced.
+  _shieldedTargets() {
+    const b = this.beat;
+    if (!b || !this.ready) return [];
+    if (b.type === 'gather' && this.boxes) return this.boxes.filter(x => !x.open);
+    if (b.type === 'tuning' && this.dials) return this.dials;
+    return [];
+  }
+  _hitTarget(t) {
+    const b = this.beat;
+    if (b.type === 'gather') {
+      if (t.open) return;
+      t.open = true;
+      t.piece = freeSpot(this.api.map(), t.x, t.y, 18);
+      sfxNode(this.boxes.filter(x => x.open).length - 1);
+    } else if (b.type === 'tuning') {
+      if (t.hitT > 0) return;
+      t.hitT = 0.25;
+      t.v = (t.v + 1) % 3;
+      sfxNode(t.v);
+      if (this.dials.every((d, k) => d.v === this.pattern[k])) { sfxRelayCharged(); this._finishBeat(); }
+    }
+  }
+  // What an Arc Round can jump to (enemies.js reads this through game.js)
+  get arcTargets() {
+    return this._shieldedTargets().map(t => ({ x: t.x, y: t.y, hit: () => this._hitTarget(t) }));
+  }
+  // Arc Rounds that hit a cable: the arc jumps to a target within reach
+  onArcRack(hits) {
+    const ts = this._shieldedTargets();
+    for (const h of hits) {
+      let best = null, bd = 130;
+      for (const t of ts) { const d = Math.hypot(t.x - h.x, t.y - h.y); if (d < bd) { bd = d; best = t; } }
+      if (!best) continue;
+      this.api.enemies.zaps.push({ x1: h.x, y1: h.y, x2: best.x, y2: best.y, t: 0, seed: Math.floor(Math.random() * 1e5) });
+      sfxShockDash();
+      this._hitTarget(best);
+    }
+  }
+  // Rounds that reach a target: a bounced one counts; anything else glances off
+  _shotsOnTargets(ts) {
+    const shots = this.api.projectiles ? this.api.projectiles().playerProjectiles : [];
+    for (const p of shots) {
+      for (const t of ts) {
+        if (Math.hypot(p.x - t.x, p.y - t.y) > t.r + 3) continue;
+        p.active = false;
+        if (p.bounced) this._hitTarget(t);
+        else { t.shieldT = 0.3; if (!this._shieldSfx || this.t - this._shieldSfx > 0.3) { this._shieldSfx = this.t; sfxNodeWrong(); } }
+        break;
+      }
+    }
+  }
+
+  _updateGather(dt, b, pl) {
+    for (const x of this.boxes) x.shieldT = Math.max(0, x.shieldT - dt);
+    this._shotsOnTargets(this.boxes.filter(x => !x.open));
+    for (const x of this.boxes) {
+      if (!x.open || x.got || Math.hypot(pl.x - x.piece.x, pl.y - x.piece.y) > 24) continue;
+      x.got = true;
+      const n = this.boxes.filter(y => y.got).length;
+      sfxRelayCharged();
+      if (n < this.boxes.length) { this.radio.clear(); this.radio.say(b.eachDone[n - 1] || []); }
+      else { this._finishBeat(); return; }
+    }
+  }
+
+  _updateTuning(dt, b) {
+    for (const d of this.dials) { d.hitT = Math.max(0, d.hitT - dt); d.shieldT = Math.max(0, d.shieldT - dt); }
+    this._shotsOnTargets(this.dials);
+  }
+
+  // Escape: get to the far door before the timer runs out. The live wires
+  // across the corridor zap and throw you back unless you're mid-dash
+  // (untouchable); enemies keep coming. An alarm sounds the whole way.
+  _updateEscape(dt, b, pl) {
+    this.escapeT -= dt;
+    this.alarmT -= dt;
+    if (this.alarmT <= 0) { sfxAlarm(); this.alarmT = 1.1; }
+    const r = pl.size / 2 + 4;
+    for (const w of this.wires) {
+      const dx = w.x2 - w.x1, dy = w.y2 - w.y1, L = Math.hypot(dx, dy);
+      const nx = -dy / L, ny = dx / L;
+      const along = ((pl.x - w.x1) * dx + (pl.y - w.y1) * dy) / (L * L);
+      const sd = (pl.x - w.x1) * nx + (pl.y - w.y1) * ny;   // signed distance across the wire
+      if (along < 0 || along > 1) continue;
+      if (Math.abs(sd) > r) { w.side = Math.sign(sd); continue; }
+      if (pl.dashT > 0 || !w.side) continue;   // mid-dash: straight through
+      // Zapped: thrown back to the side you came from
+      pl.takeDamage(ESCAPE_ZAP);
+      const push = w.side * (r + 10) - sd;
+      pl.x += nx * push; pl.y += ny * push;
+      w.zapT = 0.3;
+      sfxShockDash();
+    }
+    for (const w of this.wires) w.zapT = Math.max(0, (w.zapT || 0) - dt);
+    if (Math.hypot(pl.x - this.exitPos.x, pl.y - this.exitPos.y) < 34) { this._finishBeat(); return; }
+    if (this.escapeT <= 0) { this.failed = true; this.failReason = 'escape'; }
   }
 
   // n Echoes on open floor a short walk from the agent
@@ -854,7 +1066,10 @@ export class LevelRun {
     const hold = this.hold ? Math.floor(this.hold.p * 100) : 0;
     const blocked = !!(this.hold && this.hold.crowd > 0 && b.type === 'hold');
     const mirrors = this.mirrors ? this._beamChain() : 0;
-    return b.objective({ left, done, servers, valvesOpen, drives, tanks, hold, blocked, mirrors });
+    const pieces = this.boxes ? this.boxes.filter(x => x.got).length : 0;
+    const tuned = this.dials ? this.dials.filter((d, k) => d.v === this.pattern[k]).length : 0;
+    const secs = this.escapeT != null ? Math.max(0, Math.ceil(this.escapeT)) : 0;
+    return b.objective({ left, done, servers, valvesOpen, drives, tanks, hold, blocked, mirrors, pieces, tuned, secs });
   }
 
   // ── Drawing ─────────────────────────────────────────────────
@@ -869,7 +1084,9 @@ export class LevelRun {
     if (this.seq) this._drawLock(ctx, t);
     if (this.def.exit === 'lift') this._drawLift(ctx, t, b && b.type === 'exit');
     else if (this.def.exit === 'vault') this._drawVault(ctx, t);
-    else if (b && b.type === 'exit') this._drawExit(ctx, t);
+    else if (b && (b.type === 'exit' || b.type === 'escape')) this._drawExit(ctx, t);
+    if (this.wires) this._drawWires(ctx, t, !!(b && b.type === 'escape'));
+    if (this.boxPos) this._drawSwitchboard(ctx, t);
     if (this.terminalPos) this._drawTerminal(ctx, this.hold || { ...this.terminalPos, p: 0, crowd: 0 }, t, b && b.type === 'hold' && this.ready);
     if (this.rings) this._drawRings(ctx, t);
     if (this.valves || (b && b.type === 'valves')) {
@@ -1105,6 +1322,97 @@ export class LevelRun {
     ctx.restore();
   }
 
+  // Level 4: junction boxes (shut, glinting when a plain round glances off;
+  // open, with Raze's piece beside them), the tuning dials and the display
+  _drawSwitchboard(ctx, t) {
+    const b = this.beat;
+    const boxes = this.boxes || this.boxPos.map(p => ({ ...p, open: false, got: false, shieldT: 0 }));
+    const gold = '#FFD15C';
+    for (const x of boxes) {
+      const px = Math.round(x.x), py = Math.round(x.y);
+      const live = b && b.type === 'gather' && this.ready && !x.open;
+      ctx.fillStyle = '#060809'; ctx.fillRect(px - 9, py - 11, 18, 16);
+      ctx.fillStyle = x.open ? '#2a2f33' : '#3a3f44'; ctx.fillRect(px - 8, py - 10, 16, 14);
+      ctx.fillStyle = '#b87333'; ctx.fillRect(px - 8, py - 10, 16, 2);
+      ctx.fillStyle = x.open ? '#0c0e10' : (live ? gold : '#6a5020'); ctx.fillRect(px - 3, py - 5, 6, 5);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      if (live) drawGlow(ctx, gold, px, py - 3, 16, 0.25 + 0.1 * Math.sin(t * 3 + px));
+      if (x.shieldT > 0) {   // a plain round glancing off: a dull grey ring
+        ctx.globalAlpha = x.shieldT / 0.3 * 0.6; ctx.strokeStyle = '#9AA4B0'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(px, py - 3, 16, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+      if (x.open && !x.got && x.piece) {
+        const qx = Math.round(x.piece.x), qy = Math.round(x.piece.y + Math.sin(t * 3 + px) * 2);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        drawGlow(ctx, gold, qx, qy - 6, 18, 0.55);
+        ctx.restore();
+        ctx.fillStyle = gold; ctx.fillRect(qx - 2, qy - 10, 4, 8); ctx.fillRect(qx - 4, qy - 7, 8, 2);
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(qx - 1, qy - 9, 1, 2);
+      }
+    }
+    // Dials and the display they match (the display lights each dial that's right)
+    const dials = this.dials || this.dialPos.map(p => ({ ...p, v: 0, shieldT: 0 }));
+    const pat = this.pattern || [0, 0, 0];
+    const tuningLive = b && b.type === 'tuning' && this.ready;
+    dials.forEach((d, k) => {
+      const px = Math.round(d.x), py = Math.round(d.y);
+      const right = this.pattern && d.v === pat[k];
+      ctx.fillStyle = '#060809'; ctx.beginPath(); ctx.arc(px, py - 4, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2a2f33'; ctx.beginPath(); ctx.arc(px, py - 4, 9, 0, Math.PI * 2); ctx.fill();
+      const a = -Math.PI * 0.75 + d.v * Math.PI * 0.75;   // three positions
+      ctx.strokeStyle = right ? this.color : '#ffd060'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px, py - 4); ctx.lineTo(px + Math.cos(a) * 7, py - 4 + Math.sin(a) * 7); ctx.stroke();
+      ctx.fillStyle = '#b87333';
+      for (let v = 0; v < 3; v++) { const aa = -Math.PI * 0.75 + v * Math.PI * 0.75; ctx.fillRect(Math.round(px + Math.cos(aa) * 10) - 1, Math.round(py - 4 + Math.sin(aa) * 10) - 1, 2, 2); }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      if (tuningLive) drawGlow(ctx, right ? this.color : '#ffd060', px, py - 4, 18, right ? 0.4 : 0.2);
+      if (d.shieldT > 0) { ctx.globalAlpha = d.shieldT / 0.3 * 0.6; ctx.strokeStyle = '#9AA4B0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py - 4, 15, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
+    });
+    // The display: a board on legs showing the frequency each dial needs
+    const D = this.displayPos, dx = Math.round(D.x), dy = Math.round(D.y);
+    ctx.fillStyle = '#060809'; ctx.fillRect(dx - 34, dy - 30, 68, 30);
+    ctx.fillStyle = '#16181b'; ctx.fillRect(dx - 32, dy - 28, 64, 26);
+    ctx.fillStyle = '#3a3f44'; ctx.fillRect(dx - 30, dy, 4, 6); ctx.fillRect(dx + 26, dy, 4, 6);
+    if (this.pattern) pat.forEach((v, k) => {
+      const right = dials[k].v === v;
+      const cx = dx - 20 + k * 20;
+      ctx.fillStyle = right ? this.color : '#ffd060';
+      for (let n = 0; n <= v; n++) ctx.fillRect(cx - 4, dy - 8 - n * 6, 8, 4);
+      if (right) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlow(ctx, this.color, cx, dy - 14, 12, 0.35); ctx.restore(); }
+    });
+  }
+
+  // Live wires across the escape corridor: dark cable on the floor until the
+  // board overloads, then a crackling line of light (soft; arcs re-jag at a
+  // readable rate, no flashing)
+  _drawWires(ctx, t, live) {
+    const tick = Math.floor(t / 0.12);
+    ctx.save();
+    for (const w of this.wires) {
+      ctx.lineWidth = 3; ctx.strokeStyle = '#0c0e10';
+      ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke();
+      ctx.lineWidth = 1; ctx.strokeStyle = live ? '#ffe9a0' : '#3a3f44';
+      ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke();
+      if (!live) continue;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const dx = w.x2 - w.x1, dy = w.y2 - w.y1, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
+      ctx.strokeStyle = '#ffd060'; ctx.globalAlpha = 0.2 + (w.zapT ? 0.3 : 0); ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke();
+      let s = tick * 31 + Math.round(w.x1 + w.y1);
+      const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280 - 0.5; };
+      ctx.globalAlpha = 0.85; ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff2c0';
+      ctx.beginPath(); ctx.moveTo(w.x1, w.y1);
+      const n = Math.max(4, Math.round(L / 18));
+      for (let k = 1; k < n; k++) { const o = rnd() * 10; ctx.lineTo(w.x1 + dx * k / n + nx * o, w.y1 + dy * k / n + ny * o); }
+      ctx.lineTo(w.x2, w.y2); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   // The terminal and its ring: a console on the floor; the ring fills in the
   // agent's colour as the signal is pulled, and dims amber while blocked
   _drawTerminal(ctx, h, t, live) {
@@ -1311,6 +1619,9 @@ export class LevelRun {
     if (b.type === 'valves' && this.valves) return this.valves.filter(v => v.open <= 0);
     if (b.type === 'sequence') return [this.lockCenter];
     if (b.type === 'hold' && this.hold) return [this.hold];
+    if (b.type === 'gather' && this.boxes) return this.boxes.filter(x => !x.got).map(x => (x.open ? x.piece : x));
+    if (b.type === 'tuning' && this.dials) return this.dials.filter((d, k) => d.v !== this.pattern[k]);
+    if (b.type === 'escape') return [this.exitPos];
     if (b.type === 'beam' && this.mirrors) { const n = this._beamChain(); return n < this.mirrors.length ? [this.mirrors[n]] : []; }
     if (b.type === 'exit') return [this.exitPos];
     return [];
@@ -1360,6 +1671,14 @@ export class LevelRun {
   // the screen edge toward the next place to go when it's out of view.
   // toScreen maps world → screen coordinates.
   drawHud(ctx, W, H, touch, toScreen) {
+    // Escape: a steady red edge that deepens as time runs out (no pulsing)
+    if (this.beat && this.beat.type === 'escape' && this.escapeT != null) {
+      const k = 1 - Math.max(0, this.escapeT) / this.escapeMax;
+      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      g.addColorStop(0, 'rgba(160,20,20,0)');
+      g.addColorStop(1, `rgba(160,20,20,${(0.18 + 0.32 * k).toFixed(3)})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
     // Keep comms clear of the Resonance / Emitter bars on narrow screens
     this.radio.draw(ctx, W, H, this.objective, touch, (W < 600 ? 100 : 96) + (this.relays || this.hold ? 22 : 0));
     // Boss health, under the objective
