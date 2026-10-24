@@ -13,7 +13,7 @@ import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
-import { StoryMode }        from './story.js';
+import { StoryMode, STACKS_INTRO } from './story.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
@@ -2438,7 +2438,19 @@ function _pickCharacter(id) {
   selectedCharacter = id;
   try { localStorage.setItem('chromatic_decay_character', id); } catch {}
   if (_csMode === 'story') { story.picked(id); state = STATES.STORY; return; }
-  if (_csMode === 'level') { startRun({ level: _pendingLevel }); return; }
+  if (_csMode === 'level') {
+    // Some levels open with a short scene first (skippable)
+    const intro = LEVELS[_pendingLevel] && LEVELS[_pendingLevel].intro === 'stacks' ? STACKS_INTRO[id] : null;
+    if (intro) {
+      const sides = id === 'dex' ? { juno: 'left', dex: 'right' } : { dex: 'left', juno: 'right' };
+      _storyTime = 0;
+      story.playInterlude(intro, sides, () => startRun({ level: _pendingLevel }));
+      state = STATES.STORY;
+      return;
+    }
+    startRun({ level: _pendingLevel });
+    return;
+  }
   startRun();
 }
 

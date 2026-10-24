@@ -36,6 +36,9 @@ const tag = mode + '-' + who;
   await click(await ev('_titleBtns.story'));
   await click(await ev('_mapBtns.rows.find(r => r.id === 3).r'));
   await ev(`selectedCharacter = "${who}"`); await key('Space');
+  await p.waitForTimeout(300);
+  console.log('lift-down scene first:', await ev('state === STATES.STORY && story.phase === "interlude"'));
+  await ev('story.skipScene()');   // interlude.js covers the scene itself
   await p.waitForTimeout(600);
   console.log('level', await ev('level && level.id'), 'map', await ev('map.layout'), '| start kit', JSON.stringify(await ev('level.powers')));
   await p.waitForTimeout(2200); await p.screenshot({ path: `${out}/${tag}-start.png` });

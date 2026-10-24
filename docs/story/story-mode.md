@@ -93,6 +93,15 @@ Section power-ups (Level 1 only) and the kept card are in `docs/decisions.md`.
 
 ## Level 3: "The Stacks" (built)
 
+**Before it, a scene on the lift down** (`STACKS_INTRO` in `story.js`, plays
+after the character pick, skippable): the agent in the lift, the operator on
+the line. Ten years of this; their first Chromatic behind the laundromat (Dex
+hit it with a toaster, a bit of green went into the laundromat sign, the first
+lit window on the block); why they fight: every Chromatic unravelled gives a
+little colour back, the only reason their districts are lit, and the
+Chromatics keep taking whatever stops broadcasting. Ends on the flirt (Juno:
+"I care about the scoreboard" / Dex: "I'm louder about it when it's you").
+
 | Beat | Comms (gist) | Play |
 |---|---|---|
 | Wave | Every stream nobody ever played ended up here, on tape. Raze left part of his signal in this. "Hold on, I'm sending you something." | Big violet groups. Then the thrown ability screen |

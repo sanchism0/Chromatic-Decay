@@ -54,6 +54,46 @@ const AFTER_PICK = {
   ],
 };
 
+// Before Level 3: the agent rides the lift down to the Stacks while the
+// operator keeps them company. Ten years of this, how it started, and why the
+// colour matters. Keyed by the agent.
+export const STACKS_INTRO = {
+  dex: [   // Dex in the lift, Juno on the line
+    { caption: 'THE LIFT DOWN  ·  ONE RADIO CHANNEL' },
+    { who: 'juno', face: 'smirk',      text: "Lift's still going. Tell me you're not humming." },
+    { who: 'dex',  face: 'cocky-grin', text: "I'm not humming. The lift is humming. I'm harmonising." },
+    { who: 'juno', face: 'soft-smile', text: 'Ten years, and you still sing in elevators.' },
+    { who: 'dex',  face: 'neutral',    text: "Ten years. Remember our first one? Behind the laundromat, the week the colour went." },
+    { who: 'juno', face: 'laughing',   text: 'You hit it with a toaster.' },
+    { who: 'dex',  face: 'laughing',   text: 'And it worked! A bit of green came off it and went straight into the laundromat sign. First lit window on the block.' },
+    { who: 'juno', face: 'focused',    text: "That's still the job. Every Chromatic we unravel gives a little colour back. It's the only reason our districts are lit." },
+    { who: 'dex',  face: 'determined', text: "And they keep coming back for it. Whatever stops broadcasting, they take, until it's all grey." },
+    { who: 'juno', face: 'concerned',  text: "So don't go grey down there. I mean it." },
+    { who: 'dex',  face: 'cocky-grin', text: 'Aw. You do care.' },
+    { who: 'juno', face: 'annoyed',    text: 'I care about the scoreboard. You still owe me three from last week.' },
+    { who: 'dex',  face: 'shocked',    text: 'Those were shared!' },
+    { who: 'juno', face: 'smirk',      text: "Lift's stopping. Go be loud somewhere useful." },
+    { card: 'THE STACKS' },
+  ],
+  juno: [  // Juno in the lift, Dex on the line
+    { caption: 'THE LIFT DOWN  ·  ONE RADIO CHANNEL' },
+    { who: 'dex',  face: 'neutral',    text: 'Lift still moving? Talk to me.' },
+    { who: 'juno', face: 'smirk',      text: "It's playing music. Ten years of nothing working, and the elevator music made it." },
+    { who: 'dex',  face: 'laughing',   text: "Tell me it's not the song from the laundromat." },
+    { who: 'juno', face: 'soft-smile', text: "It's the song from the laundromat." },
+    { who: 'dex',  face: 'cocky-grin', text: 'Our first one. You read its signal, I hit it with a toaster.' },
+    { who: 'juno', face: 'laughing',   text: 'And a bit of green came loose and went right into the sign. You cried.' },
+    { who: 'dex',  face: 'shocked',    text: 'I had something in my eye! It was colour. First colour anyone had seen in weeks.' },
+    { who: 'juno', face: 'focused',    text: "It still is. Every Chromatic we unravel gives a little back. That's all that keeps our districts lit." },
+    { who: 'dex',  face: 'worried',    text: "And down there's a whole tower of what they stole. They'll fight to keep it." },
+    { who: 'juno', face: 'annoyed',    text: "You're worried." },
+    { who: 'dex',  face: 'neutral',    text: "I'm always worried. I'm just louder about it when it's you." },
+    { who: 'juno', face: 'soft-smile', text: '...Keep the channel open.' },
+    { who: 'dex',  face: 'determined', text: 'Never closed it.' },
+    { card: 'THE STACKS' },
+  ],
+};
+
 // Tutorial: each step says its lines, then waits for its condition. A step
 // moves on only once its condition is met AND the operator has finished
 // talking, so nothing is said over the top of a fight. `spawnAfter` holds the
@@ -137,8 +177,21 @@ export class StoryMode {
     this.scene = new Dialogue(AFTER_PICK[id], sides);
   }
 
+  // A scene between levels (e.g. before Level 3), then onDone
+  playInterlude(lines, sides, onDone) {
+    this.phase = 'interlude';
+    this.scene = new Dialogue(lines, sides);
+    this._onInterludeDone = onDone;
+  }
+  _endInterlude() {
+    this.phase = null; this.scene = null;
+    const f = this._onInterludeDone; this._onInterludeDone = null;
+    if (f) f();
+  }
+
   skipScene() {
     if (!this.scene) return;
+    if (this.phase === 'interlude') { this._endInterlude(); return; }
     if (this.phase === 'intro') { this.phase = 'pick'; this.scene = null; this.api.openCharSelect(); }
     else if (this.phase === 'after') this._beginTutorial();
   }
@@ -148,6 +201,7 @@ export class StoryMode {
     if (!this.scene) return;
     this.scene.update(dt, pressed);
     if (!this.scene.done) return;
+    if (this.phase === 'interlude') { this._endInterlude(); return; }
     if (this.phase === 'intro') { this.phase = 'pick'; this.scene = null; this.api.openCharSelect(); }
     else if (this.phase === 'after') this._beginTutorial();
   }

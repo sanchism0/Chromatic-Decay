@@ -80,7 +80,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 |---|---|
 | `waves.js` | Arcade: 15 waves (`WAVE_DATA`), timers, bonus bank, boss sequencing, kill score, win. |
 | `upgrades.js` | Card offers: `GENERIC_UPGRADES` (white cards), `STORY_CARDS` (earned in Story), legacy `CLASS_TRAITS`. `_generateOffer` builds the deck (shared Story pool, first-offer guarantee, two-ability cap). |
-| `story.js` | Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
+| `story.js` | Scenes between levels (`playInterlude`, e.g. `STACKS_INTRO` before Level 3, chosen by `intro:` in `LEVELS`). Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
 | `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
 | `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. |

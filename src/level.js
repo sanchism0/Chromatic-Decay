@@ -181,6 +181,7 @@ LEVELS[3] = {
   exit: 'vault',
   blurb: "Pull a piece of Raze out of the Stacks; open the vault.",
   outcome: "A piece of Raze's signal recovered, and The Queue broken. He's deeper still.",
+  intro: 'stacks',   // the lift-down scene (story.js STACKS_INTRO) plays first
   unlockTop: 'THE STACKS GO QUIET. YOU KEEP WHAT YOU THREW.',
   // Where things are, as fractions of the map. mirrors: the sealed pockets,
   // in the order the beam visits them; dead: where each mirror points while

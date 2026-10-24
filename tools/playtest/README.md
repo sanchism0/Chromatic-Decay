@@ -53,6 +53,7 @@ showed up in a picture.
 | `green.js` | Green blink: reforms ahead of a running player, can't be hit while faded, fires its volley, holds still and keeps shooting when you stand near it, six greens land spread out, stun cancels a blink |
 | `level3.js` | Level 3: stacks map, the thrown ability (grenade stuns / beacon lures), the terminal hold blocked until the ring is cleared, mirrors turned by thrown abilities, The Queue (ring damage, dash through, splits, time to kill), vault exit, card |
 | `checkpoint.js` | Level 3 boss checkpoint: dying at The Queue offers RETRY BOSS (ability kept, mirrors turned); leaving for the map then starting again begins at the top |
+| `interlude.js` | The lift-down scene before Level 3: plays after the pick, Space moves through, Esc / SKIP skips, then the level starts; Level 2 has none |
 | `arc.js` | Arc Round: only the last round of a Dex burst is electric; it jumps to an enemy within range, not one further away |
 | `grenadeaim.js` | Touch grenade: a tap throws nothing; press and drag shows the landing ring; letting go throws it there. Prints the phone zoom |
 | `comms.js` | Comms box just below the middle on desktop, at the top on phones; no shooting while a line is up; the game freezes with enemies around; Space moves the line on without dashing |
