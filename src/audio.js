@@ -12,6 +12,22 @@ function _ac() {
   return _ctx;
 }
 
+// Sound effects all play through one bus, so Settings can switch them off
+// without touching the music (title music and the in-game ambient)
+let _sfxOn = (() => { try { return localStorage.getItem('chromatic_decay_sfx_off') !== '1'; } catch { return true; } })();
+let _sfx = null;
+function _sfxBus() {
+  const ctx = _ac();
+  if (!_sfx) { _sfx = ctx.createGain(); _sfx.gain.value = _sfxOn ? 1 : 0; _sfx.connect(ctx.destination); }
+  return _sfx;
+}
+export const sfxEnabled = () => _sfxOn;
+export function setSfxEnabled(on) {
+  _sfxOn = on;
+  try { localStorage.setItem('chromatic_decay_sfx_off', on ? '0' : '1'); } catch {}
+  if (_sfx) _sfx.gain.value = on ? 1 : 0;
+}
+
 // ── Utilities ─────────────────────────────────────────────────
 
 function _osc(type, freq, t, duration, peak, freqEnd = null) {
@@ -25,7 +41,7 @@ function _osc(type, freq, t, duration, peak, freqEnd = null) {
   gain.gain.linearRampToValueAtTime(peak, t + 0.004);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(_sfxBus());
   osc.start(t);
   osc.stop(t + duration + 0.01);
 }
@@ -47,7 +63,7 @@ function _noise(t, duration, peak, filterFreq, filterQ = 1.5) {
   gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
   source.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(_sfxBus());
   source.start(t);
   source.stop(t + duration + 0.01);
 }
@@ -119,7 +135,7 @@ function _shotPew(overload) {
   const dur = overload ? 0.18 : 0.12;
   const out = ctx.createGain();
   out.gain.value = overload ? 0.8 : 0.6;
-  out.connect(ctx.destination);
+  out.connect(_sfxBus());
 
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 4;
   lp.frequency.setValueAtTime(6500, t); lp.frequency.exponentialRampToValueAtTime(900, t + dur);
@@ -188,7 +204,7 @@ function _shotGlass(overload) {
              * Math.pow(2, (Math.random() - 0.5) * 0.06);              // ±~35 cents
   const out  = ctx.createGain();
   out.gain.value = overload ? 0.95 : 0.42;   // quiet: the minigun fires five a second
-  out.connect(ctx.destination);
+  out.connect(_sfxBus());
 
   // Breath: 18 ms of soft high noise, swelling and fading
   const len = Math.ceil(ctx.sampleRate * 0.018);
@@ -565,7 +581,7 @@ export function sfxLungeWindup() {
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + dur * 0.92);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.connect(bp); bp.connect(g); g.connect(_sfxBus());
   src.start(t); src.stop(t + dur + 0.02);
   // Crackle ticks, bunching up toward the strike
   for (let i = 0; i < 10; i++) {

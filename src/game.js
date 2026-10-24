@@ -26,7 +26,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxBeamOut, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxBeamOut, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge, sfxEnabled, setSfxEnabled } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -98,6 +98,7 @@ const STATES = {
   ABILITY_UNLOCK:  17,   // the door in a Story level: new signature ability
   POWER_UP:        18,   // a Story section cleared: power-up for the level
   NAME_ENTRY:      19,   // pick a leaderboard name (first start, or changing it)
+  SETTINGS:        20,   // player settings: name, music, sound, auto-fire
 };
 let state = STATES.TITLE;
 
@@ -265,7 +266,7 @@ function startRun(opts = {}) {
   }
 
   stopTitleMusic();
-  startAmbient();
+  if (!_menuMuted) startAmbient();
   state = STATES.PLAYING;
 }
 
@@ -334,6 +335,7 @@ function update(dt) {
     case STATES.UPGRADE:         updateUpgrade();          break;
     case STATES.GAMEOVER:        updateGameOver();         break;
     case STATES.NAME_ENTRY:      updateNameEntry();        break;
+    case STATES.SETTINGS:        updateSettings();         break;
     case STATES.WIN:             updateWin();              break;
     case STATES.FRAGMENT_RESCUE: updateFragmentRescue();   break;
     case STATES.CLASS_EMERGENCE: updateClassEmergence();   break;
@@ -352,7 +354,8 @@ function _hitBtn(btn) {
   return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h;
 }
 
-// Menu music can be muted from the title screen; game sound is unaffected
+// Music (the title music and the in-game ambient) can be switched off from
+// the title screen or Settings; sound effects have their own switch
 let _menuMuted = (() => { try { return localStorage.getItem('chromatic_decay_menu_muted') === '1'; } catch { return false; } })();
 const _muteBtn = { r: null };
 
@@ -445,7 +448,74 @@ function updateTitle() {
   if (_hitBtn(_titleBtns.start))   { _withName(() => _openCharSelect()); return; }
   if (_hitBtn(_titleBtns.story))   { _withName(() => (_prologueDone() ? _openStoryMap() : _startStory())); return; }
   if (_hitBtn(_titleBtns.archive)) { state = STATES.ARCHIVE;                  return; }
-  if (_hitBtn(_titleBtns.admin))   { adminPanel.open(); state = STATES.ADMIN; return; }
+  if (_hitBtn(_titleBtns.admin))   { state = STATES.SETTINGS; return; }
+}
+
+// ── Settings ──────────────────────────────────────────────────
+// For players: leaderboard name, music, sound effects, auto-fire. The
+// developer tuning panel (admin.js) only shows up when the page is opened
+// with ?dev in the address.
+
+const DEV_MODE = new URLSearchParams(location.search).has('dev');
+const _setBtns = { name: null, music: null, sfx: null, auto: null, dev: null, back: null };
+let _setGuard = 0;   // frames to ignore input after coming back from the name screen
+
+function _setMusic(on) {
+  _menuMuted = !on;
+  try { localStorage.setItem('chromatic_decay_menu_muted', _menuMuted ? '1' : '0'); } catch {}
+}
+
+function updateSettings() {
+  if (_menuMuted) stopTitleMusic(); else startTitleMusic();
+  if (_setGuard > 0) { _setGuard--; return; }
+  if (input.justPressed.escape) { state = STATES.TITLE; return; }
+  if (!input.mouseJustClicked) return;
+  if (_hitBtn(_setBtns.name))  { _openName(() => { state = STATES.SETTINGS; _setGuard = 2; }); return; }
+  if (_hitBtn(_setBtns.music)) { _setMusic(_menuMuted); return; }
+  if (_hitBtn(_setBtns.sfx))   { setSfxEnabled(!sfxEnabled()); return; }
+  if (_hitBtn(_setBtns.auto))  { input.setAutoFire(!input.autoFire); return; }
+  if (_hitBtn(_setBtns.dev))   { adminPanel.open(); state = STATES.ADMIN; return; }
+  if (_hitBtn(_setBtns.back))  { state = STATES.TITLE; return; }
+}
+
+function drawSettings(W, H) {
+  const narrow = W < 600, touch = 'ontouchstart' in window;
+  const rows = [
+    ['NAME',          playerName() || '—',               'name',  'CHANGE'],
+    ['MUSIC',         _menuMuted ? 'OFF' : 'ON',          'music', _menuMuted ? 'TURN ON' : 'TURN OFF'],
+    ['SOUND EFFECTS', sfxEnabled() ? 'ON' : 'OFF',        'sfx',   sfxEnabled() ? 'TURN OFF' : 'TURN ON'],
+    ['AUTO-FIRE',     input.autoFire ? 'ON' : 'OFF',      'auto',  input.autoFire ? 'TURN OFF' : 'TURN ON'],
+  ];
+  const rowH = 54, pW = Math.min(480, W - 28);
+  const pH = 70 + rows.length * rowH + (DEV_MODE ? 50 : 0) + 64;
+  const pX = (W - pW) / 2, pY = Math.max(16, (H - pH) / 2);
+  const top = drawSlab(ctx, pX, pY, pW, pH, { accent: '#00E5CC', depth: 10, glow: 0.25 });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold ${narrow ? 18 : 22}px monospace`;
+  ctx.fillText('SETTINGS', W / 2, top + 34);
+  const bw = narrow ? 104 : 120;
+  rows.forEach(([label, value, key, action], i) => {
+    const y = top + 62 + i * rowH;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#8A8E99'; ctx.font = `${narrow ? 10 : 11}px monospace`;
+    ctx.fillText(label, pX + 22, y + 14);
+    ctx.fillStyle = value === 'OFF' ? '#6E7A88' : '#FFFFFF'; ctx.font = `bold ${narrow ? 14 : 16}px monospace`;
+    ctx.fillText(value, pX + 22, y + 34, pW - bw - 60);
+    const hover = !touch && _hitBtn(_setBtns[key]);
+    _setBtns[key] = drawSlabButton(ctx, pX + pW - bw - 20, y + 4, bw, 34, action, {
+      accent: key === 'name' ? '#00E5FF' : '#8FA8B8', textColor: '#E8F0FF', fontSize: 11, lift: hover ? 1 : 0,
+    });
+  });
+  let by = top + 62 + rows.length * rowH + 8;
+  _setBtns.dev = null;
+  if (DEV_MODE) {
+    _setBtns.dev = drawSlabButton(ctx, pX + 20, by, pW - 40, 34, 'DEVELOPER TUNING', { accent: '#7A3050', textColor: '#F0B8CC', fontSize: 11 });
+    by += 50;
+  }
+  _setBtns.back = drawSlabButton(ctx, W / 2 - 80, by, 160, 40, 'BACK', {
+    accent: '#00E5FF', fontSize: 13, lift: !touch && _hitBtn(_setBtns.back) ? 1 : 0,
+  });
+  ctx.textAlign = 'left';
 }
 
 function updatePlaying(dt) {
@@ -1112,6 +1182,7 @@ function draw() {
     case STATES.GAMEOVER:        drawGameOver(W, H);       break;
     case STATES.WIN:             drawWin(W, H);            break;
     case STATES.NAME_ENTRY:      drawNameEntry(W, H);      break;
+    case STATES.SETTINGS:        drawSettings(W, H);       break;
     case STATES.FRAGMENT_RESCUE: drawGame(W, H); drawFragmentRescue(W, H); break;
     case STATES.CLASS_EMERGENCE: drawGame(W, H); drawClassEmergence(W, H); break;
     case STATES.ARCHIVE:         drawArchive(W, H);        break;

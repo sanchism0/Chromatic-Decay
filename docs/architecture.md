@@ -12,14 +12,14 @@ current state's draw). `dt` is capped at 0.05 s.
 
 | State | # | What it is |
 |---|---|---|
-| TITLE | 0 | Title screen: Arcade, Story, Archive, Settings, leaderboards, name |
+| TITLE | 0 | Title screen: Arcade, Story, Archive, Settings, leaderboards, name, music toggle |
 | PLAYING | 1 | In a run (Arcade, tutorial or Story level) |
 | PAUSED | 2 | Esc menu |
 | UPGRADE | 3 | Arcade card pick between waves |
 | GAMEOVER | 4 | Arcade death: stats, rank, personal best |
 | FRAGMENT_RESCUE | 5 | Legacy (Fragments retired) |
 | ARCHIVE | 6 | Lore cards |
-| ADMIN | 7 | "Settings": the tuning panel (`admin.js`) |
+| ADMIN | 7 | Developer tuning panel (`admin.js`); only reachable from Settings with `?dev` in the URL |
 | WIN | 8 | Arcade: all 15 waves cleared |
 | CLASS_EMERGENCE | 9 | Legacy (classes retired) |
 | CHAR_SELECT | 10 | "Who goes in?" for Arcade and Story |
@@ -32,6 +32,7 @@ current state's draw). `dt` is capped at 0.05 s.
 | ABILITY_UNLOCK | 17 | Story card earned at Level 1's door |
 | POWER_UP | 18 | Level power-up granted after a section |
 | NAME_ENTRY | 19 | Leaderboard name (first start, or changing it) |
+| SETTINGS | 20 | Player settings: name, music, sound effects, auto-fire |
 
 `startRun(opts)` builds a fresh run: map, player, all systems. `opts.tutorial`
 (prologue tutorial) and `opts.level` (a Story level) change what's switched on.
@@ -83,8 +84,8 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. |
 | `leaderboard.js` | Supabase calls, the six boards, posting runs, rank, player sync, offline fallback, board drawing. |
 | `lore.js` | Arcade's lore feed: one-line blurbs on first sightings and milestones. |
-| `admin.js` | The tuning panel behind the title's SETTINGS button: edits `CONFIG`, export/import JSON, clear local scores. |
-| `audio.js` | Every sound, synthesized with Web Audio (no audio files). |
+| `admin.js` | Developer tuning panel: edits `CONFIG`, export/import JSON, clear local scores. Open the game with `?dev` (e.g. `…/Chromatic-Decay/?dev`), then Settings → DEVELOPER TUNING. |
+| `audio.js` | Every sound, synthesized with Web Audio (no audio files). Effects play through one bus (`_sfxBus`) that Settings can mute; music (title, ambient) goes straight out. New effect sounds must connect to `_sfxBus()`, not `ctx.destination`. |
 
 ## Story levels (`level.js`)
 
@@ -119,7 +120,8 @@ After each `wave`/`relays` beat the agent gets the next `POWERUPS` entry
 | `chromatic_decay_prologue_done` | `'1'` after the prologue |
 | `chromatic_decay_character` | Last picked character |
 | `chromatic_decay_autofire` | `'0'` / `'1'` |
-| `chromatic_decay_menu_muted` | `'0'` / `'1'` |
+| `chromatic_decay_menu_muted` | `'1'` = music off (title and in-game ambient) |
+| `chromatic_decay_sfx_off` | `'1'` = sound effects off |
 | `chromatic_decay_archive` | Legacy Fragment archive |
 
 ## Leaderboards (Supabase)

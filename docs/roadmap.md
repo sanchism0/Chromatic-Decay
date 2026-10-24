@@ -20,6 +20,7 @@ says where things stand and what to do next.
 - **Leaderboards:** six boards on Supabase, names, weekly board, rank and
   personal best at game over. Working on the GitHub Pages site.
 - **Phone:** twin sticks, round see-through buttons, compact landscape HUD.
+- **Settings:** name, music, sound effects, auto-fire. Developer tuning only with `?dev`.
 
 **Story cards that exist:** Heavy Bursts (Dex, from Level 1), Hot Barrel (Juno,
 from Level 1), Stun Grenade (Dex, activated; defined but **no level awards it
@@ -97,8 +98,6 @@ expect him.
   templates; don't build new features on it.
 - **`game.js` is ~4,200 lines.** Menus and screens could move out into their own
   modules. Not urgent; be careful with large edits (see `CLAUDE.md`).
-- **"SETTINGS" opens the developer tuning panel** (`admin.js`), which players can
-  reach. Fine for now; a real settings screen (sound, controls) is a candidate later.
 - **Leaderboard scores can be faked** from the browser (public key, open insert).
 - **The claude.ai preview artifacts can't reach Supabase**; scores there stay on
   the device.

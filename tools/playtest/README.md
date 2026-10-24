@@ -16,6 +16,7 @@ node tools/playtest/storyflow.js /tmp/out            # add "phone" for a phone v
 node tools/playtest/boards.js /tmp/out desk          # desk | phone; add "offline" to cut the database
 node tools/playtest/lunge.js /tmp/out
 node tools/playtest/pierce.js /tmp/out
+node tools/playtest/settings.js /tmp/out desk      # desk | phone
 ```
 
 Each script ends with `no errors` or `ERRORS …` (page errors and console errors).
@@ -44,3 +45,4 @@ showed up in a picture.
 | `boards.js` | Name entry, Arcade run posting, rank and personal best, player sync, cycling all six boards (arrows, keys, swipe) |
 | `lunge.js` | Yellow lunge: windup, hit, sidestep miss, stun cancels |
 | `pierce.js` | Piercing rounds hit each enemy once |
+| `settings.js` | Settings: every switch, changing the name (and cancelling), dev panel only with `?dev` |

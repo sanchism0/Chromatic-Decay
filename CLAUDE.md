@@ -110,3 +110,5 @@ an over-wide cut once deleted seven unrelated functions.
   on a phone)". Check `'ontouchstart' in window` and say one or the other.
 - **Don't add on-screen banners for story.** The comms dialogue carries the story.
 - **Level 1 must not be annoying.** If a section is frustrating, cap the enemies.
+- **New sound effects connect to `_sfxBus()`** in `audio.js` so the Settings switch mutes them.
+- **Developer tuning is hidden:** open the game with `?dev`, then Settings → DEVELOPER TUNING.
