@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 import { clamp, dist, distSq, angle, normalize, circleVsRect, weightedPick } from './utils.js';
 import { haloSprite, drawGlow } from './sprites.js';
-import { sfxLungeWindup, sfxLunge } from './audio.js';
+import { sfxLungeWindup, sfxLunge, sfxBlinkOut, sfxBlinkIn } from './audio.js';
 
 let _nextId = 0;
 
@@ -44,6 +44,17 @@ const SPAWN_IN = 0.45;
 // (windup, telegraphed), charges straight along that line (lunge), then is
 // dazed for a moment (recover) before it can lunge again (cooldown)
 const LUNGE = { range: 210, windup: 0.6, dist: 230, time: 0.3, recover: 0.6, cdMin: 2.2, cdMax: 3.5 };
+
+// Green: a turret that blinks. It doesn't walk; it stands and fires, and
+// moves only by blinking. When it's trailing a moving player, left far behind,
+// or a rack has blocked its shot for a while, it fades out and reforms on the
+// far side of the player, in their path, then fires a quick volley. Kiting
+// with greens behind you stops being safe. Greens blinking together land
+// spread apart. Reforming uses the spawn gather (SPAWN_IN), which is the
+// warning; while fading out it can't be hit and can't touch you.
+const BLINK = { fade: 0.35, cdMin: 3.5, cdMax: 5.5, firstMin: 2, firstMax: 3.5,
+                distMin: 140, distMax: 230, farAway: 300, blockedFor: 1.5, spread: 80,
+                volley: 2, volleyGap: 0.22, volleyDelay: 0.25 };
 
 // ── Pathing (flow field) ─────────────────────────────────────
 // The shortest walkable distance to the player is worked out for every 20px cell of the map, whenever the player changes cell (Dijkstra over a grid where racks,
@@ -196,6 +207,10 @@ class Enemy {
   }
 
   get forming() { return this.spawnT < SPAWN_IN; }
+  // Mid-blink: faded out, can't be hit or touch the player
+  get phased() { return this.blink === 'fade'; }
+  // 1 → 0 while fading out for a blink
+  get fadeK() { return this.blink === 'fade' ? Math.max(0, this.blinkT / BLINK.fade) : 1; }
 
   get size() { return this.cfg.size; }
 
@@ -247,6 +262,8 @@ class Enemy {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
       // A stun breaks a lunge
       if (this.lunge === 'windup' || this.lunge === 'lunging') { this.lunge = 'chase'; this.lungeT = 1.5; }
+      // and a blink: it stays where it is, solid again
+      if (this.blink === 'fade') { this.blink = 'hunt'; this.blinkT = 1.5; }
       return;
     }
 
@@ -423,17 +440,105 @@ class Enemy {
 
   // GREEN — chase at full speed and shoot straight ahead
   _updateGreen(dt, player, map, projectileSystem) {
-    const [ax, ay] = this._approach(player.x, player.y);
-    this._move(dt, ax, ay, map);
-
-    if (!this.trapSuppressed) {
-      this.fireTimer -= dt;
-      if (this.fireTimer <= 0 && projectileSystem) {
-        const a = Math.atan2(player.y - this.y, player.x - this.x);
-        projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, this.cfg.projectile_speed, 500, this.cfg.color);
-        this.fireTimer = 1 / this.cfg.projectile_fire_rate;
-      }
+    if (this.blink === undefined) {
+      this.blink = 'hunt';
+      this.blinkT = BLINK.firstMin + Math.random() * (BLINK.firstMax - BLINK.firstMin);
+      this.volleyLeft = 0;
     }
+    const shoot = () => {
+      if (!projectileSystem || this.trapSuppressed || this._blocked > 0.2) return;   // no shooting into racks
+      const a = Math.atan2(player.y - this.y, player.x - this.x);
+      projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, this.cfg.projectile_speed, 500, this.cfg.color);
+    };
+
+    // Fading out: then jump and reform (the spawn gather plays again)
+    if (this.blink === 'fade') {
+      this.blinkT -= dt;
+      if (this.blinkT > 0) return;
+      this.x = this._blinkTo[0]; this.y = this._blinkTo[1];
+      this.spawnT = 0;
+      this.blink = 'hunt';
+      this.blinkT = BLINK.cdMin + Math.random() * (BLINK.cdMax - BLINK.cdMin);
+      this.volleyLeft = BLINK.volley;
+      this.volleyT = BLINK.volleyDelay;
+      sfxBlinkIn();
+      return;
+    }
+
+    // Just reformed: a quick volley before it goes back to hunting
+    if (this.volleyLeft > 0) {
+      this.volleyT -= dt;
+      if (this.volleyT <= 0) {
+        shoot();
+        this.volleyLeft--;
+        this.volleyT = BLINK.volleyGap;
+        if (!this.volleyLeft) this.fireTimer = 1 / this.cfg.projectile_fire_rate;
+      }
+      return;
+    }
+
+    // Stands its ground and keeps firing; blinking is its only movement
+    this._losT = (this._losT || 0) - dt;
+    if (this._losT <= 0) { this._los = !FLOW.ready || FLOW.clear(this.x, this.y, player.x, player.y); this._losT = 0.12; }
+    this._blocked = this._los ? 0 : (this._blocked || 0) + dt;
+
+    this.fireTimer -= dt;
+    if (this.fireTimer <= 0) { shoot(); this.fireTimer = 1 / this.cfg.projectile_fire_rate; }
+
+    // Blink when trailing a moving player, left far behind, or walled off
+    this.blinkT -= dt;
+    if (this.blinkT <= 0 || this._blocked > BLINK.blockedFor) {
+      const pv = EnemySystem.playerVel || { x: 0, y: 0 };
+      const sp = Math.hypot(pv.x, pv.y);
+      const gx = this.x - player.x, gy = this.y - player.y, gd = Math.hypot(gx, gy) || 1;
+      const trailing = sp > 60 && (pv.x * gx + pv.y * gy) / (sp * gd) < -0.2;
+      if (trailing || gd > BLINK.farAway || this._blocked > BLINK.blockedFor) {
+        const dir = sp > 60 ? [pv.x / sp, pv.y / sp] : [-gx / gd, -gy / gd];
+        const to = this._blinkSpot(player, dir, map);
+        if (to) {
+          this._blinkTo = to;
+          this._blocked = 0;
+          this.blink = 'fade';
+          this.blinkT = BLINK.fade;
+          sfxBlinkOut();
+          return;
+        }
+      }
+      this.blinkT = 0.5;   // not yet: look again shortly
+    }
+  }
+
+  // A clear spot on the far side of the player along dir, a fair distance
+  // away, with a clear shot at them. Of several candidates across the arc
+  // ahead (±50°, wider if racks are in the way), it takes the one furthest from other enemies and from spots other
+  // greens are already blinking to, so a group lands spread out.
+  _blinkSpot(player, dir, map) {
+    const r = this.size + 4;
+    const base = Math.atan2(dir[1], dir[0]);
+    const others = [];
+    for (const e of EnemySystem.all || []) {
+      if (e === this || !e.isAlive) continue;
+      others.push(e.blink === 'fade' && e._blinkTo ? e._blinkTo : [e.x, e.y]);
+    }
+    // Ahead first (±50° of their path); if racks fill that, the sides, then anywhere
+    // A spot with room around it wins; a crowded one only if nothing better exists
+    let best = null, bestGap = -1;
+    for (const arc of [1.75, 3.2, Math.PI * 2]) {
+      for (let i = 0; i < 24; i++) {
+        const a = base + (Math.random() - 0.5) * arc;
+        const d = BLINK.distMin + Math.random() * (BLINK.distMax - BLINK.distMin);
+        const x = player.x + Math.cos(a) * d, y = player.y + Math.sin(a) * d;
+        if (x < r || y < r || x > CONFIG.map_width - r || y > CONFIG.map_height - r) continue;
+        if (map.obstacles.some(o => circleVsRect(x, y, r, o.x, o.y, o.w, o.h))) continue;
+        if (FLOW.ready && !FLOW.clear(x, y, player.x, player.y)) continue;
+        let gap = Infinity;
+        for (const [ox, oy] of others) gap = Math.min(gap, Math.hypot(ox - x, oy - y));
+        if (gap > bestGap) { best = [x, y]; bestGap = gap; }
+        if (gap >= BLINK.spread * 2) return best;             // plenty of room already
+      }
+      if (bestGap >= BLINK.spread) return best;
+    }
+    return best;
   }
 
   // ORANGE — moves toward player while shooting
@@ -512,7 +617,7 @@ class Enemy {
     const k     = glowStrength(this.type);
     const hpK   = Math.max(0, Math.min(1, this.hp / this.maxHp));
     this._pulse = pulse;   // the halo pass breathes with the core
-    const form  = easeOut(Math.min(1, this.spawnT / SPAWN_IN));
+    const form  = easeOut(Math.min(1, this.spawnT / SPAWN_IN)) * this.fadeK;
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -611,7 +716,7 @@ class Enemy {
     ctx.restore();
 
     // HP bar
-    if (this.hp < this.maxHp && !this.forming) {
+    if (this.hp < this.maxHp && !this.forming && !this.phased) {
       this._drawHpBar(ctx);
     }
   }
@@ -619,7 +724,7 @@ class Enemy {
   // Additive halo — breathes with the core; drawn in the glow pass after the racks
   drawHalo(ctx) {
     if (!this.alive) return;
-    const form = easeOut(Math.min(1, this.spawnT / SPAWN_IN));
+    const form = easeOut(Math.min(1, this.spawnT / SPAWN_IN)) * this.fadeK;
     const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2) * (0.35 + 0.65 * form);
     drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * form * glowStrength(this.type) * (0.85 + 0.15 * (this._pulse ?? 1)));
   }
@@ -718,6 +823,7 @@ export class EnemySystem {
       EnemySystem.playerVel = Math.hypot(vx, vy) > 2000 ? { x: 0, y: 0 } : { x: pv.x + (vx - pv.x) * k, y: pv.y + (vy - pv.y) * k };
     }
     this._lastPX = player.x; this._lastPY = player.y;
+    EnemySystem.all = this.enemies;   // greens check each other's blink spots
 
     // Personal space: each enemy is pushed gently away from close neighbours,
     // so a crowd spreads into a loose swarm instead of a queue
@@ -775,7 +881,7 @@ export class EnemySystem {
     for (const proj of projectiles.playerProjectiles) {
       if (!proj.active) continue;
       for (const e of this.enemies) {
-        if (!e.isAlive) continue;
+        if (!e.isAlive || e.phased) continue;
         // A round hits each enemy once: it overlaps one for several frames as
         // it passes through, which used to spend a piercing round's pierce on
         // the same enemy over and over
@@ -826,7 +932,7 @@ export class EnemySystem {
   checkPlayerContact(player, particles) {
     if (!player.alive) return;
     for (const e of this.enemies) {
-      if (!e.isAlive || e.forming) continue;
+      if (!e.isAlive || e.forming || e.phased) continue;
       // Only melee enemies deal contact damage (violet/yellow/green)
       if (e.type !== 'violet' && e.type !== 'yellow' && e.type !== 'green') continue;
       const dx = e.x - player.x, dy = e.y - player.y;

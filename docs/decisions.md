@@ -240,7 +240,7 @@ roughly even.
 |---|---|---|
 | Violet | slow wanderer that swarms | Level 1 staple |
 | Yellow | chases, then **lunges**: stops, a charging signal beam lines up (0.6 s), charges 230 px along that line, is dazed briefly | Telegraph is a soft glowing beam (the first version "looks like you made it in Microsoft Paint"). Sidestep or dash through it. A stun cancels it. Lightning sounds. |
-| Green | hunter that shoots | Planned rework: **blinkers** that dematerialise, reappear elsewhere, fire 1–2 shots, repeat (owner's idea, not built) |
+| Green | **turret that blinks**: never walks; stands and fires the whole time it isn't teleporting. When it trails a moving player (or is far behind, or a rack blocks its shot for 1.5 s) it fades out and reforms on the far side of the player, in their path (±50°, 140–230 px away), then fires a 2-shot volley | Built to stop easy kiting ("they need to teleport to the opposite end of the player"). Greens blinking together **land spread out** (~80 px apart when there's room). Can't be hit or touch you while fading; the reform gather is the warning. A stun cancels the blink. Soft glassy blink sounds. |
 | Orange | stays back, homing shots | Arcade only so far |
 | Pink | boss: slow drift, dashes, heavy fire | Laser removed as overpowered; size and speed raised on request |
 
