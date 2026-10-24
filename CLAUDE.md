@@ -15,7 +15,7 @@ Read these before changing anything:
 | `docs/roadmap.md` | Where things stand, known issues, and the recommended next steps |
 | `docs/architecture.md` | How the code fits together, file by file, and the systems inside |
 | `docs/design/core-loop.md` | Game design: Story unlocks Arcade, Chroma, characters, levels, leaderboards |
-| `docs/design/character-skeleton.md` | Draft: character 4, the white skeleton who converts enemies (unlocked at Level 10) |
+| `docs/design/character-skeleton.md` | Draft: character 4, Lumen, the white skeleton who converts enemies (unlocked at Level 10) |
 | `docs/story/story-mode.md` | Story, characters, tone, prologue and level plan |
 | `tools/playtest/README.md` | How to test (headless Playwright scripts) |
 | `chromatic-decay-gdd.md` | The original planning doc. **Mostly out of date**; see its banner |

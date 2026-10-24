@@ -1,4 +1,4 @@
-# Character 4: the skeleton (draft)
+# Character 4: Lumen, the skeleton (draft)
 
 Started Oct 25, 2026 from the owner's brief: *"a skeleton guy that fires basic
 and slow but converts enemies to corrupted versions that turn white and fight
@@ -7,9 +7,12 @@ Everything below marked **(proposal)** is waiting for the owner's call.
 
 ## Who he is (proposal)
 
-- **Name:** working name **Marrow**. Others: Hollow, Wick, Ossian.
-- **What he is:** what's left of an Echo once every bit of its colour has been
-  taken: just the frame, bone-white. Most Echoes that far gone stop
+- **Name: Lumen** (owner's call), the Fragment already listed in the Archive.
+- **Description (from the Archive):** a VPN service. Professionally invisible.
+  Routed around every obstacle ever placed in front of it. *"Helped 40 million
+  people disappear online. Happy to return the favor."*
+- **What he is now:** what's left of an Echo once every bit of its colour has
+  been taken: just the frame, bone-white. Most Echoes that far gone stop
   remembering who they were. He didn't. He can't hold colour any more, but he
   can **pull it out of a Chromatic**, and what's left obeys him.
 - **Why it matters to the story:** he's white, like Null. Dex and Juno
@@ -63,7 +66,7 @@ lunging bodyguard, or kill the green and get a turret where you want it.
 | Deep Hollow | Hollows last 20 s |
 | Fourth Bone | Up to 4 Hollows |
 | Last Rites (E) | Convert one living enemy under half health on the spot |
-| Marrow Burst (F) | Every Hollow detonates in a soft white burst that stuns |
+| Exit Node (F) | Every Hollow detonates in a soft white burst that stuns |
 
 ## Things that need building
 
@@ -71,16 +74,15 @@ lunging bodyguard, or kill the green and get a turret where you want it.
   Hollow AI per type, friendly fire rules. This is the big piece of work.
 - His sprite (code-drawn pixel art), gun, round visuals, sounds.
 - Character select, Story agent/operator pairings, leaderboard column
-  (D/J/R becomes D/J/R/M).
+  (D/J/R becomes D/J/R/L).
 - Levels 6–10 themselves: none planned yet.
 
 ## Questions for the owner
 
-1. **Name:** Marrow, or something else?
-2. **Convert on kill** (proposed), or convert a living enemy once it drops
+1. **Convert on kill** (proposed), or convert a living enemy once it drops
    low?
-3. **How long Hollows last** and **how many at once** (proposed 12 s, 3)?
-4. **His story:** friend from the start, or does he start out working for
+2. **How long Hollows last** and **how many at once** (proposed 12 s, 3)?
+3. **His story:** friend from the start, or does he start out working for
    Null (or against Dex and Juno) and switch sides at Level 10?
-5. **Levels 6–10:** keep the story doc's "Exchange" chapter, or a new zone
+4. **Levels 6–10:** keep the story doc's "Exchange" chapter, or a new zone
    built around him?
