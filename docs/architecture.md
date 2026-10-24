@@ -51,13 +51,15 @@ With no options it's an Arcade run.
 ### World and drawing
 | File | Role |
 |---|---|
-| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2; `stacks` for Level 3, with `STACKS` giving its ring and sealed pockets), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
+| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2; `stacks` for Level 3, with `STACKS` giving its ring and sealed pockets; `wire` for Level 4, with `WIRE` giving the corridor and live wires), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
 | `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. A palette per room (`THEMES`: colours, LED colours, floor labels, pits, frost). Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
 | `sprites.js` | Cached glow and halo sprites (offscreen canvases) so glows are one `drawImage`. |
 | `particles.js` | Pooled particles (hit sparks, bullet clashes). |
 | `drain.js` | The colour drain kill effect (unravel → hang → drain into the player). Also counts colour per type. |
 | `ui3d.js` | `drawSlab` / `drawSlabButton`: the 3D rack-style panels every menu uses. |
 | `hud.js` | Health bar, Arcade score / wave / timer, near-death tint. Touch gets a slim corner bar. |
+
+Text: `MIN_FONT_PX` (12) in game.js clamps every font set on any canvas; long text wraps with `_wrapLines` rather than shrinking.
 
 Lighting lives in `game.js` `drawGame`: a darkness mask with visibility
 polygons per light (player, enemies, rack LEDs), so racks cast real shadows.
@@ -80,7 +82,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 |---|---|
 | `waves.js` | Arcade: 15 waves (`WAVE_DATA`), timers, bonus bank, boss sequencing, kill score, win. |
 | `upgrades.js` | Card offers: `GENERIC_UPGRADES` (white cards), `STORY_CARDS` (earned in Story), legacy `CLASS_TRAITS`. `_generateOffer` builds the deck (shared Story pool, first-offer guarantee, two-ability cap). |
-| `story.js` | Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
+| `story.js` | Scenes before levels (`playInterlude`; `INTROS` by `intro:` in `LEVELS`: `stacks` before Level 3, `wire` before Level 4, each keyed by agent). Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
 | `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
 | `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. |
@@ -105,6 +107,9 @@ level for now). Beat types:
 | `hold` | Stand in the terminal's ring (`HOLD`) while it pulls; any unstunned Chromatic in the ring pauses it; it never drains |
 | `beam` | Mirrors in sealed pockets (`points.mirrors`), turned by a thrown ability landing on them (`onThrowLand`, from `grenades.onLand` / `decoys.onLand`); the beam runs source → mirrors → vault; all right opens the vault |
 | `boss` | The Queue (`QUEUE`): a big violet `Enemy` with `boss`, `contactDamage` and a capped stun; the level sends its rings (`rings`, dash through them), splits it at thresholds, draws the health bar, and dissolves the rest when it dies |
+| `gather` | Junction boxes (`points.boxes`) that open only to an Arc Round jump (`arcTargets`, `onArcRack`) or a `bounced` round (`_shotsOnTargets`); plain rounds glance off. Each drops one of Raze's memories to walk over |
+| `tuning` | Dials (`points.dials`) turned the same way, cycling 0→1→2, to match `pattern` on the display |
+| `escape` | A timer (`time`) to reach `exitPos`; `wires` across the corridor zap and push back unless `player.dashT > 0`; alarm, red edge in `drawHud`; timing out sets `failReason` (DOOR SEALED) |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 

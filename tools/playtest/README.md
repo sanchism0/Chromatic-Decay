@@ -15,6 +15,7 @@ node tools/playtest/level1.js /tmp/out desk dex     # desk | phone | land,  dex 
 node tools/playtest/storyflow.js /tmp/out            # add "phone" for a phone viewport
 node tools/playtest/level2.js /tmp/out desk dex     # desk | phone | land,  dex | juno
 node tools/playtest/level3.js /tmp/out desk juno    # same args
+node tools/playtest/level4.js /tmp/out desk dex     # same args
 node tools/playtest/boards.js /tmp/out desk          # desk | phone; add "offline" to cut the database
 node tools/playtest/lunge.js /tmp/out
 node tools/playtest/pierce.js /tmp/out
@@ -53,6 +54,9 @@ showed up in a picture.
 | `green.js` | Green blink: reforms ahead of a running player, can't be hit while faded, fires its volley, holds still and keeps shooting when you stand near it, six greens land spread out, stun cancels a blink |
 | `level3.js` | Level 3: stacks map, the thrown ability (grenade stuns / beacon lures), the terminal hold blocked until the ring is cleared, mirrors turned by thrown abilities, The Queue (ring damage, dash through, splits, time to kill), vault exit, card |
 | `checkpoint.js` | Level 3 boss checkpoint: dying at The Queue offers RETRY BOSS (ability kept, mirrors turned); leaving for the map then starting again begins at the top |
+| `interlude.js` | The scenes before Levels 3 and 4: play after the pick, Space moves through, Esc / SKIP skips, then the level starts; Level 2 has none. Args: `<out> desk\|phone dex\|juno 3\|4` |
+| `level4.js` | Level 4: greens, Arc Round / Ricochet, boxes ignore plain shots and walking but open to an arc (off a cable or a Chromatic) or a bounce, pieces, dials, escape: wire zaps you back unless you dash, time-out → DOOR SEALED → level restarts, out the door, card |
+| `screens.js` | Screenshots of every screen (title, map, character select, level HUD, power-up, card, results, failed, Arcade, upgrades, pause, settings, game over) for the 12 px minimum text check. Args: `<out> desk\|phone\|land` |
 | `arc.js` | Arc Round: only the last round of a Dex burst is electric; it jumps to an enemy within range, not one further away |
 | `grenadeaim.js` | Touch grenade: a tap throws nothing; press and drag shows the landing ring; letting go throws it there. Prints the phone zoom |
 | `comms.js` | Comms box just below the middle on desktop, at the top on phones; no shooting while a line is up; the game freezes with enemies around; Space moves the line on without dashing |

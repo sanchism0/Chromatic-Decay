@@ -36,7 +36,7 @@ Levels also get **longer, with as much interaction as Level 2** from here on.
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
 | 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
 | 3 (built) | **Stun Grenade (E)** | **Decoy Beacon (E)**: throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
-| 4 | **To decide.** Chain Arc went into Level 1 instead (Arc Round replaced Kinetic Finish). Option: a stronger version where every round jumps | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
+| 4 | **Arc Round** (passive, owner's call): the last round of each burst is electric and jumps to something close by. Previewed in Level 1's sampler; Level 4 makes it a card | **Ricochet** (passive): rounds bounce once off racks. Previewed in Level 1's sampler; Level 4 makes it a card |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
 **Decoy Beacon (Juno, E), defined:**
@@ -89,7 +89,7 @@ escort lame, so both were replaced.)
 ## Level 3: The Stacks (first boss), built
 
 **Story:** towers of old tape where the streams nobody played pile up. Raze
-left part of his signal in a terminal here, and the vault in the middle holds
+left one of his memories in a terminal here, and the vault in the middle holds
 something huge.
 
 **Map:** eight tall tape towers in a ring round an open centre (the vault and
@@ -102,7 +102,7 @@ granted after the first wave:
 | Beat | Play | Comms (gist) |
 |---|---|---|
 | Wave | Violets in big groups, a few yellows; then the ability screen | "The Stacks. Every stream nobody ever played ended up here." |
-| **Hold** (task) | Stand in the terminal's ring while it pulls Raze's signal (22 s). Any Chromatic in the ring that isn't stunned pauses the pull (progress never drains; you can leave and come back): Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
+| **Hold** (task) | Stand in the terminal's ring while it pulls one of Raze's memories (22 s). Any Chromatic in the ring that isn't stunned pauses the pull (progress never drains; you can leave and come back): Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
 | Wave | Violets and yellows together | "Something heard that." |
 | **Beam** (puzzle) | A beam runs from a wall emitter, above the racks, through three mirrors sealed in the pockets. Land the ability on a mirror (thrown over the walls) to turn it; the beam shows where each one points. All three right and the vault opens. Abilities recharge twice as fast here; up to 3 enemies | "The mirrors are sealed in. Throw your grenade/beacon over the wall." |
 | **Boss: The Queue** | A huge violet (900 health, about 35 s of shooting) rises from the vault and drifts after you. It winds up and sends out rings: dash through them (untouchable mid-dash, and a perfect dodge refunds the dash). At 75%, 50% and 25% it splits off five violets. When it dies, everything left dissolves | "That's not a Chromatic. That's all of them." |
@@ -111,56 +111,107 @@ granted after the first wave:
 Code: `hold`, `beam` and `boss` beats in `level.js`, `decoy.js`, the Stacks map
 (`STACKS` in `map.js`) and palette.
 
-## Level 4: Wire Room
+## Level 4: Wire Room (built, Oct 25, 2026)
 
-**Story:** the Basement's switchboard. Raze's signal shattered here; pieces of
-him are scattered across the room, and the greens are hunting them.
+**Story:** the Basement's switchboard, where the Chromatics locked up the
+memories they took from Raze, in junction boxes all over the room. The greens
+are camped on them. Null explains it in a scene before the level.
 
-**Map:** a cable maze with wide junctions, plenty of sightlines for green
-turrets.
+**Map:** a maze of thick cable bundles with wide junctions and long sightlines
+(good for greens). Junction boxes sit in three-sided alcoves in the cable walls.
 
-| Beat | Play | Comms (gist) |
-|---|---|---|
-| Wave | **Greens debut**: a few, plus violets | "Greens. They don't chase. They show up where you're going." |
-| **Gather** (task) | Six fragments of Raze's signal are scattered around; pick them all up. Each fades if a Chromatic sits on it too long (marked with arrows) | "Those are pieces of Raze. Grab them before they're eaten." |
-| Wave | Greens and yellows | |
-| **Tuning** (puzzle) | Three dials (floor switches), each cycling through three frequencies. Match the pattern on the big display; it lights each dial that's right | "Match the signal. When all three are right, the door opens." |
-| Exit | Beam-out, card, results | "Every piece. The door ahead is his." |
+**Built around hitting things you can't hit straight on.** A junction box only
+reacts to Dex's **electric round** (the last round of a burst) jumping to it,
+or to Juno's **bounced** round. Plain shots glance off it with a dull spark
+("shielded"), and grenades, beacons, dash abilities and walking up to it do
+nothing. Dex: shoot an enemy or the cable wall within about 130 px of a box
+and the arc jumps to it (through the cable). Juno: bounce a shot off a rack
+into the box.
 
-New code: gather beat, tuning beat, Wire Room map, the Level 4 ability (to decide). To be reshaped around that ability.
+| Beat | Play |
+|---|---|
+| Wave | **Greens debut properly** ("They don't chase. They show up where you're going."). Then the ability screen: Arc Round / Ricochet |
+| **Gather** (task) | Six junction boxes hold Raze's memories. Open each with an electric jump or a bounce, then walk over the memory that drops out. Nothing un-collects |
+| Wave | Greens and yellows |
+| **Tuning** (puzzle) | Three dials behind cover; each electric jump or bounced hit turns a dial to its next frequency. Match the big display (it lights each dial that's right) to open the door to Raze's room |
+| **Escape** | The board overloads: alarm, a steady red edge that deepens, and the operator yelling RUN. 22 s to reach the far door (the walk is about 9 s), down an L-shaped corridor crossed by **four live wires**: walking into one zaps you (10) and throws you back; mid-dash you go straight through. Enemies keep coming. Out of time: DOOR SEALED, and the level starts over (no checkpoint, owner's call) |
+| Exit | Through the door: beam-out, card, results |
 
-## Level 5: Raze's Room (second boss, rescue)
+Echoes after each section, as in every level from 2 on.
 
-**Story:** Raze's room, where the hoarded signal has walled him in. Break the
-hoard, beat what feeds on it, and bring him home.
+**Escape timing note:** a dash only saves about 0.2 s over walking, so a pure
+"walk time minus a dash" timer would be near impossible. The live wires make
+dashing a rule of the layout instead, and the timer is generous (owner's call:
+"ample time to walk out, but stressful with the wires and enemies").
 
-**Map:** a vault with a raised core in the middle; four signal anchors around
-the edge.
+Code: `gather`, `tuning` and `escape` beats in `level.js`, the Wire Room map
+(`WIRE` in `map.js`) and palette; Arc Rounds jump to `level.arcTargets` from
+enemies and from cable hits (`projectiles.arcRackHits`); rounds that have
+ricocheted carry `bounced`.
 
-| Beat | Play | Comms (gist) |
-|---|---|---|
-| Wave | All three types | "This is it. He's in there." |
-| **Break the hoard** (task) | Shoot four signal anchors (like Level 1's servers but tougher) while greens blink around you | "Four anchors are holding the wall. Break them." |
-| Wave | All three, heavier | |
-| **Boss: Signal Hoarder** | A giant green that blinks around the room, leaving turret nodes behind it. Destroy the nodes to make it solid, then hit it | "It's eating everything he was. Make it let go." |
-| **Rescue** | Walk to Raze's Echo. A short comms scene: Raze speaks for the first time, as a gold light (no portrait yet) | Raze: a few lines. Who he was, that he knows Null |
-| Exit | Beam-out together, card, results: **RAZE UNLOCKED** | "You found him." |
+## Level 5: Raze's Room (plan v3, Oct 25, 2026, after the owner defined Raze)
 
-New code: anchors (reuses the servers beat), boss two, Raze as a speaker,
-the unlock, Arc Discharge and Spin Up as F abilities.
+**Story:** the bottom of the Basement, where the Chromatics have kept Raze
+alive for years, draining his memories into the hoard. He's seen early, caged
+in hoarded light on the raised core; a major boss and wave after wave of
+Chromatics stand between you and him. Kill the boss and the level ends; the
+rescue happens in the scene after.
 
----
+**Before it: a scene on the way down.** Null tells them what to expect. Gist:
+- Null and Raze go way back ("He was fighting these things before either of
+  you picked up an emitter"). Dex and Juno realise how little they know about
+  Null, and how new they are to this.
+- "He's been alone in the dark a long time. He'll threaten you. Let him. Don't
+  turn your back on him either."
+- Dex and Juno are uneasy; the banter turns nervous.
 
-## Raze as a playable character
+**Map:** a round vault, the raised core in the middle with Raze in a cage of
+hoarded colour; four signal anchors round the edge. Gold-on-black.
 
-- **Art:** no new art for now. He's a gold light figure (the owner's earlier
-  rule: characters without art are drawn as light). Real sprites later.
-- **Gun:** Heavy, already defined in `WEAPONS.raze`: slow, strong gold rounds.
-- **Unlocks:** clearing Level 5 adds him to character select (Arcade and
-  Story). Story points and the D/J/R leaderboard column already count him.
-- In Story, when Raze is the agent, Dex or Juno (player's choice) is on comms.
+**The ability (F, after the first wave):** Dex's Arc Discharge, Juno's Spin Up
+(as in v2). The anchors only crack while overloaded by it.
 
----
+| Beat | Play |
+|---|---|
+| Arrival | You walk in and **see Raze**: gold, caged on the core. His first words, over the open channel, are a threat ("Another of Null's errand kids. Stay out of my sightline."). The cage keeps you out |
+| Wave | All three types. Then the F ability screen |
+| **Break the hoard** (task) | Four anchors feed his cage; plain fire glances off until they're overloaded (Dex's discharge, Juno's Spin Up). Raze heckles from the cage, now and then usefully ("Left one. Are you blind?") |
+| **Boss: the Signal Hoarder** (checkpoint) | The thing feeding on him: a giant green that blinks round the vault leaving turret nodes, untouchable while any stand. Between its phases, **waves** of violets, yellows and greens pour in. Three phases, an Echo or two each |
+| Level end | It dies: results, card, then the scene |
+
+**After it: two scenes.**
+1. **Meeting Raze.** The cage drops. He's twitchy, sharp, half wild, and points
+   his rifle at the agent before anything else. Dex and Juno clash with him
+   (Dex's bluster vs his menace; Juno's precision vs his contempt). He doesn't
+   say thank you.
+2. **Raze and Null.** The first conversation in years. Raze is bitter ("You
+   took your time"); Null is quieter than we've ever heard him. A hint of their
+   history, and that Null needs what Raze remembers about the Collapse.
+Then **RAZE UNLOCKED**.
+
+## Raze (owner's definition, Oct 25, 2026)
+
+- **Who:** an OG. Fighting the Chromatics long before Dex and Juno; a well
+  known marksman: powerful shots, long range, a hunter, and tricky; he can get
+  out of anything. Null's oldest partner, which makes Null's relationship with
+  Dex and Juno relatively new.
+- **Now:** captive for years, and a bit crazy for it. Dex and Juno are a little
+  afraid of him and their personalities clash. He threatens people, especially
+  early on.
+- **Look:** a long gold-and-black coat, a mechanical left arm, dreadlocks with
+  glowing gold tips, a headband and headset, a long rifle on his back. Colour
+  `#FFB52E`. Art: `assets/characters/raze/` (walk sheet, eight portraits:
+  neutral, stern, smirk, laughing, uneasy, shocked, angry, snarl; turnaround).
+- **Kit (proposal, think Caitlyn):**
+  - **Gun: Long Rifle.** Slow rate of fire, heavy rounds that pierce, long range.
+  - **Slow on his feet** (about 85% of Dex and Juno's speed); the gun makes up for it.
+  - **E: Snare Trap.** Set a trap on the floor; the first Chromatics over it are
+    held and slowed.
+  - **Passive: Hunter's Mark.** Every fifth round is a heavy gold round (double
+    damage, pierces everything).
+  - **Dash: Slip.** Longer than the others' dash and leaves a puff of smoke
+    that enemies lose him in for a moment ("he can escape anything").
+- **Unlock:** clearing Level 5. Arcade first; Story levels need lines for him.
 
 ## Engineering, done once before Level 2
 
@@ -178,7 +229,7 @@ One level at a time, each tested on desktop and phone, then merged:
 
 1. Engineering above, plus **Level 2** (dash abilities, ice, drives, frozen tanks, Cold Storage map). Built.
 2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon). Built.
-3. **Level 4** (gather, tuning).
+3. **Level 4** (gather, tuning, escape). Built.
 4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities, Raze unlock).
 
 Each step also: comms lines for both operators, a playtest script, the docs.

@@ -77,6 +77,27 @@ const THEMES = {
     labels: [['THE STACKS', 0.10], ['THE VAULT', 0.5]],
     pits: false, tints: false, frost: false,
   },
+  // Wire Room: dark teal-grey floor, black rubber cable bundles with copper
+  // trim, warm copper and signal-yellow lights
+  wire: {
+    C: {
+      outline:   '#060809',
+      floor:     '#1f2a2c', floorAlt: '#1c2628',
+      seam:      '#0c1112', bevelLt: '#2c3a3d', bevelDk: '#121a1b',
+      screw:     '#4a5a5c', dot: '#111819',
+      pit:       '#050607', pitEdge: '#26302f',
+      wall:      '#1e2526', wallLine: '#121718', wallTop: '#2e3839',
+      red:       '#8a5a2a',
+      rackTop:   '#1a1d20', rackTopLt: '#3a3f44', rackTopSide: '#25292d',
+      vent:      '#131618', screen: '#4a2c14', screenLine: '#ffb860',
+      rim:       '#b87333', rimCyan: '#d08a40',
+      front:     '#16181b', blade: '#22262a', bladeGap: '#0c0e10', handle: '#c06030',
+      strip:     '#ffd060', stripDim: '#6a5020',
+    },
+    leds: ['#ffd060', '#ff8a3c', '#60d0ff', '#ffd060'],
+    labels: [['WIRE ROOM', 0.10], ['SWITCHBOARD', 0.40], ['SERVICE CORRIDOR', 0.86]],
+    pits: false, tints: false, frost: false,
+  },
 };
 let THEME = THEMES.basement;
 let C = THEME.C;

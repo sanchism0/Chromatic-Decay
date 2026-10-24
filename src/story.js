@@ -33,7 +33,8 @@ const INTRO = [
   { who: 'dex',  face: 'worried',    text: '...Null? You never call.' },
   { who: 'null', text: "Something woke up in the Basement, under the old server farm. It's calling a name. Over and over." },
   { who: 'juno', face: 'focused',    text: 'Nobody has been down there in years. What name?' },
-  { who: 'null', text: 'Raze. An Echo that still knows who he is. If the Chromatics reach him first, we lose him, and they gain something worse.' },
+  { who: 'null', text: "Raze. The best shot I ever knew. They took him years ago, and I let myself believe he was gone." },
+  { who: 'null', text: "If he's calling, he's still fighting. And if they finish him, they keep everything he knows." },
   { who: 'null', text: 'I need one of you to go in, and the other to stay on the line to keep them alive.' },
   { who: 'dex',  face: 'determined', text: "I'll go in. Tight corridors, lots to hit. That's my kind of room." },
   { who: 'juno', face: 'annoyed',    text: "It's a maze of signal. You need someone who can read it." },
@@ -53,6 +54,94 @@ const AFTER_PICK = {
     { card: 'THE BASEMENT' },
   ],
 };
+
+// Before Level 3: the agent rides the lift down to the Stacks while the
+// operator keeps them company. Ten years of this, how it started, and why the
+// colour matters. Keyed by the agent.
+export const STACKS_INTRO = {
+  dex: [   // Dex in the lift, Juno on the line
+    { caption: 'THE LIFT DOWN  ·  ONE RADIO CHANNEL' },
+    { who: 'juno', face: 'smirk',      text: "Lift's still going. Tell me you're not humming." },
+    { who: 'dex',  face: 'cocky-grin', text: "I'm not humming. The lift is humming. I'm harmonising." },
+    { who: 'juno', face: 'soft-smile', text: 'Ten years, and you still sing in elevators.' },
+    { who: 'dex',  face: 'neutral',    text: "Ten years. Remember our first one? Behind the laundromat, the week the colour went." },
+    { who: 'juno', face: 'laughing',   text: 'You hit it with a toaster.' },
+    { who: 'dex',  face: 'laughing',   text: 'And it worked! A bit of green came off it and went straight into the laundromat sign. First lit window on the block.' },
+    { who: 'juno', face: 'focused',    text: "That's still the job. Every Chromatic we unravel gives a little colour back. It's the only reason our districts are lit." },
+    { who: 'dex',  face: 'determined', text: "And they keep coming back for it. Whatever stops broadcasting, they take, until it's all grey." },
+    { who: 'juno', face: 'concerned',  text: "So don't go grey down there. I mean it." },
+    { who: 'dex',  face: 'cocky-grin', text: 'Aw. You do care.' },
+    { who: 'juno', face: 'annoyed',    text: 'I care about the scoreboard. You still owe me three from last week.' },
+    { who: 'dex',  face: 'shocked',    text: 'Those were shared!' },
+    { who: 'juno', face: 'smirk',      text: "Lift's stopping. Go be loud somewhere useful." },
+    { card: 'THE STACKS' },
+  ],
+  juno: [  // Juno in the lift, Dex on the line
+    { caption: 'THE LIFT DOWN  ·  ONE RADIO CHANNEL' },
+    { who: 'dex',  face: 'neutral',    text: 'Lift still moving? Talk to me.' },
+    { who: 'juno', face: 'smirk',      text: "It's playing music. Ten years of nothing working, and the elevator music made it." },
+    { who: 'dex',  face: 'laughing',   text: "Tell me it's not the song from the laundromat." },
+    { who: 'juno', face: 'soft-smile', text: "It's the song from the laundromat." },
+    { who: 'dex',  face: 'cocky-grin', text: 'Our first one. You read its signal, I hit it with a toaster.' },
+    { who: 'juno', face: 'laughing',   text: 'And a bit of green came loose and went right into the sign. You cried.' },
+    { who: 'dex',  face: 'shocked',    text: 'I had something in my eye! It was colour. First colour anyone had seen in weeks.' },
+    { who: 'juno', face: 'focused',    text: "It still is. Every Chromatic we unravel gives a little back. That's all that keeps our districts lit." },
+    { who: 'dex',  face: 'worried',    text: "And down there's a whole tower of what they stole. They'll fight to keep it." },
+    { who: 'juno', face: 'annoyed',    text: "You're worried." },
+    { who: 'dex',  face: 'neutral',    text: "I'm always worried. I'm just louder about it when it's you." },
+    { who: 'juno', face: 'soft-smile', text: '...Keep the channel open.' },
+    { who: 'dex',  face: 'determined', text: 'Never closed it.' },
+    { card: 'THE STACKS' },
+  ],
+};
+
+// Before Level 4: scoreboard banter, until Null cuts in. He explains what
+// they're collecting (Raze's memories, which the Chromatics have been taking
+// from him for years) and why it matters. Keyed by the agent.
+export const WIRE_INTRO = {
+  dex: [   // Dex in the field, Juno on the line
+    { caption: 'BEFORE THE WIRE ROOM  ·  ONE RADIO CHANNEL' },
+    { who: 'dex',  face: 'cocky-grin', text: "Scoreboard check before the next room. I'm up four." },
+    { who: 'juno', face: 'annoyed',    text: "You're counting The Queue as forty." },
+    { who: 'dex',  face: 'laughing',   text: 'It WAS forty. It was a queue.' },
+    { who: 'juno', face: 'smirk',      text: "That's not how queues work, Dex." },
+    { who: 'dex',  face: 'cocky-grin', text: "That's exactly how queues w—" },
+    { caption: 'INCOMING  ·  PRIORITY SIGNAL' },
+    { who: 'null', text: 'Dex. Juno. Listen.' },
+    { who: 'juno', face: 'alarmed',    text: '...Null. Twice in one week.' },
+    { who: 'null', text: "What you pulled out of the Stacks was a memory. One of Raze's. They've kept him down there for years, draining him one memory at a time to feed the hoard." },
+    { who: 'null', text: 'The rest are in the Wire Room, locked in the old switchboard. Bring them back.' },
+    { who: 'dex',  face: 'worried',    text: 'And if we just go get him?' },
+    { who: 'null', text: "Then you'll find a man who answers to his name and doesn't know who he is. And Raze doesn't miss." },
+    { who: 'juno', face: 'focused',    text: 'Why him, Null? Out of everything down there.' },
+    { who: 'null', text: 'Because he remembers the Collapse from the inside. Get his memories. Then get him.' },
+    { who: 'dex',  face: 'determined', text: '...Okay. Scoreboard can wait.' },
+    { who: 'juno', face: 'soft-smile', text: 'It really can\'t. You still owe me three.' },
+    { card: 'WIRE ROOM' },
+  ],
+  juno: [  // Juno in the field, Dex on the line
+    { caption: 'BEFORE THE WIRE ROOM  ·  ONE RADIO CHANNEL' },
+    { who: 'juno', face: 'smirk',      text: "Scoreboard check before the next room. I'm up four." },
+    { who: 'dex',  face: 'shocked',    text: 'You counted The Queue as one?' },
+    { who: 'juno', face: 'focused',    text: 'It was one. A big one.' },
+    { who: 'dex',  face: 'laughing',   text: 'It was forty! It was literally a queue of—' },
+    { caption: 'INCOMING  ·  PRIORITY SIGNAL' },
+    { who: 'null', text: 'Dex. Juno. Listen.' },
+    { who: 'dex',  face: 'worried',    text: '...Null. Twice in one week.' },
+    { who: 'null', text: "What you pulled out of the Stacks was a memory. One of Raze's. They've kept him down there for years, draining him one memory at a time to feed the hoard." },
+    { who: 'null', text: 'The rest are in the Wire Room, locked in the old switchboard. Bring them back.' },
+    { who: 'juno', face: 'concerned',  text: 'And if we just go get him?' },
+    { who: 'null', text: "Then you'll find a man who answers to his name and doesn't know who he is. And Raze doesn't miss." },
+    { who: 'dex',  face: 'neutral',    text: 'Why him, Null? Out of everything down there.' },
+    { who: 'null', text: 'Because he remembers the Collapse from the inside. Get his memories. Then get him.' },
+    { who: 'juno', face: 'focused',    text: 'Memories first. Then Raze.' },
+    { who: 'dex',  face: 'cocky-grin', text: "And then the scoreboard. You're not getting away with 'one'." },
+    { card: 'WIRE ROOM' },
+  ],
+};
+
+// Scenes that open a level, by LEVELS[n].intro
+export const INTROS = { stacks: STACKS_INTRO, wire: WIRE_INTRO };
 
 // Tutorial: each step says its lines, then waits for its condition. A step
 // moves on only once its condition is met AND the operator has finished
@@ -137,8 +226,21 @@ export class StoryMode {
     this.scene = new Dialogue(AFTER_PICK[id], sides);
   }
 
+  // A scene between levels (e.g. before Level 3), then onDone
+  playInterlude(lines, sides, onDone) {
+    this.phase = 'interlude';
+    this.scene = new Dialogue(lines, sides);
+    this._onInterludeDone = onDone;
+  }
+  _endInterlude() {
+    this.phase = null; this.scene = null;
+    const f = this._onInterludeDone; this._onInterludeDone = null;
+    if (f) f();
+  }
+
   skipScene() {
     if (!this.scene) return;
+    if (this.phase === 'interlude') { this._endInterlude(); return; }
     if (this.phase === 'intro') { this.phase = 'pick'; this.scene = null; this.api.openCharSelect(); }
     else if (this.phase === 'after') this._beginTutorial();
   }
@@ -148,6 +250,7 @@ export class StoryMode {
     if (!this.scene) return;
     this.scene.update(dt, pressed);
     if (!this.scene.done) return;
+    if (this.phase === 'interlude') { this._endInterlude(); return; }
     if (this.phase === 'intro') { this.phase = 'pick'; this.scene = null; this.api.openCharSelect(); }
     else if (this.phase === 'after') this._beginTutorial();
   }

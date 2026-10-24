@@ -1,6 +1,6 @@
-# Characters — Dex & Juno
+# Characters — Dex, Juno and Raze
 
-Two playable characters (Raze, gold, comes later). The one the player picks is the **agent** (in the field); the other is the **operator** (on the comms, in the agent's ear). Either character can take either role.
+Two playable characters, plus Raze (gold, `#FFB52E`), unlocked after Level 5. The one the player picks is the **agent** (in the field); the other is the **operator** (on the comms, in the agent's ear). Either character can take either role.
 
 | | Main colour | Second colour |
 |---|---|---|
@@ -48,7 +48,15 @@ python tools/cutout_sheet.py assets/characters/source/dex-expressions.jpg  asset
 python tools/cutout_sheet.py assets/characters/source/dex-turnaround.jpg   assets/characters/dex/turnaround   row  dex-three-quarter,dex-front,dex-back
 python tools/cutout_sheet.py assets/characters/source/juno-expressions.jpg assets/characters/juno/expressions grid juno-laughing,juno-smirk,juno-focused,juno-neutral,juno-soft-smile,juno-annoyed,juno-alarmed,juno-concerned
 python tools/cutout_sheet.py assets/characters/source/juno-turnaround.jpg  assets/characters/juno/turnaround  row  juno-back,juno-front,juno-three-quarter
+python tools/cutout_sheet.py assets/characters/source/raze-expressions.jpg assets/characters/raze/expressions grid raze-neutral,raze-stern,raze-smirk,raze-laughing,raze-uneasy,raze-shocked,raze-angry,raze-snarl
+python tools/cutout_sheet.py assets/characters/source/raze-turnaround.jpg  assets/characters/raze/turnaround  row  raze-three-quarter,raze-front,raze-back
 ```
+
+Raze's PNGs then had enclosed see-through patches filled (his headband is
+close to the background colour). His walk sheet: paint the grid lines of
+`source/raze-sprite-sheet-v1.jpg` over with the magenta background, then
+`python tools/clean_sprite_sheet.py <that> <frames> 28 11.1` and
+`python tools/build_raze_sprite.py <frames> raze/sprite/raze-walk.png`.
 
 Names are listed in reading order of each sheet (top row left to right, then bottom row).
 

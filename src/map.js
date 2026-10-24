@@ -200,6 +200,38 @@ function buildStacks() {
   return obs;
 }
 
+// ── Level 4 "Wire Room" ───────────────────────────────────────
+// The Basement's switchboard: a maze of thick cable bundles in the main room
+// (top left), walled off from an L-shaped corridor that runs down the right
+// side and back along the bottom to the far door. The escape runs down that
+// corridor; WIRE.wires are the live wires across it.
+export const WIRE = {
+  wallX: 0.83, wallY: 0.72,             // inner corridor walls
+  corridorIn: [0.915, 0.20],            // where the corridor starts (top right)
+  door: [0.07, 0.86],                   // the far door (bottom left)
+  // Live wires: [x1, y1, x2, y2] as fractions, each spanning the corridor
+  wires: [[0.85, 0.42, 1.0, 0.42], [0.85, 0.60, 1.0, 0.60], [0.62, 0.74, 0.62, 1.0], [0.30, 0.74, 0.30, 1.0]],
+};
+function buildWireRoom() {
+  const obs = [];
+  const p = (fx, fy, fw, fh) => obs.push(makeRack(
+    Math.round(fx * W), Math.round(fy * H), Math.round(fw * W), Math.round(fh * H)));
+  const T = 0.03;
+  // Corridor walls: down the right (open at the top, into the room), then
+  // along the bottom (open at the right, round the corner)
+  p(WIRE.wallX, 0.30, T, WIRE.wallY - 0.30 + T);
+  p(0.0, WIRE.wallY, WIRE.wallX, T);
+  // The maze of cable bundles
+  p(0.08, 0.20, 0.22, T); p(0.40, 0.17, 0.28, T);
+  p(0.32, 0.26, T, 0.17); p(0.14, 0.30, T, 0.12);
+  p(0.08, 0.50, 0.20, T); p(0.48, 0.38, 0.22, T);
+  p(0.60, 0.48, T, 0.16); p(0.22, 0.60, 0.26, T);
+  p(0.42, 0.48, 0.10, T); p(0.70, 0.62, 0.10, T);
+  // A few stubs in the corridor (cover, never blocking it)
+  p(0.88, 0.50, 0.04, 0.03); p(0.46, 0.80, 0.03, 0.05); p(0.15, 0.94, 0.05, 0.03);
+  return obs;
+}
+
 // Floor nothing may spawn or blink onto: the inside of the sealed pockets
 function stacksNoSpawn() {
   const s = (STACKS.pocketIn / 2 + STACKS.pocketWall) * W;
@@ -210,6 +242,7 @@ const LAYOUTS = {
   basement: { build: buildObstacles,    spawn: [0.5, 0.12] },
   cold:     { build: buildColdStorage,  spawn: [0.5, 0.10] },
   stacks:   { build: buildStacks,       spawn: [0.5, 0.10], noSpawn: stacksNoSpawn },
+  wire:     { build: buildWireRoom,     spawn: [0.42, 0.08] },
 };
 
 export class GameMap {

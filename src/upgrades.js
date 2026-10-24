@@ -131,10 +131,15 @@ export const STORY_CARDS = [
     apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
   { id: 'hot_barrel',   who: 'juno', name: 'Hot Barrel',   desc: 'Minigun fires 25% faster.',        baseWeight: 5, cap: 1,
     apply: p => { p.projCount += 1; } },
-  { id: 'shock_dash', who: 'dex', name: 'Shock Dash', desc: 'Chromatics you dash through are stunned and take 50% more damage.', baseWeight: 5, cap: 1,
+  { id: 'shock_dash', who: 'dex', name: 'Shock Dash', desc: 'Chromatics you dash through take a hit, freeze for almost 2 seconds, and take 50% more damage.', baseWeight: 5, cap: 1,
     apply: p => { p.shockDash = true; } },
   { id: 'parting_charge', who: 'juno', name: 'Parting Charge', desc: 'Dashing leaves a light bomb where you started; it bursts a moment later.', baseWeight: 5, cap: 1,
     apply: p => { p.dashBomb = true; } },
+  // Level 4's trick shots
+  { id: 'arc_round', who: 'dex', name: 'Arc Round', desc: 'The last round of every burst arcs on to another enemy close by, for 10% more damage.', baseWeight: 5, cap: 1,
+    apply: p => { p.arcRound = true; } },
+  { id: 'ricochet', who: 'juno', name: 'Ricochet', desc: 'Rounds bounce once off racks.', baseWeight: 5, cap: 1,
+    apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; } },
   // Level 3's thrown abilities
   { id: 'decoy_beacon', who: 'juno', active: true, name: 'Decoy Beacon', desc: 'Activated: throw a beacon that pulls nearby Chromatics to it for 3 s.', baseWeight: 5, cap: 1,
     apply: p => { p.decoy = true; p.abilities.push('decoy'); } },

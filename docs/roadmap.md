@@ -26,8 +26,7 @@ says where things stand and what to do next.
 from Level 1), Stun Grenade (Dex, activated; defined but **no level awards it
 yet**). So the Arcade Story deck is tiny: this is the biggest gap in the core loop.
 
-**Story map:** Levels 1–3 are playable; Levels 4–5 show as coming soon (Wire
-Room, Raze's Room).
+**Story map:** Levels 1–4 are playable; Level 5 (Raze's Room) shows as coming soon.
 
 ## Recommended next steps
 
@@ -56,8 +55,13 @@ Wave → thrown ability granted (Dex: Stun Grenade, Juno: Decoy Beacon) → hold
 terminal's ring (stun or lure Chromatics out of it) → wave → beam puzzle (throw
 the ability over sealed pocket walls to turn three mirrors) → boss The Queue
 (rings you dash through, splits at 75/50/25%) → into the vault. Clearing it
-keeps the thrown ability. Next: Level 4 (Wire Room; Juno's ability to decide,
-Dex's too since Arc Round took Chain Arc's place).
+keeps the thrown ability. 
+### 2c. Level 4 "Wire Room": built (Oct 25, 2026), awaiting the owner's playtest
+Greens debut → ability (Dex: Arc Round, Juno: Ricochet, kept as cards) →
+six shielded junction boxes holding Raze's memories (arc jump or bounced round only) → wave →
+tuning dials → escape down a corridor with four live wires (dash through),
+22 s, alarm; time-out seals the door and restarts the level. Next: Level 5 (Raze's Room, boss,
+rescue, F abilities, Raze unlock).
 
 ### 3. Per-character mechanics
 "Focusing on what the next 3 to 5 improvements will be per character." Each

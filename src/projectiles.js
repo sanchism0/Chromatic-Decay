@@ -36,6 +36,7 @@ class Projectile {
     this.bounce   = bounce;     // reflect off map edges
     this.rackBounce = 0;        // ricochets left off racks (set after spawn)
     this.arc        = false;    // Arc Round: jumps to a nearby enemy on hit (set after spawn)
+    this.bounced    = false;    // has ricocheted off a rack (Level 4's junction boxes need this)
     this.hitIds     = null;     // enemies this round has already hit
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
@@ -50,6 +51,7 @@ export class ProjectileSystem {
     this._pool = Array.from({ length: 400 }, () => new Projectile());
     this._fizzles = [];   // where player shots ended: a brief scatter of light
     this.rackHits = [];   // racks player shots hit this frame (Story objectives read these)
+    this.arcRackHits = [];   // where Arc Rounds hit a rack this frame (the arc can jump on from there)
   }
 
   get playerProjectiles() {
@@ -132,9 +134,11 @@ export class ProjectileSystem {
           if (p.isPlayer) this.rackHits.push(obs);
           if (p.isPlayer && p.rackBounce > 0) {
             p.rackBounce--;
+            p.bounced = true;
             if (prevX < obs.x || prevX > obs.x + obs.w) p.vx = -p.vx; else p.vy = -p.vy;
             p.x = prevX; p.y = prevY;
           } else {
+            if (p.isPlayer && p.arc) this.arcRackHits.push({ x: prevX, y: prevY });
             this._endShot(p);
           }
           break;
@@ -190,6 +194,7 @@ export class ProjectileSystem {
     for (const p of this._pool) p.active = false;
     this._fizzles = [];
     this.rackHits = [];
+    this.arcRackHits = [];
   }
 
   draw(ctx) {
