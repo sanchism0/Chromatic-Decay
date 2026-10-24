@@ -167,3 +167,27 @@ Reset option in settings.
 - Level 1 is a **sampler**: you try three power-ups but **keep one**, the first, by opening the door the first time as that character.
 - A card belongs to the character who earned it. From Level 2 on, a character starts with **only their own** earned cards.
 - Character select for a Story level shows each character's cards, and what the level awards.
+
+## Leaderboards (built)
+
+Six boards on the title screen, one at a time: arrows (or ← →) on desktop, a
+swipe on phones.
+
+| Board | What it ranks |
+|---|---|
+| Arcade · Desktop / Mobile | best runs of all time, per platform |
+| This week · Desktop / Mobile | the same since Monday 00:00 UTC |
+| Story progress | 1 point per level cleared with each character (ties: first there) |
+| Lifetime Chroma | all colour ever earned, as one value: violet 1, yellow 10, green 100, orange 1,000, pink 10,000 |
+
+- The player picks a name the first time they start a game (up to 10 letters
+  and numbers); "PLAYING AS … · CHANGE" on the title screen changes it.
+- Arcade runs post automatically under that name. Game over shows the run's
+  rank (all time and this week) and NEW PERSONAL BEST, or the best so far.
+- Arcade banks a quarter of the colour it drains into Chroma, so both modes
+  feed the lifetime board.
+- Data lives in Supabase (`scores`, and `players`: one row per device). The
+  tables and access rules are in `docs/supabase/leaderboards.sql`. If the
+  database can't be reached, the boards say so and show this device's runs.
+- Scores come straight from the browser, so they can be faked. Fine among
+  friends; a server-side check comes before going public.
