@@ -17,6 +17,7 @@ node tools/playtest/boards.js /tmp/out desk          # desk | phone; add "offlin
 node tools/playtest/lunge.js /tmp/out
 node tools/playtest/pierce.js /tmp/out
 node tools/playtest/settings.js /tmp/out desk      # desk | phone
+node tools/playtest/green.js /tmp/out
 ```
 
 Each script ends with `no errors` or `ERRORS …` (page errors and console errors).
@@ -45,4 +46,5 @@ showed up in a picture.
 | `boards.js` | Name entry, Arcade run posting, rank and personal best, player sync, cycling all six boards (arrows, keys, swipe) |
 | `lunge.js` | Yellow lunge: windup, hit, sidestep miss, stun cancels |
 | `pierce.js` | Piercing rounds hit each enemy once |
+| `green.js` | Green blink: reforms ahead of a running player, can't be hit while faded, fires its volley, holds still and keeps shooting when you stand near it, six greens land spread out, stun cancels a blink |
 | `settings.js` | Settings: every switch, changing the name (and cancelling), dev panel only with `?dev` |

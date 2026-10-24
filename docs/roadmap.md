@@ -34,16 +34,10 @@ Room, Raze's Room).
 In order. Check with the owner before starting anything big; they like a short
 plan with a recommendation, then build one step at a time.
 
-### 1. Green blinkers (enemy rework), small and ready to build
-The owner's own idea, agreed in the "make it fun" brainstorm, not built yet:
-greens stop chasing; they dematerialise, reappear somewhere new around the
-player, fire 1–2 shots, then blink again. A mob of them "appearing and
-disappearing… shooting you from all directions."
-- Telegraph each reappearance (a gathering of motes, like the spawn fade-in) so
-  shots are fair. No flashing.
-- Greens appear in Arcade from wave 3 and are allowed in Story Levels 1–5.
-- Test it in Arcade first (Arcade is the test bed), with a playtest script like
-  `lunge.js`.
+### 1. Green blinkers: built (Oct 24, 2026), awaiting the owner's playtest
+Greens are now blinking turrets (see `docs/decisions.md`). Next: the owner
+tries Arcade wave 3 (ten greens) and tunes. The knobs are `BLINK` in
+`enemies.js`: cooldown, landing distance, arc, volley.
 
 ### 2. Level 2, "Cold Storage", which needs owner input first
 Following Raze's trail down from the Server Floor. The design table in
@@ -101,6 +95,9 @@ expect him.
 - **Leaderboard scores can be faked** from the browser (public key, open insert).
 - **The claude.ai preview artifacts can't reach Supabase**; scores there stay on
   the device.
+- **Arcade's lore line overlaps the desktop key bar** at the bottom of the
+  screen (seen in screenshots, Oct 2026). Move the lore feed up or the key bar
+  down.
 - **The phone name keyboard has letters only**; desktop accepts digits too.
 - **One map for everything.** Arcade, the tutorial and Level 1 share the Basement layout.
 - `scroll.html` at the repo root is an unrelated early experiment (a learning

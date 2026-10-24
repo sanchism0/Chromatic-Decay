@@ -559,6 +559,25 @@ export function sfxPerfectDodge() {
 // ── Yellow lunge ──────────────────────────────────────────────
 // Throttled: a pack winding up at once shouldn't stack into noise
 let _lastLungeSfx = 0;
+// ── Green blink: a soft glassy shimmer that falls away as it phases out, then
+// rises as it gathers again. Rate-limited so a wave of greens stays quiet.
+let _lastBlinkSfx = 0;
+export function sfxBlinkOut() {
+  const ctx = _ac(), t = ctx.currentTime;
+  if (t - _lastBlinkSfx < 0.15) return;
+  _lastBlinkSfx = t;
+  _osc('sine',     1900, t, 0.32, 0.035, 520);
+  _osc('triangle', 2850, t, 0.22, 0.015, 900);
+  _noise(t, 0.25, 0.018, 5200, 1.2);
+}
+export function sfxBlinkIn() {
+  const ctx = _ac(), t = ctx.currentTime;
+  if (t - _lastBlinkSfx < 0.15) return;
+  _lastBlinkSfx = t;
+  _osc('sine',     560, t, 0.4, 0.03, 1700);
+  _osc('triangle', 840, t + 0.05, 0.32, 0.012, 2500);
+}
+
 function _lungeOk() {
   const t = _ac().currentTime;
   if (t - _lastLungeSfx < 0.12) return false;
