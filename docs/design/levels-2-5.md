@@ -149,27 +149,47 @@ Code: `gather`, `tuning` and `escape` beats in `level.js`, the Wire Room map
 enemies and from cable hits (`projectiles.arcRackHits`); rounds that have
 ricocheted carry `bounced`.
 
-## Level 5: Raze's Room (second boss, rescue)
+## Level 5: Raze's Room (plan v2, Oct 25, 2026)
 
-**Story:** Raze's room, where the hoarded signal has walled him in. Break the
-hoard, beat what feeds on it, and bring him home.
+**Story:** the bottom of the Basement. The hoarded signal of everything the
+Chromatics took down here has walled Raze in. Break the hoard, beat what feeds
+on it, and bring him home. He speaks for the first time.
 
-**Map:** a vault with a raised core in the middle; four signal anchors around
-the edge.
+**Map:** a round vault with a raised core in the middle (Raze, behind the
+wall of hoarded signal) and four signal anchors round the edge, each in its
+own bay. Gold-on-black palette, the hoard drawn as soft drifting colour.
 
-| Beat | Play | Comms (gist) |
-|---|---|---|
-| Wave | All three types | "This is it. He's in there." |
-| **Break the hoard** (task) | Shoot four signal anchors (like Level 1's servers but tougher) while greens blink around you | "Four anchors are holding the wall. Break them." |
-| Wave | All three, heavier | |
-| **Boss: Signal Hoarder** | A giant green that blinks around the room, leaving turret nodes behind it. Destroy the nodes to make it solid, then hit it | "It's eating everything he was. Make it let go." |
-| **Rescue** | Walk to Raze's Echo. A short comms scene: Raze speaks for the first time, as a gold light (no portrait yet) | Raze: a few lines. Who he was, that he knows Null |
-| Exit | Beam-out together, card, results: **RAZE UNLOCKED** | "You found him." |
+**Before it: a scene** like the lift one. The last door; Raze's voice coming
+through for the first time, broken up; Dex and Juno on what they'll do if he's
+"just another Echo".
 
-New code: anchors (reuses the servers beat), boss two, Raze as a speaker,
-the unlock, Arc Discharge and Spin Up as F abilities.
+**The ability, after the first wave: the F slot.**
+- **Dex: Arc Discharge (F).** A ring of electric rounds out from him, all
+  directions at once: stuns and knocks back. About 9 s cooldown.
+- **Juno: Spin Up (F).** 4 s of more than double fire rate with a tight stream.
+  About 11 s cooldown.
+(Both exist in the code from the old signature system.)
 
----
+**Built around it:** the anchors and the boss's nodes are wrapped in hoarded
+signal that plain fire can't crack.
+
+| Beat | Play |
+|---|---|
+| Wave | All three types; the biggest wave yet. Then the F ability screen |
+| **Break the hoard** (task) | Four anchors. Each is shielded until it's **overloaded**: caught in Dex's discharge ring, or hit by Juno's rounds while Spin Up is running. Then it takes damage (progress is kept, never lost). F recharges faster here, like the thrown abilities in Level 3's puzzle. Greens blink around you |
+| Wave | All three, heavier |
+| **Boss: the Signal Hoarder** (checkpoint) | A giant green that blinks round the vault and leaves a **turret node** where it was. It's untouchable while any node is up. Nodes go down to normal fire, but they come in clusters: Dex's discharge clears a ring of them, Juno's Spin Up melts them. With the nodes down it turns solid for a few seconds: burn it. Each third of its health adds a node per blink. Echoes as it weakens |
+| **Rescue** | The hoard falls; walk up the core to Raze's Echo, a gold light. A short scene: Raze speaks for the first time (gold light, no portrait). Who he was (the trading algorithm that crashed markets), that he remembers, and one line that shows he knows Null |
+| Exit | Beam out together: card, results, then **RAZE UNLOCKED** |
+
+New code: overload targets, the Signal Hoarder (blink + node spawning +
+solid windows), the F slot (key bar and a second round touch button), Raze
+as a speaker and his gold light figure, the unlock screen, Raze in character
+select.
+
+**Open questions:** whether Raze is playable in Story straight away (every
+level needs a third set of operator lines, or a "Raze in the field" version)
+or Arcade first; and how much Raze gives away about Null.
 
 ## Raze as a playable character
 
