@@ -25,18 +25,20 @@ Rules this plan follows (from `docs/decisions.md`):
 
 ## The cards: what each level awards
 
-**One card every two levels** (owner's call): Levels 1, 3 and 5 each give the
-character who clears them one Story card, the first time. Levels 2 and 4 pay
-Chroma (and Story points) only. Each character ends the arc with three cards:
-their gun upgrade and two activated abilities.
+Levels 1, 2, 3 and 5 each give the character who clears them one Story card,
+the first time. Level 4 pays Chroma (and Story points) only. (The first plan
+was 1, 3 and 5; Level 2's dash abilities were added on the owner's request "to
+give people a reason to dash".) Each character ends the arc with four cards:
+a gun upgrade, a dash ability and two activated abilities.
 
 | Level | Dex | Juno |
 |---|---|---|
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
+| 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
 | 3 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
-That makes the Arcade Story deck six cards (up from three). Kinetic Finish,
+That makes the Arcade Story deck eight cards (up from three). Kinetic Finish,
 Piercing Stream, Ricochet and a possible Chain Arc stay Level 1 sampler
 power-ups for now, and are candidates for later levels or the Workshop.
 
@@ -49,22 +51,24 @@ armour-break, a slow-time shot).
 ## Level 2: Cold Storage
 
 **Story:** Raze's trace led down to the cold archive, where old data was frozen
-for keeping. A frightened Echo here saw him pass and knows the way to the lift.
-You leave with the Echo safe and the lift running: down to The Stacks.
+for keeping. His trace is split across three archive drives frozen into the
+floor. You leave with the drives and the lift running: down to The Stacks.
 
-**Map:** a new layout: long parallel aisles of tall cold racks with cross-gaps
-(good for yellow lunges, bad for running). Pale blue-white palette, frost on
-the floor.
+**Map:** long parallel aisles of tall cold racks with cross-gaps. Pale
+blue-white palette, frost, and **ice patches** where you slide (your speed
+eases in and out, and a dash keeps sliding).
 
 | Beat | Play | Comms (gist) |
 |---|---|---|
-| Wave | Violets and yellows down the aisles | "Cold Storage. Raze came through here. Something's still moving." |
-| **Escort** (task) | A slow Echo follows you to the lift, about 60% across the map. It stops whenever a Chromatic touches it (they drain it, like the relays). Up to 4 enemies at once | "That Echo saw him. Get it to the lift and it'll show us the way." |
-| Wave | Yellows in the narrow aisles | "They followed the Echo's light." |
-| **Coolant valves** (puzzle) | The lift is frozen. Three valve plates; standing on one opens it for 8 s. Get all three open at once (run between them while a few violets get in the way) | "Three valves. Open them together and the ice lets go." |
-| Exit | Ride the lift: beam-out, card, results | "The Echo knows where he went: The Stacks." |
+| Wave | Violets and yellows down the aisles; then the **dash ability** screen | "Cold Storage. Raze's trace led down here." |
+| **Drives** (task) | Grab three drives sitting in ice patches. Up to 4 enemies at once | "Your dash crackles now / leaves a charge. Three drives, frozen into the floor. You'll slide." |
+| Wave | Yellows in the narrow aisles | "They heard the ice crack." |
+| **Frozen tanks** (puzzle) | Three coolant tanks freeze the lift. Bullets do nothing; each needs two hits from the dash ability (Dex dashes through, Juno dashes away from it) | "Bullets won't touch that ice." |
+| Exit | Ride the lift: beam-out, card, results | "Hold on. Going down." |
 
-New code: escort beat, timed-plates beat, the Cold Storage map and palette. No card (Chroma only).
+Built: drives and freezers beats, ice, `dashpowers.js`, the Cold Storage map.
+(The first build had an Echo escort and coolant valves; the owner found the
+escort lame, so both were replaced.)
 
 ## Level 3: The Stacks (first boss)
 
@@ -152,7 +156,7 @@ the unlock, Arc Discharge and Spin Up as F abilities.
 
 One level at a time, each tested on desktop and phone, then merged:
 
-1. Engineering above, plus **Level 2** (escort, valves, Cold Storage map).
+1. Engineering above, plus **Level 2** (dash abilities, ice, drives, frozen tanks, Cold Storage map). Built.
 2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon).
 3. **Level 4** (gather, tuning).
 4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities, Raze unlock).

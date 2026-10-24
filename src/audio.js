@@ -578,6 +578,32 @@ export function sfxBlinkIn() {
   _osc('triangle', 840, t + 0.05, 0.32, 0.012, 2500);
 }
 
+// ── Dash abilities and ice ─────────────────────────────────────
+// Shock Dash: a quick dry crackle (electric, not a zap gun)
+let _lastShock = 0;
+export function sfxShockDash() {
+  const ctx = _ac(), t = ctx.currentTime;
+  if (t - _lastShock < 0.08) return;
+  _lastShock = t;
+  _noise(t, 0.12, 0.05, 3600, 2.5);
+  _noise(t + 0.03, 0.08, 0.035, 6200, 3);
+  _osc('square', 140, t, 0.08, 0.02, 90);
+}
+// Parting Charge bursting: a soft low thump under a glassy shimmer
+export function sfxChargeBurst() {
+  const ctx = _ac(), t = ctx.currentTime;
+  _osc('sine', 150, t, 0.25, 0.16, 50);
+  _osc('triangle', 1320, t, 0.3, 0.03, 660);
+  _noise(t, 0.2, 0.03, 2400, 1.2);
+}
+// Ice cracking: a sharp brittle snap and a few tinkling chips
+export function sfxIceCrack(broken = false) {
+  const ctx = _ac(), t = ctx.currentTime;
+  _noise(t, 0.06, 0.09, 4800, 4);
+  _noise(t + 0.02, broken ? 0.35 : 0.15, 0.04, 2800, 1.5);
+  for (let i = 0; i < (broken ? 5 : 2); i++) _osc('sine', 2400 + Math.random() * 1800, t + 0.04 + i * 0.05, 0.12, 0.02);
+}
+
 function _lungeOk() {
   const t = _ac().currentTime;
   if (t - _lastLungeSfx < 0.12) return false;

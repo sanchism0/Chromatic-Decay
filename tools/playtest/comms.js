@@ -1,6 +1,7 @@
 // Headless playtest (see tools/playtest/README.md). Serve the repo on :8766 first.
-// Comms rules: the box sits in the bottom half; while a line is up the agent
-// can't shoot; with Chromatics around everything holds still; Space moves on.
+// Comms rules: the box sits just below the middle on desktop and at the top on
+// phones; while a line is up the agent can't shoot; with Chromatics around
+// everything holds still; Space moves the line on (and doesn't dash).
 // Args: <outdir> [desk|phone|land]
 const ROOT = process.env.REPO || require('path').resolve(__dirname, '../..');
 const { chromium } = require('playwright'); const fs = require('fs'); const path = require('path');
@@ -24,7 +25,7 @@ fs.mkdirSync(out, { recursive: true });
   await ev(shots);
   await p.waitForTimeout(800);
   const box = await ev('level.radio.rect');
-  console.log('briefing: line up', await ev('!!level.radio.cur'), '| box top at', box && Math.round(box.y), 'of', vp.height, '(bottom half:', box && box.y > vp.height / 2 - 40, ') | shots while talking', await ev('__n'));
+  console.log('briefing: line up', await ev('!!level.radio.cur'), '| box top at', box && Math.round(box.y), 'of', vp.height, phone ? '(top:' : '(mid-screen:', box && (phone ? box.y < vp.height * 0.3 : box.y > vp.height * 0.35 && box.y < vp.height * 0.75), ') | shots while talking', await ev('__n'));
   await p.screenshot({ path: `${out}/${mode}-briefing.png` });
   // Line up with an enemy around: everything holds still
   await ev(`level.radio.clear(); window.__v = enemies.spawnEnemyAt('violet', player.x + 200, player.y); __v.spawnT = 1; level.radio.say([{ who: 'juno', face: 'focused', text: 'Hold on, this is a test line while a Chromatic is close.' }]);`);
@@ -38,7 +39,7 @@ fs.mkdirSync(out, { recursive: true });
   if (!phone) { await p.keyboard.down('Space'); await p.waitForTimeout(60); await p.keyboard.up('Space'); }
   else await ev('level.radio.next()');
   await p.waitForTimeout(150);
-  console.log('after Space: line up', await ev('!!level.radio.cur'));
+  console.log('after Space: line up', await ev('!!level.radio.cur'), '| dashed', await ev('player.dashT > 0'));
   await p.waitForTimeout(800);
   const a2 = await ev('[__v.x, __v.y]');
   console.log('then: enemy moved', Math.round(Math.hypot(a2[0] - a1[0], a2[1] - a1[1])), 'px | shots', await ev('__n'));

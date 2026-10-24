@@ -417,6 +417,7 @@ export class Player {
     if (wantDash && this.dashCooldown <= 0 && this.dashT <= 0) {
       this.dashDir = to && Math.hypot(to.x - this.x, to.y - this.y) > 4 ? normalize(to.x - this.x, to.y - this.y)
                    : (dx || dy) ? dir : { x: Math.cos(this.facing), y: Math.sin(this.facing) };
+      this.dashFrom = { x: this.x, y: this.y };   // where it started (Juno's Parting Charge)
       this.dashT = DASH_TIME;
       this.dashCooldown = this.dashCooldownMax = DASH_CD;
       this._dodged = false;
@@ -429,17 +430,33 @@ export class Player {
       this._afterimages.push({ x: this.x, y: this.y, age: 0, cell: this._cell || [0, 1] });
     }
 
+    // On ice (onIce, set by a Story level) you slide: your velocity eases
+    // toward where you're steering instead of snapping to it, and a dash
+    // carries on after it ends
+    let vx = dir.x * spd, vy = dir.y * spd;
+    if (this.onIce && this.dashT <= 0) {
+      const k = Math.min(1, dt * 2.2);
+      this._vx = (this._vx || 0) + (vx - (this._vx || 0)) * k;
+      this._vy = (this._vy || 0) + (vy - (this._vy || 0)) * k;
+      vx = this._vx; vy = this._vy;
+    } else { this._vx = vx; this._vy = vy; }
+
     // Move in sub-steps no longer than a quarter of the body, so a slow frame
     // (large dt) can't jump the player's centre inside a rack
     const r     = this.size / 2;
-    const moveDist = spd * dt;
+    const moveDist = Math.hypot(vx, vy) * dt;
     const steps = Math.max(1, Math.ceil(moveDist / (r * 0.5)));
     for (let i = 0; i < steps; i++) {
-      let nx = this.x + dir.x * moveDist / steps;
-      let ny = this.y + dir.y * moveDist / steps;
+      let nx = this.x + vx * dt / steps;
+      let ny = this.y + vy * dt / steps;
       for (const obs of map.obstacles) {
         const hit = circleVsRect(nx, ny, r + 1, obs.x, obs.y, obs.w, obs.h);
-        if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
+        if (hit) {
+          nx += hit.nx * hit.depth; ny += hit.ny * hit.depth;
+          // sliding into a rack stops the slide into it, not along it
+          const into = this._vx * hit.nx + this._vy * hit.ny;
+          if (into < 0) { this._vx -= into * hit.nx; this._vy -= into * hit.ny; }
+        }
       }
       this.x = clamp(nx, r, CONFIG.map_width  - r);
       this.y = clamp(ny, r, CONFIG.map_height - r);

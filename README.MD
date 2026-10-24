@@ -18,7 +18,8 @@ touch controls).
 ## Modes
 
 - **Story Mode:** pick who goes in; the other one talks you through it on
-  comms. A prologue, a tutorial and Level 1 ("Server Floor") so far. Clearing
+  comms. A prologue, a tutorial, Level 1 ("Server Floor") and Level 2
+  ("Cold Storage") so far. Clearing
   levels earns Chroma and **Story cards**.
 - **Arcade Mode:** 15 waves of escalating Chromatics with bosses. Every Story
   card you've earned joins your upgrade deck.
@@ -31,7 +32,7 @@ touch controls).
 |---|---|---|
 | Move / aim | WASD + mouse | left stick / right stick |
 | Fire | automatic (Q to toggle) | automatic (AUTO to toggle) |
-| Dash | click (toward the cursor) | DASH |
+| Dash | Space or click (toward the cursor) | DASH |
 | Abilities | E, F | ability buttons |
 | Comms | Space or Enter | tap the box |
 

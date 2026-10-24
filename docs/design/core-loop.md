@@ -102,7 +102,7 @@ task is a fight with a goal.
 ### Task ideas
 - **Hold the line**: stand in a zone while it uploads, as enemies come.
 - **Relays**: power up 3 relays scattered around the map.
-- **Escort**: lead a slow Echo to the exit.
+- **Escort**: lead a slow Echo to the exit. (Tried in Level 2 and dropped: "kind of lame".)
 - **Gather**: collect fragments before Chromatics consume them.
 
 ### Puzzle ideas (built around the emitter)
@@ -122,7 +122,7 @@ down to Cold Storage. Sable can be character 4 later.
 | # | Level | Wave 1 | Task | Wave 2 | Puzzle | Boss | Unlocks |
 |---|---|---|---|---|---|---|---|
 | 1 | Server Floor | violet | Relays (3) | violet + yellow | Wake 4 servers | none | First power-up as a **Story card**, for the character who clears it (built) |
-| 2 | Cold Storage | violet + yellow | Escort an Echo | yellow | Plates | none | Tree tier 1 (story nodes) |
+| 2 | Cold Storage | violet + yellow | Frozen drives on ice | yellow | Crack the tanks with the dash ability | none | Dash ability as a **Story card** (built) |
 | 3 | The Stacks | yellow | Hold the line | violet + yellow | Beam | **The Queue**: a huge violet made of unplayed streams | Tier 2 story node |
 | 4 | Wire Room | green (new) | Gather fragments | yellow + green | Tuning | none | Workshop opens in full |
 | 5 | Raze's Room | all three | Hold the line | all three | Beam + Sequence | **Signal Hoarder** (green) | **Raze** rescued, and playable |

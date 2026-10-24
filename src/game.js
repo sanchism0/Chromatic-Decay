@@ -6,6 +6,7 @@ import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD } from './grenade.js';
+import { DashPowers } from './dashpowers.js';
 import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE } from './profile.js';
 import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
 import { EnemySystem }      from './enemies.js';
@@ -106,6 +107,7 @@ let state = STATES.TITLE;
 
 const input       = new Input(canvas);
 const grenades    = new GrenadeSystem();
+const dashPowers  = new DashPowers();
 const camera      = new Camera();
 const particles   = new ParticleSystem();
 const drain       = new DrainSystem();
@@ -199,6 +201,7 @@ function startRun(opts = {}) {
   echoes.reset();
   projectiles.reset();
   grenades.reset();
+  dashPowers.reset();
   lore.reset();
   lore.enabled = !tutorial && !levelId;   // the operator does the talking in Story
   upgradeUI.takenIds    = [];
@@ -527,9 +530,11 @@ function updatePlaying(dt) {
     story.onToggleFire();
   }
   const _radio = level ? level.radio : (story.inTutorial ? story.radio : null);
-  // Comms: Space, Enter, or a click / tap on the box moves on
+  // Comms: Space, Enter, or a click / tap on the box moves on (Space only
+  // while a line is up; otherwise Space dashes)
   const onBox = input.mouseJustClicked && _radio && _radio.hit(input.mouseX, input.mouseY);
-  if (_radio && _radio.busy && (input.justPressed.space || input.justPressed.enter || onBox)) _radio.next();
+  const lineUp = !!(_radio && _radio.cur);
+  if (lineUp && (input.justPressed.space || input.justPressed.enter || onBox)) _radio.next();
 
   // While the operator is talking you can't shoot, and if Chromatics are
   // around, everything holds still until the line is done (nothing is said
@@ -542,11 +547,12 @@ function updatePlaying(dt) {
     return;
   }
 
-  // Dash. Desktop: click to dash toward the cursor (right-click always works;
-  // with auto-fire off, the left button is the trigger). Touch: the DASH button.
+  // Dash. Desktop: Space or a click dashes toward the cursor (right-click
+  // always works; with auto-fire off, the left button is the trigger).
+  // Touch: the DASH button.
   const touchUI = 'ontouchstart' in window;
   if (input.mouseJustClicked && _hitBtn(_dashBtn.r)) player.dashQueued = true;
-  else if (!touchUI && !talking && (input.justPressed.rightClick ||
+  else if (!touchUI && !lineUp && (input.justPressed.space || input.justPressed.rightClick ||
            (input.mouseJustClicked && input.autoFire && !onBox && !_hitBtn(_autoBtn.r)))) {
     player.dashQueued = true;
     player.dashToward = input.worldMouse(camera.x, camera.y, ZOOM);
@@ -661,6 +667,7 @@ function updatePlaying(dt) {
   }
 
   grenades.update(dt, enemies);
+  dashPowers.update(dt, player, enemies, level ? level.dashTargets : null);
 
   // Projectiles
   projectiles.update(dt, map, player);
@@ -1403,6 +1410,7 @@ function drawGame(W, H) {
   // Grenades fly over the racks, and their smoke has to read over the glow,
   // so they're drawn last
   grenades.draw(ctx, enemies.enemies);
+  dashPowers.draw(ctx);
   if (level) level.drawOverRacks(ctx);
 
   // ── Charging zones (pre-spawn indicators) ────────────────
@@ -2010,7 +2018,7 @@ function drawAbilityUnlock(W, H) {
   if (!card) return;
   const name = level.agent === 'dex' ? 'Dex' : 'Juno';
   _drawReward(W, H, {
-    color: AGENT_COLOR[level.agent], top: 'THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
+    color: AGENT_COLOR[level.agent], top: level.def.unlockTop || 'THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
     label: 'NEW CARD  ·  YOURS TO KEEP', name: card.name, desc: card.desc,
     hint: `It now shows up in ${name}'s Arcade upgrades.`,
     button: 'TAKE IT',
@@ -2032,7 +2040,7 @@ function drawPowerUp(W, H) {
   if (!pu) return;
   _drawReward(W, H, {
     color: AGENT_COLOR[level.agent], top: 'THE CHARGE IN YOUR EMITTER SETTLES INTO SOMETHING NEW.',
-    label: `POWER UP  ·  ${level.powers.length + 1} / 3`, name: pu.name, desc: pu.desc,
+    label: level.def.powerups ? `POWER UP  ·  ${level.powers.length + 1} / 3` : 'NEW ABILITY  ·  CLEAR THE LEVEL TO KEEP IT', name: pu.name, desc: pu.desc,
     hint: (typeof pu.hint === 'function' ? pu.hint('ontouchstart' in window) : pu.hint) || 'Lasts for the rest of this level.', button: 'NICE',
   });
 }
@@ -2236,13 +2244,13 @@ function _abilityInfo(id) {
   return null;
 }
 
-// Desktop: a key bar at the bottom centre — CLICK dash, then the E and F
+// Desktop: a key bar at the bottom centre — SPACE (or click) dash, then the E and F
 // ability slots. Each shows its key, a fill that rises as it recharges, and
 // the seconds left; ready slots light up in their colour.
 function _drawKeyBar(W, H) {
   if (!player || 'ontouchstart' in window) return;
   const slots = [
-    { key: 'CLICK', name: 'DASH', color: '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
+    { key: 'SPACE', name: 'DASH', color: '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
     { key: 'E', ...(_abilityInfo(player.abilities[0]) || {}) },
     { key: 'F', ...(_abilityInfo(player.abilities[1]) || {}) },
   ];

@@ -139,16 +139,16 @@ roughly even.
 | Move | WASD / arrows | left stick |
 | Aim | mouse | right stick |
 | Fire | auto-fire on by default; Q toggles; manual = hold mouse | AUTO button; manual = hold the aim stick |
-| Dash | **click: dashes toward the cursor** (right-click always; left-click when auto-fire is on, since with it off the left button fires) | DASH button (the way you're moving) |
+| Dash | **Space or click: dashes toward the cursor** (right-click always; left-click when auto-fire is on, since with it off the left button fires) | DASH button (the way you're moving) |
 | Abilities | E = first activated ability, F = second | round buttons next to DASH |
-| Comms | **Space**, Enter, or click the box | tap the box |
+| Comms | **Space**, Enter, or click the box (Space only moves comms on while a line is up, so it never dashes by accident) | tap the box |
 | Pause / skip scene | Esc | SKIP button |
 
 - **E is the first activated ability a character gets, F the second.** "If
   there's no ability, then there's no function for E." Every ability gets a key.
   (An earlier fallback that threw a grenade with no ability was rejected
   outright.)
-- **Dash:** any character; on desktop a click dashes toward the cursor (changed from Space, Oct 24, 2026). Space now moves comms on. 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
+- **Dash:** any character; on desktop Space or a click dashes toward the cursor. While a comms line is up the game is stopped, so Space moves the line on instead; the two never collide (Oct 24, 2026). 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
   and cooldown raised on request). Untouchable mid-dash; a perfect dodge refunds
   the cooldown once. Cooldowns must be clearly visible (key bar on desktop,
   rings on touch buttons).
@@ -172,7 +172,7 @@ roughly even.
 - **Few, short lines.** "Tell people what's going on in the story without making
   them click through multiple screens." Cut asides (the coherent-light
   explanation was removed from the tutorial). One press moves to the next line.
-- **Text only while the game is stopped** (Oct 24, 2026): while a comms line is up the agent can't shoot, and if any Chromatic is on the map everything freezes until the line ends or the player presses Space. The comms box sits in the **bottom half** of the screen (above the key bar on desktop, between the sticks in phone landscape, above the touch buttons in portrait); the objective line sits at the top.
+- **Text only while the game is stopped** (Oct 24, 2026): while a comms line is up the agent can't shoot, and if any Chromatic is on the map everything freezes until the line ends or the player presses Space. Placement: on **desktop** the box sits **just below the middle** of the screen so people actually read it ("they don't see it much"); on **phones** it stays **at the top**, as before, with the objective under it. (A bottom-half placement was tried and dropped the same day.)
 - **Comms must never be missed in a fight.** Briefings hold enemies back until
   they finish; later lines wait for a game event. ("I was caught up killing the
   yellow guys, and I missed everything in the dialogue.")
@@ -198,7 +198,9 @@ roughly even.
   Kinetic Finish. Juno: Hot Barrel → Piercing Stream → Ricochet.
 - **Keep one:** opening the door the first time as a character saves the **first**
   power-up permanently as a Story card for that character, with the unlock tune.
-- **A card every two levels:** Levels 1, 3 and 5 award Story cards; 2 and 4 pay Chroma only (decided Oct 24, 2026). Plan: `docs/design/levels-2-5.md`.
+- **Cards:** Levels 1, 2, 3 and 5 award Story cards; Level 4 pays Chroma only. (The plan was 1, 3 and 5; the owner then asked for **dash abilities** in Level 2 "to give people a reason to dash".) Plan: `docs/design/levels-2-5.md`.
+- **Dash abilities (Level 2):** Dex's **Shock Dash** stuns and jams (+50% damage taken) every Chromatic he dashes through; Juno's **Parting Charge** drops a light bomb where she dashed from, which bursts 0.6 s later. Level 2 grants it after the first wave and keeps it if you clear the level. Some objectives (Level 2's frozen tanks) only break to the dash ability, never bullets.
+- **No escorts.** The Echo following you to the lift was "kind of lame" (Oct 24, 2026); Level 2 uses ice on the floor (you slide) and frozen drives/tanks instead.
 - **No checkpoints for now:** dying restarts the whole level; revisit if levels get long.
 - **Cards belong to the character who earned them.** From Level 2 on, a character
   starts with only their own cards.

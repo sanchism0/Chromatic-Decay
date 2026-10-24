@@ -131,6 +131,10 @@ export const STORY_CARDS = [
     apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
   { id: 'hot_barrel',   who: 'juno', name: 'Hot Barrel',   desc: 'Minigun fires 25% faster.',        baseWeight: 5, cap: 1,
     apply: p => { p.projCount += 1; } },
+  { id: 'shock_dash', who: 'dex', name: 'Shock Dash', desc: 'Chromatics you dash through are stunned and take 50% more damage.', baseWeight: 5, cap: 1,
+    apply: p => { p.shockDash = true; } },
+  { id: 'parting_charge', who: 'juno', name: 'Parting Charge', desc: 'Dashing leaves a light bomb where you started; it bursts a moment later.', baseWeight: 5, cap: 1,
+    apply: p => { p.dashBomb = true; } },
   // Not awarded by any level yet; listed so it slots in once one does
   { id: 'stun_grenade', who: 'dex', active: true, name: 'Stun Grenade', desc: 'Activated: lob a grenade that stuns and jams enemies.', baseWeight: 5, cap: 1,
     apply: p => { p.grenade = true; p.abilities.push('grenade'); } },

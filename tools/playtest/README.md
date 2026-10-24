@@ -44,11 +44,11 @@ showed up in a picture.
 | Script | Covers |
 |---|---|
 | `level1.js` | Story map → character select → Level 1 start to finish: waves, relays (drain + charge), power-ups, the four servers, extraction beam-out, card unlock, results, a death and restart |
-| `level2.js` | Level 2: the cold map, the start kit, escort (stall + goal-seeking violets), valves, the lift, results |
+| `level2.js` | Level 2: the cold map, the start kit, the dash ability screen, Shock Dash stun/jam or Parting Charge damage, ice sliding, drives, bullets vs dash on the tanks, the lift, card saved |
 | `storyflow.js` | Prologue: intro scene, pick, tutorial steps, end card |
 | `boards.js` | Name entry, Arcade run posting, rank and personal best, player sync, cycling all six boards (arrows, keys, swipe) |
 | `lunge.js` | Yellow lunge: windup, hit, sidestep miss, stun cancels |
 | `pierce.js` | Piercing rounds hit each enemy once |
 | `green.js` | Green blink: reforms ahead of a running player, can't be hit while faded, fires its volley, holds still and keeps shooting when you stand near it, six greens land spread out, stun cancels a blink |
-| `comms.js` | Comms box in the bottom half; no shooting while a line is up; the game freezes with enemies around; Space moves on |
+| `comms.js` | Comms box just below the middle on desktop, at the top on phones; no shooting while a line is up; the game freezes with enemies around; Space moves the line on without dashing |
 | `settings.js` | Settings: every switch, changing the name (and cancelling), dev panel only with `?dev` |

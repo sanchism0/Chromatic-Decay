@@ -237,9 +237,10 @@ export class Radio {
   // Compact box under the HUD; objective line underneath it
   // clearLeft: if the box would reach into the top-left HUD column (x < 230),
   // start it at this y instead, below the bars
-  // The comms box sits in the bottom half of the screen: above the key bar on
-  // desktop, between the sticks on a phone held sideways, above the touch
-  // buttons in portrait. The objective line sits at the top.
+  // Desktop: the comms box sits just below the middle of the screen, where
+  // people read it (the agent is in the middle, so it sits under them), and
+  // the objective line at the top. Phones: both at the top, out of the way of
+  // the sticks; in landscape, between the health bar and the Chroma counts.
   draw(ctx, W, H, objective, touch, clearLeft = 0) {
     const compact = touch && H < 500;
     const narrow = W < 600 || compact;
@@ -253,7 +254,9 @@ export class Radio {
       ctx.font = `${narrow ? 12 : 14}px monospace`;
       const lines = wrap(ctx, this.cur.text.slice(0, Math.floor(this.shown)), boxW - portS - 34);
       const boxH = Math.max(portS + 12, 30 + lines.length * (narrow ? 16 : 19) + 10);
-      const by = !touch ? H - boxH - 80 : compact ? H - boxH - 10 : H - boxH - 268;
+      const by = !touch ? Math.min(Math.round(H / 2 + 60), H - boxH - 80)
+               : compact ? 6 : Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0);
+      this._bottom = by + boxH + 10;
       const top = drawSlab(ctx, bx, by, boxW, boxH, { accent: sp.color, depth: 6, glow: 0.2, led: false });
       // Portrait: a head-and-shoulders crop in a small window
       ctx.save();
@@ -293,7 +296,10 @@ export class Radio {
       this.rect = { x: bx, y: by, w: boxW, h: boxH + 8 };
     }
     if (objective) {
-      const bottom = compact ? 2 : narrow ? 36 : 12;
+      // Desktop: top of the screen. Phones: under the comms box (or where it
+      // would be)
+      const below = this.cur ? this._bottom : (compact ? 4 : Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0));
+      const bottom = !touch ? 12 : below;
       ctx.save();
       ctx.textAlign = 'center';
       ctx.font = `bold ${narrow ? 11 : 13}px monospace`;

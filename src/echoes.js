@@ -63,20 +63,6 @@ export class Echo {
   }
 }
 
-// Draws one Echo figure at (x, y): for things that aren't pickups, like the
-// Echo you escort in Story. echo needs { pulseTimer, bobTimer }.
-let _figure = null;
-export function drawEchoFigure(ctx, echo, alpha = 1) {
-  if (!_figure) _figure = new EchoSystem();
-  const pulse = Math.sin(echo.pulseTimer * 2.8) * 0.5 + 0.5;
-  const bob   = Math.sin(echo.bobTimer * 2.2) * 3;
-  drawGroundShadow(ctx, echo.x, echo.y + 7, 8.4, 3.2, 0.55 * alpha);
-  _figure._seeThrough = alpha < 1 ? alpha : 0;
-  _figure._drawEcho(ctx, echo.x, echo.y + bob, pulse, echo);
-  _figure._seeThrough = 0;
-  ctx.globalAlpha = 1;
-}
-
 export class EchoSystem {
   constructor() {
     this.echoes      = [];

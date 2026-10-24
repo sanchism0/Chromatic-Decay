@@ -85,17 +85,17 @@ Section power-ups (Level 1 only) and the kept card are in `docs/decisions.md`.
 
 | Beat | Comms (gist) | Play |
 |---|---|---|
-| Wave | Raze's trace led down here, where they froze the old data. Clear the aisles. | Violets, then yellows, down long aisles |
-| Escort | An Echo saw Raze come through and knows the way to the freight lift. Keep the Chromatics off it. | It follows you; it stalls while drained; some violets go for it |
-| Wave | They followed the Echo's light. | Yellows in the aisles |
-| Valves | The lift's frozen. Open all three coolant valves at once. | Stand on each; each stays open 8 s |
-| Exit | "It's moving! Get on the lift." / "Hold on. Going down." | Ride the lift: beam-out, results. Outcome: Raze went down, to The Stacks |
+| Wave | Raze's trace led down here, where they froze the old data. Clear the aisles. "Your signal just spiked..." | Violets, then yellows, down long aisles. Then the dash ability screen |
+| Drives | Your dash crackles now (Dex) / leaves a charge (Juno). Raze's trace is split across three drives frozen into the floor; it's iced, you'll slide. | Grab three drives in ice patches while up to 4 enemies interrupt. Ends: Raze went down, to The Stacks |
+| Wave | They heard the ice crack. | Yellows in the aisles |
+| Tanks | The lift's frozen; three coolant tanks are why. Bullets won't touch the ice: dash through it (Dex) / dash away from it (Juno). | Two dash-ability hits per tank; a few violets get in the way |
+| Exit | "The lift's moving! Get on." / "Hold on. Going down." | Ride the lift: beam-out, card (first time), results |
 
 ## Levels 3–5 (planned)
 
 | # | Level | Story beat |
 |---|---|---|
-| 2 | Cold Storage | Raze's trail goes colder. Escort an Echo; plates puzzle |
+| 2 | Cold Storage | Raze's trail goes colder. Dash abilities, ice, frozen drives and tanks (built) |
 | 3 | The Stacks | Hold the line; first boss, The Queue |
 | 4 | Wire Room | Greens arrive in force; gather fragments; tuning puzzle |
 | 5 | Raze's Room | Boss: Signal Hoarder. Rescue Raze; he becomes playable |
