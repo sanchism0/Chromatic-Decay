@@ -1,6 +1,22 @@
 # CHROMATIC DECAY — Game Design Document
 *Version 3.0 — Planning Phase*
 
+> **Historical document: mostly out of date.** This is the original planning
+> doc from before the game was built. Much of it was replaced:
+>
+> - The player is **Dex or Juno**, not Null. **Null** is the faceless leader on comms.
+> - The **five classes and Warden Fragments** are retired. Characters differ by
+>   gun and earned **Story cards**; Arcade draws from a shared Story deck.
+> - **Raze** is the Echo the Basement arc rescues, and later a playable gold
+>   character. **Sable** may become character 4.
+> - Leaderboards, mobile controls, enemies, scoring and Story Mode all work
+>   differently now.
+>
+> Current docs: `CLAUDE.md`, `docs/decisions.md`, `docs/roadmap.md`,
+> `docs/architecture.md`, `docs/design/core-loop.md`, `docs/story/story-mode.md`.
+> Still useful here: the world lore (§2), enemy flavour (§6), visual palette
+> (§13) and audio direction (§14).
+
 ---
 
 ## 1. Game Overview
