@@ -5,7 +5,7 @@ import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
 import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
-import { GrenadeSystem, GRENADE_CD } from './grenade.js';
+import { GrenadeSystem, GRENADE_CD, GRENADE_RANGE, GRENADE_RADIUS } from './grenade.js';
 import { DashPowers } from './dashpowers.js';
 import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE } from './profile.js';
 import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
@@ -52,8 +52,9 @@ function updateZoom() {
   else if (minDim < 900) z = 1.65;
   else                   z = CONFIG.camera_zoom;
 
-  // On mobile: cap zoom so at least 340px of world width is always visible.
-  if (mobile) z = Math.min(z, W / 340);
+  // On mobile: cap zoom so at least 378px of world width is always visible,
+  // then pull back another 10% (owner: phones were zoomed in too far)
+  if (mobile) z = Math.min(z, W / 340) * 0.9;
 
   ZOOM = z;
 }
@@ -563,6 +564,12 @@ function updatePlaying(dt) {
   if (input.justPressed.e) _useAbility(player.abilities[0]);
   if (input.justPressed.f) _useAbility(player.abilities[1]);
   if (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)) _useAbility('grenade');
+  // Touch: drag from the grenade button to where it should land, let go to
+  // throw. A tap with no drag (or dragging back onto the button) cancels
+  if (input.btnDragRelease) {
+    const aim = _grenadeDragAim(input.btnDragRelease);
+    if (aim) _useAbility('grenade', aim);
+  }
   if (input.mouseJustClicked && _hitBtn(_sigBtn.r)) _useAbility('signature');
   const _px = player.x, _py = player.y;
 
@@ -1410,6 +1417,7 @@ function drawGame(W, H) {
   // Grenades fly over the racks, and their smoke has to read over the glow,
   // so they're drawn last
   grenades.draw(ctx, enemies.enemies);
+  _drawGrenadeAim(ctx);
   dashPowers.draw(ctx);
   if (level) level.drawOverRacks(ctx);
 
@@ -2219,14 +2227,46 @@ function _signatureEffects(who) {
   }
 }
 
-function _useAbility(id) {
+// Touch grenade aim: the drag from the button, as a landing point. A drag of
+// GRENADE_DRAG_PX screen px reaches full range; under 18 px is no throw
+const GRENADE_DRAG_PX = 110;
+function _grenadeDragAim(d) {
+  const len = Math.hypot(d.dx, d.dy);
+  if (!player || len < 18) return null;
+  const r = Math.min(GRENADE_RANGE, len / GRENADE_DRAG_PX * GRENADE_RANGE);
+  return { x: player.x + d.dx / len * r, y: player.y + d.dy / len * r };
+}
+input.dragHit = (x, y) => state === STATES.PLAYING && !!player && player.grenade && player.grenadeCooldown <= 0 &&
+  !!_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h;
+
+// While dragging: a ring where it will land and a dotted lob to it
+function _drawGrenadeAim(ctx) {
+  const d = input.btnDrag;
+  if (!d || !player) return;
+  const aim = _grenadeDragAim({ dx: d.x - d.x0, dy: d.y - d.y0 });
+  if (!aim) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = '#B6FF2E'; ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath(); ctx.ellipse(aim.x, aim.y, GRENADE_RADIUS, GRENADE_RADIUS * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 0.18; ctx.fillStyle = '#B6FF2E'; ctx.fill();
+  ctx.globalAlpha = 0.7; ctx.fillStyle = '#B6FF2E';
+  for (let k = 1; k < 10; k++) {
+    const f = k / 10;
+    ctx.fillRect(Math.round(player.x + (aim.x - player.x) * f) - 1, Math.round(player.y - 8 + (aim.y - player.y + 8) * f - Math.sin(f * Math.PI) * 46) - 1, 2, 2);
+  }
+  ctx.restore();
+}
+
+function _useAbility(id, at) {
   if (!id || !player || player.beaming) return;
   if (id === 'grenade' && player.grenade && player.grenadeCooldown <= 0) {
-    // Stun grenade: at the cursor, or toward where you're aiming on touch
+    // Stun grenade: at the cursor on desktop; on touch, where the drag says
     const ap = player._aimPoint;
-    const touchAim = 'ontouchstart' in window || !ap;
-    const tx = touchAim ? player.x + Math.cos(player.facing) * 190 : ap.x;
-    const ty = touchAim ? player.y + Math.sin(player.facing) * 190 : ap.y;
+    if (!at && 'ontouchstart' in window) return;
+    const tx = at ? at.x : ap ? ap.x : player.x + Math.cos(player.facing) * 190;
+    const ty = at ? at.y : ap ? ap.y : player.y + Math.sin(player.facing) * 190;
     grenades.throw(player.x, player.y - 8, tx, ty);
     player.grenadeCooldown = GRENADE_CD;
   } else if (id === 'signature' && player.signature && player.signatureCooldown <= 0) {

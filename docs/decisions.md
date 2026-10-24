@@ -140,7 +140,7 @@ roughly even.
 | Aim | mouse | right stick |
 | Fire | auto-fire on by default; Q toggles; manual = hold mouse | AUTO button; manual = hold the aim stick |
 | Dash | **Space or click: dashes toward the cursor** (right-click always; left-click when auto-fire is on, since with it off the left button fires) | DASH button (the way you're moving) |
-| Abilities | E = first activated ability, F = second | round buttons next to DASH |
+| Abilities | E = first activated ability, F = second (the grenade lands at the cursor) | round buttons next to DASH; **the grenade: press its button and drag to where it should land**, a ring shows the spot, let go to throw (a tap alone throws nothing) |
 | Comms | **Space**, Enter, or click the box (Space only moves comms on while a line is up, so it never dashes by accident) | tap the box |
 | Pause / skip scene | Esc | SKIP button |
 
@@ -157,7 +157,8 @@ roughly even.
   landscape; buttons are **round and see-through**; AUTO sits up-left of the left
   stick, mirroring DASH up-right of the right stick.
 - **Camera:** PC zoom 1.95 (zoomed in from 1.7: "users can see too much of the
-  map"). Phones zoom by screen size, never showing less than 340 px of width.
+  map"). Phones zoom by screen size, never showing less than 340 px of width,
+  then pulled back 10% (Oct 25, 2026, owner's request), so at least 378 px.
 
 ## Story Mode
 

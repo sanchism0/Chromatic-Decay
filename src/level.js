@@ -32,7 +32,7 @@ export const POWERUPS = {
   dex: [
     { id: 'heavy_bursts', name: 'HEAVY BURSTS', desc: '4-round bursts, and 15% more damage.',          apply: p => { p.projCount += 1; p.damageMultiplier *= 1.15; } },
     { name: 'STUN GRENADE',    desc: 'Lob it over the racks: stuns and jams enemies, who take 50% more damage.', apply: p => { p.grenade = true; p.abilities.push('grenade'); },
-      hint: touch => (touch ? 'Tap its button to throw it.' : 'Press E to throw it.') },
+      hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
     { name: 'ARC ROUND',       desc: 'The last round of every burst is electric: it jumps to another enemy close by.', apply: p => { p.arcRound = true; } },
   ],
   juno: [
