@@ -89,7 +89,7 @@ const tag = mode + '-' + who;
   console.log(`after the ${id}: crowd`, await ev('level.hold.crowd'), '| pull', pb.toFixed(3), '->', pa.toFixed(3));
   await ev('__b.takeDamage(1e9); level.hold.p = 0.97;');
   await waitFor('level.beat.type !== "hold"', 5000);
-  console.log('hold done → beat', await ev('level.beat.type'));
+  console.log('hold done → beat', await ev('level.beat.type'), '| Echoes on the floor', await ev('echoes.echoes.length'));
 
   // Wave 2
   await skipTalk(); await waitFor('level.ready');
@@ -133,7 +133,7 @@ const tag = mode + '-' + who;
   await ev('window.__god = setInterval(() => { if (player) player.hp = player.maxHp; }, 50); level.boss.cfg.move_speed = level.boss._spd;');
   await ev('level.boss.hp = level.boss.maxHp * 0.7');
   await p.waitForTimeout(400);
-  console.log('at 70%: splits', await ev('level.splitIdx'), '| enemies', await ev('enemies.enemies.filter(e => e.isAlive).length'));
+  console.log('at 70%: splits', await ev('level.splitIdx'), '| enemies', await ev('enemies.enemies.filter(e => e.isAlive).length'), '| Echoes', await ev('echoes.echoes.length'));
   await p.screenshot({ path: `${out}/${tag}-split.png` });
   await skipTalk();
   // How long the agent's gun takes on it: aim at it with auto-fire on (splits off)

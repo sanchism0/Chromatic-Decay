@@ -208,6 +208,7 @@ roughly even.
 - **Thrown abilities on touch:** press the ability's round button and drag to aim (grenade and beacon alike).
 - **Chromatics never undo progress** (Oct 25, 2026): in Level 3's terminal hold they used to drain the ring, and with enemies constantly coming it was "pretty much impossible". Now the ring only fills: a Chromatic in it pauses the pull, and you can step out and come back without losing anything. Level 1's relays keep draining on purpose: "kind of hard but doable"; Level 3 is longer, so draining there was annoying.
 - **No escorts.** The Echo following you to the lift was "kind of lame" (Oct 24, 2026); Level 2 makes the whole floor ice (owner: "make the whole level icy"; you slide everywhere) and frozen drives/tanks instead.
+- **Health in every level** (Oct 25, 2026): Level 1's Echoes come out of its relays; from Level 2 on, two Echoes appear near you after each finished section, and one each time a boss splits.
 - **Checkpoints: only at a boss** (Oct 25, 2026). Dying at Level 3's boss offers RETRY BOSS (the level's ability kept, earlier sections done). Going back to the Story map or menu clears it: the next attempt starts the level over. Dying anywhere else restarts the level.
 - **Cards belong to the character who earned them.** From Level 2 on, a character
   starts with only their own cards.

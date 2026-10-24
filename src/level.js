@@ -505,6 +505,9 @@ export class LevelRun {
       const list = this.def.powerups ? (POWERUPS[this.agent] || []) : [];
       if (this._powerIdx < list.length) this.pendingPowerUp = list[this._powerIdx++];
     }
+    // Health: from Level 2 on, a couple of Echoes appear near the agent after
+    // each finished section (Level 1's come out of its relays)
+    if (this.id > 1 && b.type !== 'exit' && b.type !== 'boss') this._dropEchoes(2);
     // The level's ability (Level 2: a dash ability), unless they have it already
     const card = b.grant && (LEVEL_CARDS[this.id] || {})[this.agent];
     if (card && card.has && !card.has(this.api.player())) this.pendingPowerUp = card;
@@ -676,6 +679,17 @@ export class LevelRun {
     } }));
   }
 
+  // n Echoes on open floor a short walk from the agent
+  _dropEchoes(n, near = null) {
+    const pl = near || this.api.player(), map = this.api.map();
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = a0 + i * 2.4;
+      const p = freeSpot(map, pl.x + Math.cos(a) * 110, pl.y + Math.sin(a) * 110, 22);
+      this.api.spawnEcho(p.x, p.y);
+    }
+  }
+
   // Hold: stand in the terminal's ring while it pulls the signal. Any
   // Chromatic in the ring that isn't stunned pauses the pull (a decoy thrown
   // outside the ring pulls them out of it); it never drains. Chromatics keep
@@ -766,6 +780,7 @@ export class LevelRun {
         es.spawnEnemyAt('violet', p.x, p.y);
       }
       if (this.splitIdx === 1) this.radio.say(b.split || []);
+      this._dropEchoes(1);   // a little health each time it splits
     }
     // Rings: a short windup (it draws in), then a ring rolls outward
     if (!q.forming) {
