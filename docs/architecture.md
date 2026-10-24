@@ -112,6 +112,7 @@ Each beat has `lines` (briefing on comms; enemies wait for it), an
 `objective(state)` string, optional `eachDone` lines and `done` lines.
 A beat's `interrupt: { cap, period, yellow }` keeps enemies coming during
 it (`_interrupt`: pairs, anywhere on the map, at least 320 px from the player).
+`checkpoint: true` on a beat (Level 3's boss) records `checkpointIdx`; dying after it, the fail screen offers a retry that rebuilds the level with `new LevelRun(id, agent, api, { idx })` (`_skipTo` marks earlier beats done) and re-applies `granted` abilities. game.js keeps it in `_checkpoint`, cleared by any fresh `startRun`.
 `grant: true` on a beat hands over the level's `LEVEL_CARDS` card for the
 rest of the level when it ends (Level 2's dash abilities). Level fields: `map`
 (room), `exit` ('lift' or 'vault'), `points` (positions as map fractions: drives, tanks, lift, terminal, vault, source, mirrors, dead), `icy`,

@@ -167,8 +167,7 @@ the unlock, Arc Discharge and Spin Up as F abilities.
 1. **Maps per level:** `map.js` takes a layout per level; `pixelmap.js` takes a
    palette. Level 1 and Arcade keep the Basement.
 2. **Start kit:** at a level's start, apply the character's own earned cards.
-3. **Checkpoints:** not for now. Dying restarts the whole level (owner's call);
-   revisit if the levels turn out long.
+3. **Checkpoints:** only at bosses (owner's call): dying at the boss offers a retry from the fight; going back to the map or menu starts the level over. Built for Level 3.
 4. **The F slot:** a second ability key on desktop and a second round button
    on touch (the HUD already reserves F).
 5. **Boss framework:** health bar at the top, phases, a death sequence.

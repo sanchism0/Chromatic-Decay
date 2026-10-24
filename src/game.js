@@ -183,9 +183,16 @@ function getUnlockedClasses() {
 
 let level = null;   // the Story level being played, if any
 
+// A Story level's checkpoint, reached this attempt: { id, agent, idx, granted }.
+// Only the level-failed screen offers it; any fresh start clears it, so going
+// back to the map or the menu means starting the level over.
+let _checkpoint = null;
+
 function startRun(opts = {}) {
   const tutorial = !!opts.tutorial;
   const levelId  = opts.level || null;
+  const from     = opts.from || null;   // restart at a checkpoint
+  if (!from) _checkpoint = null;
   map = new GameMap(levelId && LEVELS[levelId] ? (LEVELS[levelId].map || 'basement') : 'basement');
   pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
@@ -248,10 +255,16 @@ function startRun(opts = {}) {
     waveSystem.active = false;
     echoes.spawnTimer = Infinity;
     player.cannotDie  = true;
-    level = new LevelRun(levelId, selectedCharacter, levelApi);
+    level = new LevelRun(levelId, selectedCharacter, levelApi, from);
     // After Level 1 (the sampler), a character starts with the cards they
     // have earned — and only theirs
     if (levelId > 1) for (const c of STORY_CARDS) if (c.who === selectedCharacter && hasCard(c.who, c.id)) { c.apply(player); level.powers.push(c.name.toUpperCase()); }
+    // From a checkpoint: the level abilities already taken this attempt
+    if (from) for (const pu of from.granted) {
+      if (!pu.has || !pu.has(player)) pu.apply(player);
+      if (!level.powers.includes(pu.name)) level.powers.push(pu.name);
+      level.granted.push(pu);
+    }
   } else if (tutorial) {
     // Story tutorial: no waves, no fragment, no random Echoes, and the
     // player can't die — the story director spawns everything
@@ -2116,6 +2129,7 @@ function updateDying(dt) {
     const kept = bankChroma(level.chroma, 0.5);
     syncPlayer();
     _levelFail = { id: level.id, name: level.def.name, agent: level.agent, kept };
+    if (level.checkpointIdx != null) _checkpoint = { id: level.id, agent: level.agent, idx: level.checkpointIdx, granted: level.granted.slice() };
     level = null;
     _levelFailDelay = 0.4;
     state = STATES.LEVEL_FAIL;
@@ -2156,7 +2170,8 @@ function drawDeath(W, H) {
 
 function updateLevelFail(dt) {
   if (_levelFailDelay > 0) { _levelFailDelay -= dt; return; }
-  const restart = () => startRun({ level: _levelFail.id });
+  const cp = _checkpoint && _checkpoint.id === _levelFail.id ? _checkpoint : null;
+  const restart = () => startRun(cp ? { level: _levelFail.id, from: cp } : { level: _levelFail.id });
   const leave   = () => { stopAmbient(); hud.minimal = false; _openStoryMap(); };
   if (input.justPressed.space || input.justPressed.enter) { restart(); return; }
   if (input.justPressed.escape) { leave(); return; }
@@ -2190,8 +2205,13 @@ function drawLevelFail(W, H) {
     ctx.fillText(`+${f.kept[k] || 0}`, Math.round(cx - 11), top + 108);
     ctx.textAlign = 'center';
   });
+  const cp = _checkpoint && _checkpoint.id === f.id;
+  if (cp) {
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '11px monospace';
+    ctx.fillText('Retry starts at the boss. Leave, and you start over.', W / 2, top + 136, pW - 30);
+  }
   const bw = (pW - 60) / 2, by = top + 150;
-  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
+  _failBtns.restart = drawSlabButton(ctx, pX + 20, by, bw, 40, cp ? 'RETRY BOSS' : 'RESTART', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_failBtns.restart) ? 1 : 0 });
   _failBtns.map     = drawSlabButton(ctx, pX + 40 + bw, by, bw, 40, 'STORY MAP', { accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 13, lift: _hitBtn(_failBtns.map) ? 1 : 0 });
   ctx.textAlign = 'left';
 }

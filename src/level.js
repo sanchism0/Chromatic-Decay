@@ -232,6 +232,7 @@ LEVELS[3] = {
         done: [L(f('shocked', 'alarmed'), "It's open. Wait... something's coming up out of it.")] },
 
       { type: 'boss',
+        checkpoint: true,   // dying here offers a retry from this fight
         lines: [L(f('shocked', 'alarmed'), "That's not a Chromatic. That's all of them. Every stream nobody played."),
                 L(f('determined', 'focused'), "Those rings it sends out: dash straight through them.")],
         split: [L(f('worried', 'concerned'), dex ? "It's splitting! Stun the pack and burn it down."
@@ -304,7 +305,8 @@ function freeSpot(map, x, y, pad = 46) {
 
 export class LevelRun {
   // api: { player(), enemies, map(), spawnEnemy(type, x, y), spawnEcho(x, y), clearField(), touch() }
-  constructor(id, agent, api) {
+  // from: { idx } restarts at a checkpoint beat (the earlier beats count as done)
+  constructor(id, agent, api, from = null) {
     this.def   = LEVELS[id];
     this.id    = id;
     this.agent = agent;
@@ -322,11 +324,32 @@ export class LevelRun {
     this.kills    = 0;
     this.powers   = [];       // power-ups granted so far (names)
     this.pendingPowerUp = null;   // one waiting to be shown by game.js
+    this.granted  = [];       // level abilities taken so far (kept for a checkpoint restart)
+    this.checkpointIdx = null;    // the last checkpoint beat reached
     this._powerIdx = 0;
     this.charge = 0;          // emitter charge drawn from relays, 0..1
     this.motes  = [];         // essence flowing into the agent
     this._spawnDir = Math.random() * Math.PI * 2;
     this._layout();
+    if (from) this._skipTo(from.idx);
+    else this._next();
+  }
+
+  // Restart at a checkpoint: every beat before it is set up and marked done
+  // (terminal full, mirrors turned, ...), then the checkpoint beat begins
+  _skipTo(idx) {
+    for (let i = 0; i < idx; i++) {
+      this.idx = i;
+      const b = this.beat;
+      this._enter(b);
+      if (b.type === 'hold') { this.hold.p = 1; this.charge = 1; }
+      else if (b.type === 'beam') { for (const m of this.mirrors) m.ok = true; this._chainSaid = this.mirrors.length; }
+      else if (b.type === 'drives') for (const d of this.drives) d.got = true;
+      else if (b.type === 'freezers') for (const t of this.tanks) t.hp = 0;
+      else if (b.type === 'relays') for (const r of this.relays) { r.done = true; r.charge = 1; }
+      else if (b.type === 'servers') for (const s of this.servers) s.lit = true;
+    }
+    this.idx = idx - 1;
     this._next();
   }
 
@@ -374,6 +397,7 @@ export class LevelRun {
     const b = this.beat;
     if (!b) return;
     this._enter(b);
+    if (b.checkpoint) this.checkpointIdx = this.idx;
     this.radio.say(b.lines);
   }
 
@@ -430,6 +454,7 @@ export class LevelRun {
     if (!pu) return;
     pu.apply(player);
     this.powers.push(pu.name);
+    this.granted.push(pu);
     this.pendingPowerUp = null;
   }
 
