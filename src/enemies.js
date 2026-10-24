@@ -56,6 +56,15 @@ const BLINK = { fade: 0.35, cdMin: 3.5, cdMax: 5.5, firstMin: 2, firstMax: 3.5,
                 distMin: 140, distMax: 230, farAway: 300, blockedFor: 1.5, spread: 80,
                 volley: 2, volleyGap: 0.22, volleyDelay: 0.25 };
 
+// The way to the player from (x, y): straight at them with a clear line,
+// otherwise down the flow field around the racks. Used by things that follow
+// the player, like a Story escort.
+export function pathToPlayer(x, y, px, py) {
+  const dx = px - x, dy = py - y, d = Math.hypot(dx, dy) || 1;
+  if (FLOW.ready && !FLOW.clear(x, y, px, py)) { const f = FLOW.dir(x, y); if (f) return f; }
+  return [dx / d, dy / d];
+}
+
 // ── Pathing (flow field) ─────────────────────────────────────
 // The shortest walkable distance to the player is worked out for every 20px cell of the map, whenever the player changes cell (Dijkstra over a grid where racks,
 // grown by an enemy's radius, are walls). An enemy that can see the player
@@ -290,8 +299,8 @@ class Enemy {
   // Toward (tx, ty), but bent by this enemy's flank angle while still far
   // away (straightening out inside ~90px), plus a push away from neighbours.
   // With a rack between it and (tx, ty), it follows the flow field instead.
-  _approach(tx, ty) {
-    if (FLOW.ready) {
+  _approach(tx, ty, useFlow = true) {
+    if (FLOW.ready && useFlow) {
       this._losT = (this._losT || 0) - 1 / 60;
       if (this._losT <= 0) { this._los = FLOW.clear(this.x, this.y, tx, ty); this._losT = 0.12; }
       if (!this._los) {
@@ -401,8 +410,10 @@ class Enemy {
   }
 
   // VIOLET — slow drift toward player (doesn't know what it's doing, still coming for you)
+  // goal: something else to go after instead of the player (a Story escort)
   _updateViolet(dt, player, map) {
-    const [ax, ay] = this._approach(player.x, player.y);
+    const g = this.goal && this.goal.alive !== false ? this.goal : null;
+    const [ax, ay] = g ? this._approach(g.x, g.y, false) : this._approach(player.x, player.y);
     this._move(dt, ax, ay, map);
   }
 

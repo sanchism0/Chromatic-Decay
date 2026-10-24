@@ -14,22 +14,52 @@ const H = CONFIG.map_height;
 const T = CONFIG.tile_size;
 const BORDER = 20;
 
-// Palette
-const C = {
-  outline:   '#07080b',
-  floor:     '#151821', floorAlt: '#13161e',
-  seam:      '#0a0b10', bevelLt: '#1e222d', bevelDk: '#0d0f14',
-  screw:     '#2a3040', dot: '#0c0e13',
-  pit:       '#050608', pitEdge: '#1b1f2a',
-  wall:      '#1a1d27', wallLine: '#12141b', wallTop: '#252a37',
-  red:       '#6a1414',
-  rackTop:   '#262c3c', rackTopLt: '#3b445c', rackTopSide: '#313950',
-  vent:      '#161a25', screen: '#16444e', screenLine: '#2de2f0',
-  rim:       '#4a5370', rimCyan: '#1b8fa0',
-  front:     '#181e2a', blade: '#222a3a', bladeGap: '#0f1219', handle: '#36405a',
-  strip:     '#00d9f0', stripDim: '#0b5560',
+// Palettes, one per room. C and LED_COLOURS point at the current room's.
+const THEMES = {
+  basement: {
+    C: {
+      outline:   '#07080b',
+      floor:     '#151821', floorAlt: '#13161e',
+      seam:      '#0a0b10', bevelLt: '#1e222d', bevelDk: '#0d0f14',
+      screw:     '#2a3040', dot: '#0c0e13',
+      pit:       '#050608', pitEdge: '#1b1f2a',
+      wall:      '#1a1d27', wallLine: '#12141b', wallTop: '#252a37',
+      red:       '#6a1414',
+      rackTop:   '#262c3c', rackTopLt: '#3b445c', rackTopSide: '#313950',
+      vent:      '#161a25', screen: '#16444e', screenLine: '#2de2f0',
+      rim:       '#4a5370', rimCyan: '#1b8fa0',
+      front:     '#181e2a', blade: '#222a3a', bladeGap: '#0f1219', handle: '#36405a',
+      strip:     '#00d9f0', stripDim: '#0b5560',
+    },
+    leds: ['#3cff7a', '#2de2f0', '#ffb43c', '#3cff7a'],
+    labels: [['THE BASEMENT', 0.125], ['SERVER ROWS', 0.375], ['COLLAPSED FLOOR', 0.625], ['DEEP RACKS', 0.875]],
+    pits: true, tints: true, frost: false,
+  },
+  // Cold Storage: pale steel-blue panels crusted with frost, icy rack lights
+  cold: {
+    C: {
+      outline:   '#070b12',
+      floor:     '#2a3850', floorAlt: '#273448',
+      seam:      '#111a28', bevelLt: '#3c4e6c', bevelDk: '#18222f',
+      screw:     '#5a7096', dot: '#1a2434',
+      pit:       '#05070a', pitEdge: '#2a3a52',
+      wall:      '#24324a', wallLine: '#18222f', wallTop: '#3a4e70',
+      red:       '#4a8ac0',
+      rackTop:   '#3e5274', rackTopLt: '#8aa6d0', rackTopSide: '#4e6690',
+      vent:      '#24324a', screen: '#2a5a80', screenLine: '#bfeaff',
+      rim:       '#8aa6d0', rimCyan: '#7ac8f0',
+      front:     '#26344c', blade: '#344664', bladeGap: '#18222f', handle: '#6a84aa',
+      strip:     '#bff0ff', stripDim: '#2a6a88',
+      frost:     '#6a86b0', frostLt: '#a8c4e8',
+    },
+    leds: ['#9fe8ff', '#ffffff', '#6ad0ff', '#9fe8ff'],
+    labels: [['COLD STORAGE', 0.11], ['ARCHIVE AISLES', 0.32], ['THE FREEZE', 0.68], ['FREIGHT LIFT', 0.92]],
+    pits: false, tints: false, frost: true,
+  },
 };
-const LED_COLOURS = ['#3cff7a', '#2de2f0', '#ffb43c', '#3cff7a'];
+let THEME = THEMES.basement;
+let C = THEME.C;
+let LED_COLOURS = THEME.leds;
 
 // Deterministic per-tile/per-rack randomness
 function hash(a, b, c = 0) {
@@ -46,6 +76,8 @@ export class PixelMap {
   constructor(map) {
     this.map  = map;
     this.zoom = 0;
+    THEME = THEMES[map.layout] || THEMES.basement;
+    C = THEME.C; LED_COLOURS = THEME.leds;
   }
 
   // (Re)build everything for this zoom — art pixel = 1 screen pixel
@@ -115,7 +147,7 @@ export class PixelMap {
         const x0 = P(tx * T), y0 = P(ty * T), x1 = P((tx + 1) * T), y1 = P((ty + 1) * T);
         const w = x1 - x0, h = y1 - y0;
         const r = hash(tx, ty);
-        const collapsed = ty * T > H * 0.5 && ty * T < H * 0.75 && hash(tx, ty, 7) < 0.07;
+        const collapsed = THEME.pits && ty * T > H * 0.5 && ty * T < H * 0.75 && hash(tx, ty, 7) < 0.07;
 
         if (collapsed) {
           // A missing panel — the raised floor gave way here
@@ -148,6 +180,16 @@ export class PixelMap {
           g.fillStyle = C.screw; g.fillRect(cx0 - 1, cy0 - 1, cw + 2, ch + 2);
           g.fillStyle = C.pit;   g.fillRect(cx0, cy0, cw, ch);
           g.fillStyle = '#1f3a2a'; g.fillRect(cx0 + 2, cy0 + 2, cw - 4, 1);   // a green cable inside
+        } else if (THEME.frost && r < 0.55) {
+          // Frost: a crust creeping in from one corner of the panel
+          const n = 14 + Math.floor(hash(tx, ty, 4) * 18);
+          const fromR = hash(tx, ty, 5) < 0.5, fromB = hash(tx, ty, 6) < 0.5;
+          for (let i = 0; i < n; i++) {
+            const a = hash(tx, ty, 30 + i), b = hash(tx, ty, 50 + i);
+            const fx = Math.floor(a * a * (w - 6)), fy = Math.floor(b * b * (h - 6));
+            g.fillStyle = i % 3 ? C.frost : C.frostLt;
+            g.fillRect(fromR ? x1 - 4 - fx : x0 + 3 + fx, fromB ? y1 - 4 - fy : y0 + 3 + fy, 1 + (i % 3), 1 + (i % 2));
+          }
         } else if (r < 0.30) {
           // Scuffs
           g.fillStyle = C.bevelDk;
@@ -162,17 +204,16 @@ export class PixelMap {
     }
 
     // Zone tints (flat, so pixels stay crisp)
-    g.fillStyle = 'rgba(0,0,0,0.18)';      g.fillRect(0, P(H * 0.5), c.width, P(H * 0.25));
-    g.fillStyle = 'rgba(42,8,8,0.22)';     g.fillRect(0, P(H * 0.75), c.width, c.height - P(H * 0.75));
+    if (THEME.tints) {
+      g.fillStyle = 'rgba(0,0,0,0.18)';      g.fillRect(0, P(H * 0.5), c.width, P(H * 0.25));
+      g.fillStyle = 'rgba(42,8,8,0.22)';     g.fillRect(0, P(H * 0.75), c.width, c.height - P(H * 0.75));
+    }
 
     // Stencilled zone names, painted on the floor
-    g.fillStyle = 'rgba(40,46,62,0.55)';
+    g.fillStyle = THEME.frost ? 'rgba(70,92,124,0.5)' : 'rgba(40,46,62,0.55)';
     g.font = `bold ${Math.round(16 * z)}px monospace`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('THE BASEMENT',    c.width / 2, P(H * 0.125));
-    g.fillText('SERVER ROWS',     c.width / 2, P(H * 0.375));
-    g.fillText('COLLAPSED FLOOR', c.width / 2, P(H * 0.625));
-    g.fillText('DEEP RACKS',      c.width / 2, P(H * 0.875));
+    for (const [label, fy] of THEME.labels) g.fillText(label, c.width / 2, P(H * fy));
 
     // Contact shadow under each rack's front edge, and a darker footprint
     for (const o of this.map.obstacles) {

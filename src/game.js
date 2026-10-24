@@ -181,7 +181,7 @@ let level = null;   // the Story level being played, if any
 function startRun(opts = {}) {
   const tutorial = !!opts.tutorial;
   const levelId  = opts.level || null;
-  map = new GameMap();
+  map = new GameMap(levelId && LEVELS[levelId] ? (LEVELS[levelId].map || 'basement') : 'basement');
   pixelMap = new PixelMap(map);
   const spawn = map.playerSpawn();
   player = new Player(spawn.x, spawn.y);
@@ -242,7 +242,7 @@ function startRun(opts = {}) {
     level = new LevelRun(levelId, selectedCharacter, levelApi);
     // After Level 1 (the sampler), a character starts with the cards they
     // have earned — and only theirs
-    if (levelId > 1) for (const c of STORY_CARDS) if (c.who === selectedCharacter && hasCard(c.who, c.id)) c.apply(player);
+    if (levelId > 1) for (const c of STORY_CARDS) if (c.who === selectedCharacter && hasCard(c.who, c.id)) { c.apply(player); level.powers.push(c.name.toUpperCase()); }
   } else if (tutorial) {
     // Story tutorial: no waves, no fragment, no random Echoes, and the
     // player can't die — the story director spawns everything
@@ -1941,7 +1941,7 @@ function drawStoryMap(W, H) {
     ctx.font = `${narrow ? 10 : 11}px monospace`;
     // Second line of text; on landscape phones (tiny) rows are one line, and
     // only the right-hand status shows
-    const sub = (text, color) => { if (!tiny) { ctx.fillStyle = color; ctx.fillText(text, rowX + 14, top + (short ? 36 : 44)); } };
+    const sub = (text, color) => { if (!tiny) { ctx.fillStyle = color; _fitFont(text, rowW - 28, narrow ? 10 : 11, ''); ctx.fillText(text, rowX + 14, top + (short ? 36 : 44)); } };
     if (row.id === 0) {
       sub('Replay the introduction and tutorial.', '#8A8E99');
     } else if (!built) {

@@ -51,8 +51,8 @@ With no options it's an Arcade run.
 ### World and drawing
 | File | Role |
 |---|---|
-| `map.js` | The Basement's fixed rack layout, camera, spawn helpers (`playerSpawn`, `randomSpawn`). The map is 1174 × 1174 world px and the same every run. |
-| `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
+| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
+| `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. A palette per room (`THEMES`: colours, LED colours, floor labels, pits, frost). Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
 | `sprites.js` | Cached glow and halo sprites (offscreen canvases) so glows are one `drawImage`. |
 | `particles.js` | Pooled particles (hit sparks, bullet clashes). |
 | `drain.js` | The colour drain kill effect (unravel → hang → drain into the player). Also counts colour per type. |
@@ -98,12 +98,17 @@ level for now). Beat types:
 | `relays` | Stand near relays to pull charge into your emitter while interrupters drain them |
 | `servers` | Shoot marked racks anywhere on the map to light them (arrows to each unlit one) |
 | `sequence` | Walk over floor pads in the order they lit (built, no longer used by Level 1) |
-| `exit` | Walk to the door → beam-out → card unlock (first time) → results |
+| `escort` | Lead a slow Echo to the exit point; it follows you round racks (`pathToPlayer`), stalls while a Chromatic touches it, and walks the last stretch to the lift by itself. Interrupters with `goal` go after it |
+| `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it |
+| `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 
 Each beat has `lines` (briefing on comms; enemies wait for it), an
 `objective(state)` string, optional `eachDone` lines and `done` lines.
-`_interrupt(dt, cap, period, pickType)` keeps enemies coming during tasks:
-pairs, anywhere on the map, at least 320 px from the player. The level talks to
+A beat's `interrupt: { cap, period, yellow, goal }` keeps enemies coming during
+it (`_interrupt`: pairs, anywhere on the map, at least 320 px from the player;
+`goal` is the share of violets sent after the escort). Level fields: `map`
+(room), `exit` ('lift'), `points` (positions as map fractions), `powerups`
+(Level 1's sampler only), `blurb`, `outcome`. The level talks to
 the game through `levelApi` in `game.js` (spawn enemies and Echoes, play
 sounds, ask whether a card unlock is due).
 

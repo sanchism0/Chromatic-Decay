@@ -81,7 +81,17 @@ One press (Space, click, tap) moves to the next line. Skip any scene with Esc or
 
 Section power-ups (Level 1 only) and the kept card are in `docs/decisions.md`.
 
-## Levels 2–5 (planned)
+## Level 2: "Cold Storage" (built)
+
+| Beat | Comms (gist) | Play |
+|---|---|---|
+| Wave | Raze's trace led down here, where they froze the old data. Clear the aisles. | Violets, then yellows, down long aisles |
+| Escort | An Echo saw Raze come through and knows the way to the freight lift. Keep the Chromatics off it. | It follows you; it stalls while drained; some violets go for it |
+| Wave | They followed the Echo's light. | Yellows in the aisles |
+| Valves | The lift's frozen. Open all three coolant valves at once. | Stand on each; each stays open 8 s |
+| Exit | "It's moving! Get on the lift." / "Hold on. Going down." | Ride the lift: beam-out, results. Outcome: Raze went down, to The Stacks |
+
+## Levels 3–5 (planned)
 
 | # | Level | Story beat |
 |---|---|---|

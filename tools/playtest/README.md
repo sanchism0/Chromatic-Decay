@@ -13,6 +13,7 @@ python3 -m http.server 8766 --bind 127.0.0.1 &
 # 2. Run a script. The first argument is where screenshots go.
 node tools/playtest/level1.js /tmp/out desk dex     # desk | phone | land,  dex | juno
 node tools/playtest/storyflow.js /tmp/out            # add "phone" for a phone viewport
+node tools/playtest/level2.js /tmp/out desk dex     # desk | phone | land,  dex | juno
 node tools/playtest/boards.js /tmp/out desk          # desk | phone; add "offline" to cut the database
 node tools/playtest/lunge.js /tmp/out
 node tools/playtest/pierce.js /tmp/out
@@ -42,6 +43,7 @@ showed up in a picture.
 | Script | Covers |
 |---|---|
 | `level1.js` | Story map → character select → Level 1 start to finish: waves, relays (drain + charge), power-ups, the four servers, extraction beam-out, card unlock, results, a death and restart |
+| `level2.js` | Level 2: the cold map, the start kit, escort (stall + goal-seeking violets), valves, the lift, results |
 | `storyflow.js` | Prologue: intro scene, pick, tutorial steps, end card |
 | `boards.js` | Name entry, Arcade run posting, rank and personal best, player sync, cycling all six boards (arrows, keys, swipe) |
 | `lunge.js` | Yellow lunge: windup, hit, sidestep miss, stun cancels |

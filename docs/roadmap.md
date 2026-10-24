@@ -43,7 +43,12 @@ tries Arcade wave 3 (ten greens) and tunes. The knobs are `BLINK` in
 The full plan (story, maps, beats, bosses, cards per level, build order) is in
 `docs/design/levels-2-5.md`. Build one level at a time once it's agreed.
 
-### 2b. Level 2, "Cold Storage", which needs owner input first
+### 2a. Level 2 "Cold Storage": built (Oct 24, 2026), awaiting the owner's playtest
+Wave → escort an Echo to the freight lift → wave → three coolant valves →
+ride the lift. New Cold Storage map and icy palette. No card (Chroma only).
+Next: Level 3 (hold zone, mirror beam, The Queue, Decoy Beacon).
+
+### 2b. Level 2 (original notes), "Cold Storage", which needs owner input first
 Following Raze's trail down from the Server Floor. The design table in
 `docs/design/core-loop.md` says: wave (violet + yellow) → escort an Echo → wave
 (yellow) → plates puzzle. Before building, agree with the owner:

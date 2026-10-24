@@ -143,9 +143,35 @@ function buildObstacles() {
   return obs;
 }
 
+// ── Level 2 "Cold Storage" ────────────────────────────────────
+// The frozen archive: four rows of long, tall cold racks make horizontal
+// aisles; the cross-gaps between racks are staggered row to row, so you weave
+// down the map instead of running straight. The door is top centre; the
+// freight lift is in the bottom-right corner.
+function buildColdStorage() {
+  const obs = [];
+  const p = (fx, fy, fw, fh) => obs.push(makeRack(
+    Math.round(fx * W), Math.round(fy * H), Math.round(fw * W), Math.round(fh * H)));
+  const ROW_H = 0.055;
+  // Rows A and C: three long racks; rows B and D: shifted, so gaps don't line up
+  for (const y of [0.20, 0.56]) { p(0.06, y, 0.24, ROW_H); p(0.38, y, 0.24, ROW_H); p(0.70, y, 0.24, ROW_H); }
+  for (const y of [0.38, 0.74]) { p(0.12, y, 0.12, ROW_H); p(0.32, y, 0.24, ROW_H); p(0.64, y, 0.22, ROW_H); }
+  // A few short freezer units in the aisles break up long sightlines
+  p(0.28, 0.30, 0.03, 0.035); p(0.66, 0.48, 0.03, 0.035);
+  p(0.14, 0.65, 0.03, 0.035); p(0.56, 0.86, 0.03, 0.035);
+  return obs;
+}
+
+const LAYOUTS = {
+  basement: { build: buildObstacles,    spawn: [0.5, 0.12] },
+  cold:     { build: buildColdStorage,  spawn: [0.5, 0.10] },
+};
+
 export class GameMap {
-  constructor() {
-    this.obstacles = buildObstacles();
+  // layout: which room ('basement' for Arcade, the tutorial and Level 1)
+  constructor(layout = 'basement') {
+    this.layout = LAYOUTS[layout] ? layout : 'basement';
+    this.obstacles = LAYOUTS[this.layout].build();
     this._defineZones();
   }
 
@@ -157,7 +183,8 @@ export class GameMap {
   }
 
   playerSpawn() {
-    return { x: W / 2, y: H * 0.12 };
+    const [fx, fy] = LAYOUTS[this.layout].spawn;
+    return { x: W * fx, y: H * fy };
   }
 
   // Spawn anywhere on the map at least minPlayerDist from the player
