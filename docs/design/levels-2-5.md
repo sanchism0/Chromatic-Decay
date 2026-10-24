@@ -36,7 +36,7 @@ Levels also get **longer, with as much interaction as Level 2** from here on.
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
 | 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
 | 3 (built) | **Stun Grenade (E)** | **Decoy Beacon (E)**: throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
-| 4 | **To decide.** Chain Arc went into Level 1 instead (Arc Round replaced Kinetic Finish). Option: a stronger version where every round jumps | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
+| 4 | **Arc Round** (passive, owner's call): the last round of each burst is electric and jumps to something close by. Previewed in Level 1's sampler; Level 4 makes it a card | **Ricochet** (passive): rounds bounce once off racks. Previewed in Level 1's sampler; Level 4 makes it a card |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
 
 **Decoy Beacon (Juno, E), defined:**
@@ -111,23 +111,38 @@ granted after the first wave:
 Code: `hold`, `beam` and `boss` beats in `level.js`, `decoy.js`, the Stacks map
 (`STACKS` in `map.js`) and palette.
 
-## Level 4: Wire Room
+## Level 4: Wire Room (plan, Oct 25, 2026)
 
 **Story:** the Basement's switchboard. Raze's signal shattered here; pieces of
-him are scattered across the room, and the greens are hunting them.
+him are locked in junction boxes all over the room, and the greens are camped
+on them.
 
-**Map:** a cable maze with wide junctions, plenty of sightlines for green
-turrets.
+**Map:** a maze of thick cable bundles with wide junctions and long sightlines
+(good for greens). Junction boxes sit in three-sided alcoves in the cable walls.
 
-| Beat | Play | Comms (gist) |
-|---|---|---|
-| Wave | **Greens debut**: a few, plus violets | "Greens. They don't chase. They show up where you're going." |
-| **Gather** (task) | Six fragments of Raze's signal are scattered around; pick them all up. Each fades if a Chromatic sits on it too long (marked with arrows) | "Those are pieces of Raze. Grab them before they're eaten." |
-| Wave | Greens and yellows | |
-| **Tuning** (puzzle) | Three dials (floor switches), each cycling through three frequencies. Match the pattern on the big display; it lights each dial that's right | "Match the signal. When all three are right, the door opens." |
-| Exit | Beam-out, card, results | "Every piece. The door ahead is his." |
+**Built around hitting things you can't hit straight on.** A junction box only
+reacts to Dex's **electric round** (the last round of a burst) jumping to it,
+or to Juno's **bounced** round. Plain shots glance off it with a dull spark
+("shielded"), and grenades, beacons, dash abilities and walking up to it do
+nothing. Dex: shoot an enemy or the cable wall within about 130 px of a box
+and the arc jumps to it (through the cable). Juno: bounce a shot off a rack
+into the box.
 
-New code: gather beat, tuning beat, Wire Room map, the Level 4 ability (to decide). To be reshaped around that ability.
+| Beat | Play |
+|---|---|
+| Wave | **Greens debut properly** ("They don't chase. They show up where you're going."). Then the ability screen: Arc Round / Ricochet |
+| **Gather** (task) | Six junction boxes hold pieces of Raze. Open each with an electric jump or a bounce, then walk over the piece that drops out. Nothing un-collects (no fading pieces) |
+| Wave | Greens and yellows |
+| **Tuning** (puzzle) | Three dials behind cover; each electric jump or bounced hit turns a dial to its next frequency. Match the big display (it lights each dial that's right) to open the door to Raze's room |
+| **Escape** | The door only holds for so long, and the way to it is blocked by two **live wires** across the corridor that you can only get through mid-dash (untouchable). Plus a timer that's tight without dashing |
+| Exit | Through the door: beam-out, card, results |
+
+Echoes after each section, as in every level from 2 on.
+
+**Escape timing note:** a dash covers 88 px in 0.16 s, where walking takes
+0.37 s, so each dash saves only about 0.2 s. A pure timer of "walk time minus
+one dash" would leave about 0.3 s of slack on a perfect route. The live wires
+make "you must dash twice" a rule of the layout instead.
 
 ## Level 5: Raze's Room (second boss, rescue)
 
