@@ -39,7 +39,11 @@ Greens are now blinking turrets (see `docs/decisions.md`). Next: the owner
 tries Arcade wave 3 (ten greens) and tunes. The knobs are `BLINK` in
 `enemies.js`: cooldown, landing distance, arc, volley.
 
-### 2. Level 2, "Cold Storage", which needs owner input first
+### 2. Levels 2–5: plan written, awaiting the owner's review
+The full plan (story, maps, beats, bosses, cards per level, build order) is in
+`docs/design/levels-2-5.md`. Build one level at a time once it's agreed.
+
+### 2b. Level 2, "Cold Storage", which needs owner input first
 Following Raze's trail down from the Server Floor. The design table in
 `docs/design/core-loop.md` says: wave (violet + yellow) → escort an Echo → wave
 (yellow) → plates puzzle. Before building, agree with the owner:
