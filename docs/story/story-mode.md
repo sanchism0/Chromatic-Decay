@@ -81,11 +81,21 @@ One press (Space, click, tap) moves to the next line. Skip any scene with Esc or
 
 Section power-ups (Level 1 only) and the kept card are in `docs/decisions.md`.
 
-## Levels 2–5 (planned)
+## Level 2: "Cold Storage" (built)
+
+| Beat | Comms (gist) | Play |
+|---|---|---|
+| Wave | Raze's trace led down here, where they froze the old data. The whole floor's iced over. Clear the aisles. "Your signal just spiked..." | Violets, then yellows, down long aisles. Then the dash ability screen |
+| Drives | Your dash crackles now (Dex) / leaves a charge (Juno). Raze's trace is split across three drives frozen into the floor. | Grab three drives, sliding on the ice while up to 4 enemies interrupt. Ends: Raze went down, to The Stacks |
+| Wave | They heard the ice crack. | Yellows in the aisles |
+| Tanks | The lift's frozen; three coolant tanks are why. Bullets won't touch the ice: dash through it (Dex) / dash away from it (Juno). | Two dash-ability hits per tank; a few violets get in the way |
+| Exit | "The lift's moving! Get on." / "Hold on. Going down." | Ride the lift: beam-out, card (first time), results |
+
+## Levels 3–5 (planned)
 
 | # | Level | Story beat |
 |---|---|---|
-| 2 | Cold Storage | Raze's trail goes colder. Escort an Echo; plates puzzle |
+| 2 | Cold Storage | Raze's trail goes colder. Dash abilities, ice, frozen drives and tanks (built) |
 | 3 | The Stacks | Hold the line; first boss, The Queue |
 | 4 | Wire Room | Greens arrive in force; gather fragments; tuning puzzle |
 | 5 | Raze's Room | Boss: Signal Hoarder. Rescue Raze; he becomes playable |

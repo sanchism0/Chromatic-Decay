@@ -139,16 +139,16 @@ roughly even.
 | Move | WASD / arrows | left stick |
 | Aim | mouse | right stick |
 | Fire | auto-fire on by default; Q toggles; manual = hold mouse | AUTO button; manual = hold the aim stick |
-| Dash | Space | DASH button |
+| Dash | **Space or click: dashes toward the cursor** (right-click always; left-click when auto-fire is on, since with it off the left button fires) | DASH button (the way you're moving) |
 | Abilities | E = first activated ability, F = second | round buttons next to DASH |
-| Comms | Enter or click the box | tap the box |
+| Comms | **Space**, Enter, or click the box (Space only moves comms on while a line is up, so it never dashes by accident) | tap the box |
 | Pause / skip scene | Esc | SKIP button |
 
 - **E is the first activated ability a character gets, F the second.** "If
   there's no ability, then there's no function for E." Every ability gets a key.
   (An earlier fallback that threw a grenade with no ability was rejected
   outright.)
-- **Dash:** any character, Space. 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
+- **Dash:** any character; on desktop Space or a click dashes toward the cursor. While a comms line is up the game is stopped, so Space moves the line on instead; the two never collide (Oct 24, 2026). 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
   and cooldown raised on request). Untouchable mid-dash; a perfect dodge refunds
   the cooldown once. Cooldowns must be clearly visible (key bar on desktop,
   rings on touch buttons).
@@ -172,6 +172,7 @@ roughly even.
 - **Few, short lines.** "Tell people what's going on in the story without making
   them click through multiple screens." Cut asides (the coherent-light
   explanation was removed from the tutorial). One press moves to the next line.
+- **Text only while the game is stopped** (Oct 24, 2026): while a comms line is up the agent can't shoot, and if any Chromatic is on the map everything freezes until the line ends or the player presses Space. Placement: on **desktop** the box sits **just below the middle** of the screen so people actually read it ("they don't see it much"); on **phones** it stays **at the top**, as before, with the objective under it. (A bottom-half placement was tried and dropped the same day.)
 - **Comms must never be missed in a fight.** Briefings hold enemies back until
   they finish; later lines wait for a game event. ("I was caught up killing the
   yellow guys, and I missed everything in the dialogue.")
@@ -197,6 +198,11 @@ roughly even.
   Kinetic Finish. Juno: Hot Barrel → Piercing Stream → Ricochet.
 - **Keep one:** opening the door the first time as a character saves the **first**
   power-up permanently as a Story card for that character, with the unlock tune.
+- **One ability per level, and the level is built around it** (Oct 24, 2026, after playing Level 2: "this was fun"). Every level gives a new ability early (after its first wave) and its tasks and puzzles need that ability, like Level 2's frozen tanks that only the dash ability cracks. Clearing the level keeps it as a Story card. (This replaced a short-lived "card every two levels" plan.) Plan: `docs/design/levels-2-5.md`.
+- **Longer levels, just as much interaction:** from Level 3 on, every level is at least as long and as hands-on as Level 2 (moving around, sliding, things to crack and grab), never just waves.
+- **Dash abilities (Level 2):** Dex's **Shock Dash** stuns and jams (+50% damage taken) every Chromatic he dashes through; Juno's **Parting Charge** drops a light bomb where she dashed from, which bursts 0.6 s later. Level 2 grants it after the first wave and keeps it if you clear the level. Some objectives (Level 2's frozen tanks) only break to the dash ability, never bullets.
+- **No escorts.** The Echo following you to the lift was "kind of lame" (Oct 24, 2026); Level 2 makes the whole floor ice (owner: "make the whole level icy"; you slide everywhere) and frozen drives/tanks instead.
+- **No checkpoints for now:** dying restarts the whole level; revisit if levels get long.
 - **Cards belong to the character who earned them.** From Level 2 on, a character
   starts with only their own cards.
 - Power you draw from the map (relays, server beams) takes **your character's

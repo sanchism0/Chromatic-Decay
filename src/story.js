@@ -67,13 +67,13 @@ function tutorialSteps(agent, touch, api) {
     { lines: [L(f('neutral', 'focused'), touch ? "Comms are up. Drag your left thumb to walk." : 'Comms are up. Walk around with W, A, S, D.')],
       objective: 'Walk around', until: (s, b) => s.moved - b.moved > 200 },
     { lines: [L(f('determined', 'focused'), touch ? 'Tap DASH to burst out of trouble. Nothing can touch you mid-dash.'
-                                                  : 'Press Space to dash. Nothing can touch you mid-dash.')],
-      objective: touch ? 'Dash (DASH button)' : 'Dash (Space)', until: (s, b) => s.dashes > b.dashes },
+                                                  : 'Press Space or click to dash toward your cursor. Nothing can touch you mid-dash.')],
+      objective: touch ? 'Dash (DASH button)' : 'Dash (Space or click)', until: (s, b) => s.dashes > b.dashes },
     { lines: [L(f('neutral', 'focused'), touch ? 'Your emitter fires on its own. Drag your right thumb to aim.' : 'Your emitter fires on its own. Aim with the mouse.')],
       objective: 'Fire your emitter', until: (s, b) => s.shots - b.shots >= 6 },
     { highlight: 'autofire',
       lines: [L(f('neutral', 'focused'), touch ? 'Tap AUTO to turn auto-fire off. Then it only fires while you hold the aim stick.'
-                                               : 'Press Q to turn auto-fire off. Then it only fires while you hold the mouse button.')],
+                                               : 'Press Q to turn auto-fire off. Then it fires while you hold the mouse button.')],
       objective: touch ? 'Toggle auto-fire (AUTO button)' : 'Toggle auto-fire (Q)', until: (s, b) => s.toggles > b.toggles },
     { lines: [L(f('worried', 'alarmed'), 'Signal ahead. A violet. Take it out before it reaches you.')],
       spawnAfter: [['violet', 1]],

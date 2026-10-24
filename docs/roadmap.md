@@ -39,21 +39,18 @@ Greens are now blinking turrets (see `docs/decisions.md`). Next: the owner
 tries Arcade wave 3 (ten greens) and tunes. The knobs are `BLINK` in
 `enemies.js`: cooldown, landing distance, arc, volley.
 
-### 2. Level 2, "Cold Storage", which needs owner input first
-Following Raze's trail down from the Server Floor. The design table in
-`docs/design/core-loop.md` says: wave (violet + yellow) → escort an Echo → wave
-(yellow) → plates puzzle. Before building, agree with the owner:
-- **What Level 2 awards** (and therefore which Story cards exist next). Natural
-  candidates: Dex's Stun Grenade (already built) and a Juno counterpart. Raise
-  the question of the "next 3 to 5 improvements per character" the owner asked
-  for in the brainstorm.
-- **The map:** today there is one map (the Basement). Level 2 probably wants its
-  own layout (`map.js`) and maybe a colder palette (`pixelmap.js`).
-- **Story:** what the operator says on the way in and what you leave with; what
-  you learn about Raze.
-- Rules to honour: tasks are fights with a goal; puzzles must work with burst
-  and spray guns; cards start per character from Level 2 on (a character only
-  has their own earned cards).
+### 2. Levels 2–5: plan written, awaiting the owner's review
+The full plan (story, maps, beats, bosses, cards per level, build order) is in
+`docs/design/levels-2-5.md`. Build one level at a time once it's agreed.
+
+### 2a. Level 2 "Cold Storage": built (Oct 24, 2026), awaiting the owner's playtest
+Wave → **dash ability granted** (Dex: Shock Dash, Juno: Parting Charge) →
+grab three frozen archive drives (the whole floor is ice: you slide everywhere) → wave →
+crack three frozen coolant tanks (only the dash ability hurts them, two hits
+each) → ride the lift. Cold Storage map and icy palette. Clearing it keeps the
+dash ability as a Story card. (The first version's escort and valves were
+replaced on the owner's request.)
+Next: Level 3 (hold zone, mirror beam, The Queue, Decoy Beacon).
 
 ### 3. Per-character mechanics
 "Focusing on what the next 3 to 5 improvements will be per character." Each

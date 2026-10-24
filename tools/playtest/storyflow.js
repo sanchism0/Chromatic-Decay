@@ -44,7 +44,16 @@ const touch = process.argv[3] === 'phone';
   // Step 0: walk
   for (const k of ['d', 's', 'a']) { await p.keyboard.down(k); await p.waitForTimeout(700); await p.keyboard.up(k); }
   await skipTalk(); await waitStep(1);
-  await p.keyboard.down('Space'); await p.waitForTimeout(60); await p.keyboard.up('Space');
+  // Dash: click toward the cursor (touch: the DASH button), once the line is done
+  await skipTalk(); await p.waitForTimeout(200);
+  if (touch) { const db = await ev('_dashBtn.r'); await p.touchscreen.tap(db.x + db.w / 2, db.y + db.h / 2); }
+  else {
+    const before = await ev('[player.x, player.y]');
+    await p.mouse.move(vp.width * 0.85, vp.height * 0.5); await p.mouse.down(); await p.waitForTimeout(90); await p.mouse.up();
+    await p.waitForTimeout(300);
+    const after = await ev('[player.x, player.y]');
+    console.log('click-dash toward the cursor (right of the player): moved', Math.round(after[0] - before[0]), 'px right,', Math.round(after[1] - before[1]), 'px down');
+  }
   await skipTalk(); await waitStep(2);
   console.log('step', await ev('story.stepIdx'), 'moved', Math.round(await ev('story.stats.moved')));
   // Step 1: fire (auto-fire on)

@@ -51,8 +51,8 @@ With no options it's an Arcade run.
 ### World and drawing
 | File | Role |
 |---|---|
-| `map.js` | The Basement's fixed rack layout, camera, spawn helpers (`playerSpawn`, `randomSpawn`). The map is 1174 × 1174 world px and the same every run. |
-| `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
+| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
+| `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. A palette per room (`THEMES`: colours, LED colours, floor labels, pits, frost). Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
 | `sprites.js` | Cached glow and halo sprites (offscreen canvases) so glows are one `drawImage`. |
 | `particles.js` | Pooled particles (hit sparks, bullet clashes). |
 | `drain.js` | The colour drain kill effect (unravel → hang → drain into the player). Also counts colour per type. |
@@ -69,6 +69,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `player.js` | The agent: movement (sub-stepped so it never tunnels into racks), `WEAPONS` per character, firing, dash (`DASH_*`), beam-in/out, death, sprite drawing (`SHEETS`, 32×44 cells, walk cycle, `LENS` per facing for the emitter muzzle). Also legacy class data. |
 | `enemies.js` | The Chromatics: spawning (fade-in), per-type behaviour, the yellow lunge (`LUNGE`), the green blink (`BLINK`: stationary turret that teleports to the far side of a kiting player; `phased` while fading = can't be hit), flow-field pathing (`FLOW`), ghost drawing (wavelength-driven pulse and ripples, health-scaled core). |
 | `projectiles.js` | Player and enemy shots, pulse-shot visuals, rack bounce (Ricochet), knockback (Kinetic Finish), `hitIds` (a round hits each enemy once, for piercing), `rackHits` (racks shot this frame, for Story objectives). |
+| `dashpowers.js` | Dash abilities (Level 2 cards): Dex's Shock Dash (stun + jam everything dashed through) and Juno's Parting Charge (a bomb where the dash started). Detects a dash starting itself; also hits `level.dashTargets`. |
 | `grenade.js` | Dex's stun grenade: arcs over racks, stuns and jams (+50% damage taken), electricity and smoke, 8 s cooldown. |
 | `echoes.js` | Echo health pickups (pixel-art white figure, fog, fade-in, jewel sound). Legacy Fragment echoes too. |
 | `companions.js`, `traps.js`, `fragments.js` | **Legacy** class systems (Herald orbs, Weaver traps, Fragment data). Not used in play; kept as templates. |
@@ -79,7 +80,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `waves.js` | Arcade: 15 waves (`WAVE_DATA`), timers, bonus bank, boss sequencing, kill score, win. |
 | `upgrades.js` | Card offers: `GENERIC_UPGRADES` (white cards), `STORY_CARDS` (earned in Story), legacy `CLASS_TRAITS`. `_generateOffer` builds the deck (shared Story pool, first-offer guarantee, two-ability cap). |
 | `story.js` | Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
-| `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Enter or a tap moves on). Text blips. Speaker colours and expression lists. |
+| `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
 | `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. |
 | `leaderboard.js` | Supabase calls, the six boards, posting runs, rank, player sync, offline fallback, board drawing. |
@@ -98,12 +99,20 @@ level for now). Beat types:
 | `relays` | Stand near relays to pull charge into your emitter while interrupters drain them |
 | `servers` | Shoot marked racks anywhere on the map to light them (arrows to each unlit one) |
 | `sequence` | Walk over floor pads in the order they lit (built, no longer used by Level 1) |
-| `exit` | Walk to the door → beam-out → card unlock (first time) → results |
+| `drives` | Pick up items at `points.drives`. A level with `icy: true` makes the whole floor ice: you slide everywhere (`player.onIce`) |
+| `freezers` | Frozen tanks (`points.tanks`) that bullets don't hurt; the dash ability hits them (`TANK_HITS` each) through `level.dashTargets` |
+| `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
+| `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 
 Each beat has `lines` (briefing on comms; enemies wait for it), an
 `objective(state)` string, optional `eachDone` lines and `done` lines.
-`_interrupt(dt, cap, period, pickType)` keeps enemies coming during tasks:
-pairs, anywhere on the map, at least 320 px from the player. The level talks to
+A beat's `interrupt: { cap, period, yellow }` keeps enemies coming during
+it (`_interrupt`: pairs, anywhere on the map, at least 320 px from the player).
+`grant: true` on a beat hands over the level's `LEVEL_CARDS` card for the
+rest of the level when it ends (Level 2's dash abilities). Level fields: `map`
+(room), `exit` ('lift'), `points` (positions as map fractions: drives, tanks, lift), `icy`,
+`powerups` (Level 1's sampler only), `blurb`, `outcome`, `unlockTop`
+(the card screen's top line). The level talks to
 the game through `levelApi` in `game.js` (spawn enemies and Echoes, play
 sounds, ask whether a card unlock is due).
 

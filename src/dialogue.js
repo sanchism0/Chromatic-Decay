@@ -198,7 +198,9 @@ export class Dialogue {
 }
 
 // In-game comms. Lines queue up and advance on their own after a generous
-// reading pause; Enter or a tap on the box moves on sooner (Space is dash).
+// reading pause; Space, Enter or a tap on the box moves on sooner. While a
+// line is up the agent can't shoot, and with Chromatics around the game
+// holds still (game.js).
 export class Radio {
   constructor() { this.queue = []; this.cur = null; this.shown = 0; this.hold = 0; this.holdMax = 1; this.t = 0; this.rect = null; }
 
@@ -235,16 +237,16 @@ export class Radio {
   // Compact box under the HUD; objective line underneath it
   // clearLeft: if the box would reach into the top-left HUD column (x < 230),
   // start it at this y instead, below the bars
+  // Desktop: the comms box sits just below the middle of the screen, where
+  // people read it (the agent is in the middle, so it sits under them), and
+  // the objective line at the top. Phones: both at the top, out of the way of
+  // the sticks; in landscape, between the health bar and the Chroma counts.
   draw(ctx, W, H, objective, touch, clearLeft = 0) {
-    // Phones held sideways: comms and the objective sit at the very top,
-    // between the health bar and the Chroma counts, clear of the action
     const compact = touch && H < 500;
     const narrow = W < 600 || compact;
     this.rect = null;
     const boxW = compact ? Math.min(480, W - 340) : Math.min(560, W - 24);
     const bx = (W - boxW) / 2;
-    const by = compact ? 6 : Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0);
-    let bottom = by;
     if (this.cur) {
       const sp = SPEAKERS[this.cur.who] || SPEAKERS.null;
       const portS = compact ? 44 : narrow ? 56 : 68;
@@ -252,6 +254,9 @@ export class Radio {
       ctx.font = `${narrow ? 12 : 14}px monospace`;
       const lines = wrap(ctx, this.cur.text.slice(0, Math.floor(this.shown)), boxW - portS - 34);
       const boxH = Math.max(portS + 12, 30 + lines.length * (narrow ? 16 : 19) + 10);
+      const by = !touch ? Math.min(Math.round(H / 2 + 60), H - boxH - 80)
+               : compact ? 6 : Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0);
+      this._bottom = by + boxH + 10;
       const top = drawSlab(ctx, bx, by, boxW, boxH, { accent: sp.color, depth: 6, glow: 0.2, led: false });
       // Portrait: a head-and-shoulders crop in a small window
       ctx.save();
@@ -285,20 +290,23 @@ export class Radio {
         ctx.fillStyle = '#8FA8B8';
         ctx.font = '11px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText(touch ? 'tap ▸' : 'ENTER ▸', bx + boxW - 12, top + (narrow ? 18 : 20));
+        ctx.fillText(touch ? 'tap ▸' : 'SPACE ▸', bx + boxW - 12, top + (narrow ? 18 : 20));
       }
       ctx.restore();
       this.rect = { x: bx, y: by, w: boxW, h: boxH + 8 };
-      bottom = by + boxH + 10;
     }
     if (objective) {
+      // Desktop: top of the screen. Phones: under the comms box (or where it
+      // would be)
+      const below = this.cur ? this._bottom : (compact ? 4 : Math.max(narrow ? 78 : 70, bx < 230 ? clearLeft : 0));
+      const bottom = !touch ? 12 : below;
       ctx.save();
       ctx.textAlign = 'center';
       ctx.font = `bold ${narrow ? 11 : 13}px monospace`;
       const label = `▸ ${objective}`;
       const w = ctx.measureText(label).width + 20;
       ctx.fillStyle = 'rgba(7,11,18,0.75)';
-      const oy = compact && !this.cur ? bottom - 2 : bottom;
+      const oy = bottom;
       ctx.fillRect(W / 2 - w / 2, oy + 4, w, narrow ? 20 : 24);
       ctx.fillStyle = '#00E5CC';
       ctx.fillText(label, W / 2, oy + (narrow ? 18 : 21));

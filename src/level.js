@@ -5,6 +5,9 @@
 //   relays    power up relays while Chromatics keep coming to drain them
 //   servers   shoot the marked server racks spread round the map to wake them
 //   sequence  watch floor pads light up, then walk over them in the same order
+//   drives    grab items frozen into ice patches (you slide on ice)
+//   freezers  crack frozen tanks that only a dash ability can damage
+//   valves    stand on plates to open them for a few seconds; all open at once
 //   exit      reach the door: the agent beams out, and the
 //             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
@@ -17,7 +20,7 @@ import { Radio } from './dialogue.js';
 import { CONFIG } from './config.js';
 import { drawGlow } from './sprites.js';
 import { rackHeight } from './pixelmap.js';
-import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear } from './audio.js';
+import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack } from './audio.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
@@ -45,7 +48,8 @@ export const LEVELS = {
   1: {
     id: 1,
     name: 'SERVER FLOOR',
-    blurb: "Find Raze's trail: power the floor, pull his logs off the servers.",
+    powerups: true,   // the sampler: a set power-up after each section
+    blurb: "Find Raze's trail: power the floor, wake the servers.",
     outcome: "Raze's logs recovered. His trail leads down, to Cold Storage.",
     beats: (op, agent) => {
       const L = (face, text) => ({ who: op, face, text });
@@ -86,12 +90,14 @@ export const LEVELS = {
             [L(f('determined', 'focused'), 'Three. One left.')],
           ],
           objective: s => `Wake the servers (${s.servers}/4)`,
+          interrupt: { cap: 10, period: 2, yellow: 0.25 },
           done: [L(f('shocked', 'alarmed'), "That's all four, and there's his trace. Raze went down, to Cold Storage."),
                  L(f('laughing', 'soft-smile'), "Get back to the door you came in by. I'll pull you out.")] },
 
         { type: 'exit',
           lines: [],
           objective: () => 'Get to the door',
+          interrupt: { cap: 10, period: 2, yellow: 0.25 },
           extract: [L(f('cocky-grin', 'soft-smile'), "Got you. Coming home.")],
           done: [] },
       ];
@@ -99,9 +105,86 @@ export const LEVELS = {
   },
 };
 
+LEVELS[2] = {
+  id: 2,
+  name: 'COLD STORAGE',
+  map: 'cold',
+  exit: 'lift',
+  blurb: "Follow Raze into the frozen archive; get the lift running.",
+  outcome: "Raze's archive drives recovered. He went down, to The Stacks.",
+  unlockTop: 'THE LIFT DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
+  icy: true,     // the whole floor is ice: you slide everywhere
+  // Where things are, as fractions of the map (nudged clear of racks).
+  // drives: the frozen archive drives; tanks: the frozen coolant tanks
+  points: {
+    lift: [0.88, 0.90],
+    drives: [[0.41, 0.319], [0.71, 0.497], [0.21, 0.677]],
+    tanks: [[0.14, 0.32], [0.88, 0.50], [0.40, 0.88]],
+  },
+  beats: (op, agent) => {
+    const L = (face, text) => ({ who: op, face, text });
+    const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
+    const dex = agent === 'dex';
+    return [
+      { type: 'wave',
+        lines: [L(f('neutral', 'focused'), "Cold Storage. Raze's trace led down here, where they froze the old data."),
+                L(f('worried', 'concerned'), "The whole floor's iced over, so you'll slide. And something's still moving in the aisles.")],
+        groups: [[['violet', 3]], [['violet', 2], ['yellow', 1]], [['yellow', 2], ['violet', 2]]],
+        objective: s => `Clear the aisles (${s.left} left)`,
+        grant: true,   // the level's dash ability, after this section
+        done: [L(f('shocked', 'alarmed'), "Clear. Hang on, your signal just spiked...")] },
+
+      { type: 'drives',
+        lines: [L(f('laughing', 'soft-smile'), dex ? "Your dash is crackling now. Anything you dash through gets a shock."
+                                                   : "Your dash leaves a charge behind now. It goes off a second after you."),
+                L(f('determined', 'focused'), "Raze's trace is split across three archive drives, frozen into the floor. I've marked them.")],
+        eachDone: [[L(f('determined', 'focused'), 'One drive.')], [L(f('cocky-grin', 'smirk'), 'Two. One more.')]],
+        objective: s => `Grab the frozen drives (${s.drives}/3)`,
+        interrupt: { cap: 4, period: 4, yellow: 0.25 },
+        done: [L(f('shocked', 'alarmed'), "That's all three, and there's his trail. Raze went down: The Stacks.")] },
+
+      { type: 'wave',
+        lines: [L(f('worried', 'concerned'), "They heard the ice crack. Here they come."),
+                L(f('cocky-grin', 'smirk'), "Tip: dash through a hit just as it lands. A perfect dash, and your dash comes straight back.")],
+        groups: [[['yellow', 2]], [['yellow', 2], ['violet', 2]], [['yellow', 3]]],
+        objective: s => `Hold them off (${s.left} left)`,
+        done: [L(f('neutral', 'soft-smile'), "That's the last of them. Now the lift.")] },
+
+      { type: 'freezers',
+        lines: [L(f('neutral', 'focused'), "The lift's frozen solid, and those three coolant tanks are why."),
+                L(f('determined', 'neutral'), dex ? "Bullets won't touch that ice. Dash through a tank and your shock cracks it. Twice each."
+                                                  : "Bullets won't touch that ice. Dash away from a tank and your charge cracks it. Twice each.")],
+        objective: s => `Crack the frozen tanks (${s.tanks}/3)`,
+        interrupt: { cap: 3, period: 5, yellow: 0 },
+        done: [L(f('shocked', 'alarmed'), "That's it, the lift's moving! Get on.")] },
+
+      { type: 'exit',
+        lines: [],
+        objective: () => 'Get on the lift',
+        interrupt: { cap: 6, period: 3, yellow: 0.3 },
+        extract: [L(f('cocky-grin', 'soft-smile'), "Hold on. Going down.")],
+        done: [] },
+    ];
+  },
+};
+
+// Level 2's dash abilities: granted after its first section, kept as a card
+// the first time it's cleared (STORY_CARDS has the Arcade versions)
+const DASH_POWERS = {
+  dex: { id: 'shock_dash', name: 'SHOCK DASH', desc: 'Chromatics you dash through are stunned and take 50% more damage.',
+         has: p => !!p.shockDash, apply: p => { p.shockDash = true; },
+         hint: touch => (touch ? 'Tap DASH and go straight through them.' : 'Space or click to dash straight through them.') },
+  juno: { id: 'parting_charge', name: 'PARTING CHARGE', desc: 'Dashing leaves a light bomb where you started. It bursts a moment later.',
+          has: p => !!p.dashBomb, apply: p => { p.dashBomb = true; },
+          hint: touch => (touch ? 'Tap DASH to leave one behind.' : 'Space or click to dash and leave one behind.') },
+};
+
+const VALVE_OPEN = 8;     // seconds a valve stays open once you step off
+const TANK_HITS  = 2;     // dash-ability hits to crack a frozen tank
+
 // What opening each level's door unlocks for keeps, per agent: the first
 // power-up, as a card in that character's Arcade upgrade offers
-export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] } };
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS };
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -153,6 +236,16 @@ export class LevelRun {
   _layout() {
     const map = this.api.map();
     const W = CONFIG.map_width, H = CONFIG.map_height;
+    const pts = this.def.points;
+    if (pts) {
+      const at = ([fx, fy], pad = 30) => freeSpot(map, W * fx, H * fy, pad);
+      this.exitPos  = pts.lift ? at(pts.lift, 40) : map.playerSpawn();
+      if (pts.valves) this.valvePos = pts.valves.map(v => at(v, 26));
+      if (pts.tanks) this.tankPos = pts.tanks.map(v => at(v, 26));
+      if (pts.drives) this.drivePos = pts.drives.map(([fx, fy]) => ({ x: W * fx, y: H * fy }));
+      if (this.def.icy) this.cracks = this._makeCracks(W, H);
+      return;
+    }
     this.relayPos = [freeSpot(map, W * 0.2, H * 0.24), freeSpot(map, W * 0.8, H * 0.26), freeSpot(map, W * 0.5, H * 0.5)];
     const c = freeSpot(map, W * 0.5, H * 0.33, 110);
     this.lockCenter = c;
@@ -191,6 +284,12 @@ export class LevelRun {
       if (!this.relays) this.relays = this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 }));
       for (const r of this.relays) if (!r.done) r.charge = 0;
       this._saidFirst = this._saidFirst || false;
+    } else if (b.type === 'drives') {
+      if (!this.drives) this.drives = this.drivePos.map(p => ({ x: p.x, y: p.y, got: false }));
+    } else if (b.type === 'freezers') {
+      if (!this.tanks) this.tanks = this.tankPos.map(p => ({ x: p.x, y: p.y, hp: TANK_HITS, hitT: 0 }));
+    } else if (b.type === 'valves') {
+      if (!this.valves) this.valves = this.valvePos.map(p => ({ x: p.x, y: p.y, open: 0 }));
     } else if (b.type === 'servers') {
       if (!this.servers) this.servers = this.serverRacks.map(o => ({ o, x: o.x + o.w / 2, y: o.y + o.h / 2, lit: false, litT: 0 }));
     } else if (b.type === 'sequence') {
@@ -268,9 +367,12 @@ export class LevelRun {
     if (b.done && b.done.length) this.radio.say(b.done);
     if (b.type === 'wave' || b.type === 'relays') {
       sfxWaveClear();
-      const list = POWERUPS[this.agent] || [];
+      const list = this.def.powerups ? (POWERUPS[this.agent] || []) : [];
       if (this._powerIdx < list.length) this.pendingPowerUp = list[this._powerIdx++];
     }
+    // The level's ability (Level 2: a dash ability), unless they have it already
+    const card = b.grant && (LEVEL_CARDS[this.id] || {})[this.agent];
+    if (card && card.has && !card.has(this.api.player())) this.pendingPowerUp = card;
     if (b.type === 'exit') { this.complete = true; return; }
     this._next();
   }
@@ -282,13 +384,19 @@ export class LevelRun {
     const b = this.beat;
     if (!b || this.complete) return;
     if (pl.hp <= 1 && !pl.beaming) { this.failed = true; return; }
+    pl.onIce = !!this.def.icy;
+    for (const tk of this.tanks || []) tk.hitT = Math.max(0, tk.hitT - dt);
     if (!this.ready) { if (!this.radio.busy && !pl.beaming) this.ready = true; else return; }
 
     if (this.extractT != null) { this._updateExtract(dt, pl); this._updateMotes(dt, pl); return; }
-    // The last stretch (the servers and the walk to the door) brings a swarm:
-    // mostly violets, some yellows. Not all of them need killing
-    if (b.type === 'servers' || b.type === 'sequence' || b.type === 'exit') this._interrupt(dt, 10, 2, () => (Math.random() < 0.25 ? 'yellow' : 'violet'));
+    // Beats with an interrupt setting keep Chromatics coming while you work
+    // (Level 1's last stretch brings a swarm: not all of them need killing)
+    const it = b.interrupt;
+    if (it) this._interrupt(dt, it.cap, it.period, () => (Math.random() < (it.yellow || 0) ? 'yellow' : 'violet'));
     if (b.type === 'wave') this._updateWave(dt, b);
+    else if (b.type === 'drives') this._updateDrives(dt, b, pl);
+    else if (b.type === 'freezers') this._updateFreezers(dt, b);
+    else if (b.type === 'valves') this._updateValves(dt, b, pl);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
     else if (b.type === 'exit') {
@@ -402,6 +510,46 @@ export class LevelRun {
     this.spawnT = period;
   }
 
+  // Drives: walk into each one (on the ice) to grab it
+  _updateDrives(dt, b, pl) {
+    for (const d of this.drives) {
+      if (d.got || Math.hypot(pl.x - d.x, pl.y - d.y) > 22) continue;
+      d.got = true;
+      const n = this.drives.filter(x => x.got).length;
+      sfxNode(n - 1);
+      if (n < this.drives.length) { this.radio.clear(); this.radio.say(b.eachDone[n - 1] || []); }
+      else { sfxRelayCharged(); this._finishBeat(); return; }
+    }
+  }
+
+  // Frozen tanks: bullets do nothing; the dash abilities (dashpowers.js) hit
+  // them through dashTargets. Done when every tank is cracked open.
+  _updateFreezers(dt, b) {
+    if (this.tanks.every(t => t.hp <= 0)) { sfxRelayCharged(); this._finishBeat(); }
+  }
+
+  // What the dash abilities can crack right now
+  get dashTargets() {
+    if (!this.tanks || !this.beat || this.beat.type !== 'freezers' || !this.ready) return null;
+    return this.tanks.filter(t => t.hp > 0).map(t => ({ x: t.x, y: t.y, r: 16, hit: () => {
+      if (t.hitT > 0 || t.hp <= 0) return;   // one hit per dash or burst
+      t.hp--; t.hitT = 0.3;
+      sfxIceCrack(t.hp <= 0);
+    } }));
+  }
+
+  // Valves: standing on one opens it (and keeps it open); stepped off, it
+  // closes after VALVE_OPEN seconds. All open at once finishes the beat.
+  _updateValves(dt, b, pl) {
+    this.valves.forEach((v, i) => {
+      if (Math.hypot(pl.x - v.x, pl.y - v.y) < 26) {
+        if (v.open <= 0) sfxNode(i);
+        v.open = VALVE_OPEN;
+      } else v.open = Math.max(0, v.open - dt);
+    });
+    if (this.valves.every(v => v.open > 0)) { sfxRelayCharged(); this._finishBeat(); }
+  }
+
   _updateSequence(dt, b) {
     for (let i = 0; i < this.lit.length; i++) if (this.showing || this.seqStep === 0) this.lit[i] = Math.max(0, this.lit[i] - dt * 2.2);
     if (this.wrongT > 0) {
@@ -437,7 +585,10 @@ export class LevelRun {
     const left = this.api.enemies.enemies.filter(e => e.isAlive).length;
     const done = this.relays ? this.relays.filter(r => r.done).length : 0;
     const servers = this.servers ? this.servers.filter(s => s.lit).length : 0;
-    return b.objective({ left, done, servers });
+    const valvesOpen = this.valves ? this.valves.filter(v => v.open > 0).length : 0;
+    const drives = this.drives ? this.drives.filter(d => d.got).length : 0;
+    const tanks = this.tanks ? this.tanks.filter(t => t.hp <= 0).length : 0;
+    return b.objective({ left, done, servers, valvesOpen, drives, tanks });
   }
 
   // ── Drawing ─────────────────────────────────────────────────
@@ -445,11 +596,20 @@ export class LevelRun {
   drawWorld(ctx) {
     const b = this.beat;
     const t = this.t;
+    if (this.cracks) this._drawIce(ctx, t);
     if (this.relays || (b && b.type === 'relays')) {
       for (const r of (this.relays || this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 })))) this._drawRelay(ctx, r, t);
     }
     if (this.seq) this._drawLock(ctx, t);
-    if (b && b.type === 'exit') this._drawExit(ctx, t);
+    if (this.def.exit === 'lift') this._drawLift(ctx, t, b && b.type === 'exit');
+    else if (b && b.type === 'exit') this._drawExit(ctx, t);
+    if (this.valves || (b && b.type === 'valves')) {
+      (this.valves || this.valvePos.map(p => ({ ...p, open: 0 }))).forEach((v, i) => this._drawValve(ctx, v, i, t));
+    }
+    if (this.drives) for (const d of this.drives) if (!d.got) this._drawDrive(ctx, d, t);
+    if (this.tanks || (b && b.type === 'freezers')) {
+      for (const tk of (this.tanks || this.tankPos.map(p => ({ ...p, hp: TANK_HITS, hitT: 0 })))) this._drawTank(ctx, tk, t);
+    }
     // Essence flowing from the relay into the agent
     const pl = this.api.player();
     ctx.save();
@@ -585,6 +745,150 @@ export class LevelRun {
     ctx.restore();
   }
 
+  // The freight lift: a platform with hazard chevrons; lit in the agent's
+  // colour once it's running (the exit beat), dim and frosted before
+  _drawLift(ctx, t, live) {
+    const e = this.exitPos;
+    const x = Math.round(e.x), y = Math.round(e.y);
+    const pulse = 0.6 + 0.4 * Math.sin(t * 3);
+    const col = live ? this.color : '#4A6A88';
+    ctx.save();
+    if (live) {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, this.color, e.x, e.y, 70, 0.45 * pulse);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.fillStyle = '#0B1018'; ctx.fillRect(x - 26, y - 20, 52, 40);
+    ctx.fillStyle = '#26324A'; ctx.fillRect(x - 24, y - 18, 48, 36);
+    ctx.fillStyle = '#1A2436'; ctx.fillRect(x - 20, y - 14, 40, 28);
+    ctx.fillStyle = col;
+    ctx.globalAlpha = live ? pulse : 0.5;
+    for (let k = -20; k < 20; k += 8) { ctx.fillRect(x + k, y - 18, 4, 2); ctx.fillRect(x + k + 2, y + 16, 4, 2); }   // chevrons
+    ctx.fillRect(x - 24, y - 18, 2, 36); ctx.fillRect(x + 22, y - 18, 2, 36);                                      // rails
+    ctx.globalAlpha = 1;
+    if (!live) {   // frost crust over the deck
+      ctx.fillStyle = '#5A7090';
+      for (let k = 0; k < 14; k++) ctx.fillRect(x - 18 + ((k * 7) % 36), y - 12 + ((k * 11) % 24), 2, 1);
+    }
+    ctx.restore();
+  }
+
+  // A coolant valve plate: frosted while shut, the agent's colour while open,
+  // with a ring that empties as it closes again
+  _drawValve(ctx, v, i, t) {
+    const x = Math.round(v.x), y = Math.round(v.y);
+    const open = v.open > 0, k = v.open / VALVE_OPEN;
+    const live = this.beat && this.beat.type === 'valves' && this.ready;
+    ctx.save();
+    ctx.globalAlpha = live ? 0.55 : 0.3;
+    ctx.strokeStyle = open ? this.color : '#6A8AAA';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(v.x, v.y + 4, 30, 16, 0, 0, Math.PI * 2); ctx.stroke();
+    if (open) {
+      ctx.globalAlpha = 0.95; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(v.x, v.y + 4, 30, 16, 0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#0B1018'; ctx.fillRect(x - 14, y - 10, 28, 20);
+    ctx.fillStyle = '#2C3A52'; ctx.fillRect(x - 12, y - 8, 24, 16);
+    ctx.fillStyle = '#3A4C6A'; ctx.fillRect(x - 12, y - 8, 24, 2);
+    ctx.fillStyle = '#1A2436'; ctx.fillRect(x - 3, y - 22, 6, 14);          // pipe
+    ctx.fillStyle = open ? this.color : '#5A7090';
+    ctx.fillRect(x - 6, y - 24, 12, 3);                                       // wheel
+    ctx.fillRect(x - 7, y - 4, 14, 8);                                        // gauge
+    if (!open) { ctx.fillStyle = '#9FB8D8'; for (let n = 0; n < 6; n++) ctx.fillRect(x - 10 + n * 4, y - 7 + (n % 2) * 9, 2, 1); }
+    if (open) {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, this.color, v.x, v.y, 26, 0.5);
+    }
+    ctx.restore();
+  }
+
+  // An icy floor: cracks scattered over the whole map, made once
+  _makeCracks(W, H) {
+    let sd = 4242;
+    const rnd = () => { sd = (sd * 9301 + 49297) % 233280; return sd / 233280; };
+    const out = [];
+    for (let k = 0; k < 90; k++) {
+      let x = rnd() * W, y = rnd() * H;
+      const pts = [[x, y]];
+      for (let j = 0; j < 3; j++) { x += (rnd() - 0.5) * 40; y += (rnd() - 0.5) * 22; pts.push([x, y]); }
+      out.push(pts);
+    }
+    return out;
+  }
+
+  // The whole floor under a pale glassy sheet, with cracks and a slow glint
+  // sweeping across now and then (soft, never a flash)
+  _drawIce(ctx, t) {
+    const W = CONFIG.map_width, H = CONFIG.map_height;
+    ctx.save();
+    ctx.fillStyle = 'rgba(170,215,255,0.10)'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(220,240,255,0.22)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const c of this.cracks) { ctx.moveTo(c[0][0], c[0][1]); for (let j = 1; j < c.length; j++) ctx.lineTo(c[j][0], c[j][1]); }
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+    const gx = ((t * 90) % (W + H + 400)) - 200;   // a diagonal glint
+    const g = ctx.createLinearGradient(gx - 60, 0, gx + 60, 60);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(230,245,255,0.06)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // A frozen archive drive: a dark box with a blinking light, crusted in ice
+  _drawDrive(ctx, d, t) {
+    const x = Math.round(d.x), y = Math.round(d.y);
+    const live = this.beat && this.beat.type === 'drives' && this.ready;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(ctx, '#9FE8FF', d.x, d.y, 22, live ? 0.35 + 0.15 * Math.sin(t * 3) : 0.15);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#0B1018'; ctx.fillRect(x - 9, y - 7, 18, 14);
+    ctx.fillStyle = '#26344C'; ctx.fillRect(x - 8, y - 6, 16, 12);
+    ctx.fillStyle = '#3A4E70'; ctx.fillRect(x - 8, y - 6, 16, 2);
+    ctx.fillStyle = Math.floor(t * 2.5) % 2 ? '#9FE8FF' : '#2A6A88'; ctx.fillRect(x + 3, y - 2, 2, 2);
+    ctx.fillStyle = 'rgba(200,232,255,0.55)';
+    for (let k = 0; k < 5; k++) ctx.fillRect(x - 8 + ((k * 5) % 15), y + 2 - (k % 2) * 6, 3, 1);
+    ctx.restore();
+  }
+
+  // A frozen coolant tank: a block of ice around a steel cylinder; cracks
+  // spread with each hit, and a cracked tank is shards and a little mist
+  _drawTank(ctx, tk, t) {
+    const x = Math.round(tk.x), y = Math.round(tk.y);
+    const live = this.beat && this.beat.type === 'freezers' && this.ready;
+    ctx.save();
+    if (tk.hp <= 0) {
+      ctx.fillStyle = '#26344C'; ctx.fillRect(x - 6, y - 8, 12, 14);
+      ctx.fillStyle = 'rgba(200,232,255,0.6)';
+      for (let k = 0; k < 7; k++) ctx.fillRect(x - 16 + ((k * 9) % 30), y + 4 + (k % 3) * 3, 3, 2);
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, this.color, tk.x, tk.y - 4, 20, 0.35);
+      ctx.restore();
+      return;
+    }
+    if (live) {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, '#9FE8FF', tk.x, tk.y - 6, 30, 0.25 + 0.1 * Math.sin(t * 2.4) + (tk.hitT > 0 ? 0.3 : 0));
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.fillStyle = '#0B1018'; ctx.fillRect(x - 15, y - 26, 30, 34);                  // outline
+    ctx.fillStyle = '#7FA8D0'; ctx.fillRect(x - 14, y - 25, 28, 32);                  // ice
+    ctx.fillStyle = '#A8C8E8'; ctx.fillRect(x - 14, y - 25, 28, 3); ctx.fillRect(x - 14, y - 25, 3, 32);
+    ctx.fillStyle = '#3A4E70'; ctx.fillRect(x - 6, y - 21, 12, 24);                   // the tank inside
+    ctx.fillStyle = '#5A7096'; ctx.fillRect(x - 6, y - 21, 3, 24);
+    ctx.fillStyle = 'rgba(220,240,255,0.5)'; ctx.fillRect(x + 7, y - 18, 2, 10);      // shine
+    if (tk.hp < TANK_HITS) {                                                         // cracks
+      ctx.strokeStyle = '#E8F6FF'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - 10, y - 20); ctx.lineTo(x - 2, y - 10); ctx.lineTo(x - 7, y - 2); ctx.lineTo(x + 2, y + 4);
+      ctx.moveTo(x - 2, y - 10); ctx.lineTo(x + 9, y - 14);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // Where the player should head next, if anywhere
   // Where the player should head next: one place, or every unlit server
   get targets() {
@@ -597,6 +901,9 @@ export class LevelRun {
       return [open.reduce((a, r) => Math.hypot(r.x - pl.x, r.y - pl.y) < Math.hypot(a.x - pl.x, a.y - pl.y) ? r : a)];
     }
     if (b.type === 'servers' && this.servers) return this.servers.filter(s => !s.lit);
+    if (b.type === 'drives' && this.drives) return this.drives.filter(d => !d.got);
+    if (b.type === 'freezers' && this.tanks) return this.tanks.filter(t => t.hp > 0);
+    if (b.type === 'valves' && this.valves) return this.valves.filter(v => v.open <= 0);
     if (b.type === 'sequence') return [this.lockCenter];
     if (b.type === 'exit') return [this.exitPos];
     return [];
