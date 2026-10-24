@@ -636,7 +636,8 @@ export class Player {
       // A ring of rounds from the body; game.js adds the knockback
       const n = 16, dmg = this.effectiveDamage * 1.2;
       for (let i = 0; i < n; i++) {
-        projectileSystem.spawnPlayer(this.x, this.y - 6, (i / n) * Math.PI * 2, dmg, this.projSpeed * 1.1, this.projRange * 0.55, 0, false, false);
+        const s = projectileSystem.spawnPlayer(this.x, this.y - 6, (i / n) * Math.PI * 2, dmg, this.projSpeed * 1.1, this.projRange * 0.55, 0, false, false);
+        if (s) s.discharge = true;
       }
     } else if (this.signature === 'juno') {
       this.spinUpTimer = 4;
@@ -690,6 +691,7 @@ export class Player {
       if (shot) {
         shot.rackBounce = this.rackBounce || 0;
         shot.arc = !!(finalRound && this.arcRound);
+        shot.spun = this.spinUpTimer > 0;
       }
     }
   }

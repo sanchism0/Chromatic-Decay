@@ -13,7 +13,7 @@ import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
-import { StoryMode, INTROS } from './story.js';
+import { StoryMode, INTROS, OUTROS } from './story.js';
 import { ParticleSystem }   from './particles.js';
 import { DrainSystem }      from './drain.js';
 import { drawSlab, drawSlabButton, dimBackdrop, over } from './ui3d.js';
@@ -872,6 +872,20 @@ function updatePlaying(dt) {
     level.update(dt);
     if (level.complete) _finishLevel();
     else if (level.failed) { _startDeath(); return; }
+    else if (level.wantOutro && state === STATES.PLAYING) {
+      // A scene after the level (Level 5: meeting Raze), then on to the card and results
+      const lv = level, key = lv.def.outro, who = lv.agent;
+      const lines = OUTROS[key] && OUTROS[key][who];
+      lv.wantOutro = false;
+      if (!lines) { lv.outroDone = true; }
+      else {
+        _storyTime = 0;
+        const sides = who === 'dex' ? { juno: 'left', dex: 'right', raze: 'left', null: 'left' } : { dex: 'left', juno: 'right', raze: 'left', null: 'left' };
+        story.playInterlude(lines, sides, () => { lv.outroDone = true; state = STATES.PLAYING; });
+        state = STATES.STORY;
+        return;
+      }
+    }
     else if (level.awaitUnlock && state === STATES.PLAYING) { _unlockT = 0; sfxUnlockTune(); state = STATES.ABILITY_UNLOCK; return; }
     else if (level.pendingPowerUp && state === STATES.PLAYING) { _unlockT = 0; sfxRelayChime(); state = STATES.POWER_UP; return; }
   }
@@ -2445,7 +2459,7 @@ function _drawSignature(W, H) {
   const col = AGENT_COLOR[player.signature];
   const cd = player.signatureCooldown || 0, max = player.signatureCooldownMax || sig.cd;
   const ready = cd <= 0;
-  _sigBtn.r = _roundBtn(_btnSlotX(W, player.grenade ? 2 : 1), _btnRowY(H), ready ? sig.name.split(' ')[0] : cd.toFixed(1), col, { cdFrac: cd / max });
+  _sigBtn.r = _roundBtn(_btnSlotX(W, _throwId() ? 2 : 1), _btnRowY(H), ready ? sig.name.split(' ')[0] : cd.toFixed(1), col, { cdFrac: cd / max });
 }
 
 // ── Character select ("Who goes in?") ─────────────────────────
@@ -2479,7 +2493,7 @@ function _pickCharacter(id) {
     const key = LEVELS[_pendingLevel] && LEVELS[_pendingLevel].intro;
     const intro = key && INTROS[key] ? INTROS[key][id] : null;
     if (intro) {
-      const sides = id === 'dex' ? { juno: 'left', dex: 'right', null: 'left' } : { dex: 'left', juno: 'right', null: 'left' };
+      const sides = id === 'dex' ? { juno: 'left', dex: 'right', null: 'left', raze: 'left' } : { dex: 'left', juno: 'right', null: 'left', raze: 'left' };
       _storyTime = 0;
       story.playInterlude(intro, sides, () => startRun({ level: _pendingLevel }));
       state = STATES.STORY;

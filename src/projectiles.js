@@ -37,6 +37,8 @@ class Projectile {
     this.rackBounce = 0;        // ricochets left off racks (set after spawn)
     this.arc        = false;    // Arc Round: jumps to a nearby enemy on hit (set after spawn)
     this.bounced    = false;    // has ricocheted off a rack (Level 4's junction boxes need this)
+    this.discharge  = false;    // from Dex's Arc Discharge ring (Level 5's anchors need this)
+    this.spun       = false;    // fired during Juno's Spin Up (Level 5's anchors need this)
     this.hitIds     = null;     // enemies this round has already hit
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot

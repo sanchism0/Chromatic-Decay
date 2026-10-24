@@ -136,7 +136,25 @@ Collapse from the inside."
 | Escape | "The board's overloading. The floor cables just went live! RUN!" | 22 s, four live wires (dash through), alarm, red edge |
 | Exit | "Got you! That was way too close." | Through the far door: card, results |
 
-## Level 5 (planned)
+## Level 5: "Raze's Room" (built)
+
+**Before it** (`INTROS.raze` in `story.js`): Null on what to expect. He and Raze
+go back to the first night; Dex and Juno have known Null a few years. "He'll
+threaten you. Let him." "Don't turn your back on him. Not yet."
+
+| Beat | Comms (gist) | Play |
+|---|---|---|
+| Wave | "That's him. On the core." Raze: "Another one of Null's errand kids. Stay out of my sightline." | All three types. Then Arc Discharge / Spin Up (F) |
+| Anchors | Four anchors feed his cage; plain fire glances off; use the F ability. Raze heckles ("Left one next. Are you blind?") | Up to 5 enemies |
+| Boss | The Signal Hoarder: "the thing that's been eating me". Turrets shield it; dash through its bursts; it calls swarms ("Coward.") | Checkpoint. Its death ends the level |
+
+**After it** (`OUTROS.raze`): Raze points his rifle at the agent, insults
+their emitter, jokes about having had "a lot of time to practise my aim". Then
+Null: "You took your time." / "I thought you were gone." / "I WAS gone." Raze
+remembers Null owes him; Null needs what he remembers of the Collapse. "Your
+kids can carry my bags." Card: RAZE IS OUT.
+
+## Later (planned)
 
 | # | Level | Story beat |
 |---|---|---|

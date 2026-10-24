@@ -140,8 +140,71 @@ export const WIRE_INTRO = {
   ],
 };
 
+// Before Level 5: Null tells them what to expect from Raze, and they learn
+// how far back the two of them go (and how new Dex and Juno are to Null).
+const raze_intro = (agent) => {
+  const op = agent === 'dex' ? 'juno' : 'dex';
+  const A = (face, text) => ({ who: agent, face, text });
+  const O = (face, text) => ({ who: op, face, text });
+  const dexIn = agent === 'dex';
+  return [
+    { caption: 'THE LAST DOOR  ·  ONE RADIO CHANNEL' },
+    { who: 'null', text: 'Before you open that door. Raze.' },
+    O(dexIn ? 'focused' : 'neutral', "We're listening."),
+    { who: 'null', text: 'He was fighting these things before either of you ever picked up an emitter. Most of what I know about them, he taught me.' },
+    A(dexIn ? 'worried' : 'concerned', "...You never said you had a partner."),
+    { who: 'null', text: "You never asked. You've known me a few years. I've known him since the first night." },
+    { who: 'null', text: "He's been alone in the dark a long time. He'll threaten you. Let him." },
+    O(dexIn ? 'concerned' : 'worried', 'And if he means it?'),
+    { who: 'null', text: "Don't turn your back on him. Not yet." },
+    dexIn ? A('cocky-grin', 'Great. Love that. Very reassuring.') : A('smirk', 'Noted. Back to the wall at all times.'),
+    dexIn ? O('soft-smile', "You're doing the voice. The scared voice.") : O('laughing', "You're doing the face. The calm face. That's your scared face."),
+    dexIn ? A('shocked', 'There is no scared voice!') : A('annoyed', 'I do not have a scared face.'),
+    { card: "RAZE'S ROOM" },
+  ];
+};
+
+// After Level 5: the cage comes down. Raze meets the agent (and doesn't make
+// it easy), then speaks to Null for the first time in years.
+const raze_outro = (agent) => {
+  const op = agent === 'dex' ? 'juno' : 'dex';
+  const A = (face, text) => ({ who: agent, face, text });
+  const O = (face, text) => ({ who: op, face, text });
+  const R = (face, text) => ({ who: 'raze', face, text });
+  const dexIn = agent === 'dex';
+  return [
+    { caption: 'THE CORE  ·  THE CAGE COMES DOWN' },
+    R('snarl', 'Stop. Right there. Hands where I can see them.'),
+    dexIn ? A('shocked', "Whoa. Hey. Easy. We're the rescue.") : A('alarmed', "Lower it. We're the rescue."),
+    R('stern', dexIn ? 'Rescue. Null sends a kid with a microwave strapped to his arm and calls it a rescue.'
+                     : 'Rescue. Null sends a kid with a leaf blower and calls it a rescue.'),
+    O(dexIn ? 'annoyed' : 'angry', 'That kid just killed the thing that was eating you.'),
+    R('smirk', 'And the voice in the ear has opinions. Cute.'),
+    dexIn ? A('angry', 'Okay, you know what, I just crawled through your whole basement for—') : A('annoyed', 'We just crawled through your whole basement for you.'),
+    R('laughing', "Relax. If I wanted you dead, you'd have been dead the second you walked in. I had a lot of time to practise my aim."),
+    O(dexIn ? 'concerned' : 'worried', dexIn ? "...He's joking. Dex, he's joking. Right?" : "...He's joking. Juno, tell me he's joking."),
+    R('neutral', "Where's Null?"),
+    { caption: 'INCOMING  ·  PRIORITY SIGNAL' },
+    { who: 'null', text: 'Here.' },
+    R('stern', '...You took your time.'),
+    { who: 'null', text: 'I thought you were gone.' },
+    R('angry', 'I WAS gone. They drained me one memory at a time and fed it to that thing. I counted the days until I forgot how to count.'),
+    { who: 'null', text: 'And now you have them back.' },
+    R('uneasy', 'Most of them. Enough to remember you owe me.'),
+    { who: 'null', text: 'I know. And I need what you remember. The Collapse. The first night.' },
+    R('smirk', 'Of course you do. Same old Null.'),
+    R('neutral', 'Fine. Get me out of this hole. Your kids can carry my bags.'),
+    dexIn ? A('shocked', "We're not—") : A('alarmed', "We're not—"),
+    dexIn ? O('smirk', "We're definitely not.") : O('angry', "We are absolutely not."),
+    { card: 'RAZE IS OUT' },
+  ];
+};
+
 // Scenes that open a level, by LEVELS[n].intro
-export const INTROS = { stacks: STACKS_INTRO, wire: WIRE_INTRO };
+export const INTROS = { stacks: STACKS_INTRO, wire: WIRE_INTRO,
+  raze: { dex: raze_intro('dex'), juno: raze_intro('juno') } };
+// Scenes after a level, by LEVELS[n].outro
+export const OUTROS = { raze: { dex: raze_outro('dex'), juno: raze_outro('juno') } };
 
 // Tutorial: each step says its lines, then waits for its condition. A step
 // moves on only once its condition is met AND the operator has finished

@@ -18,6 +18,10 @@
 //   tuning    dials (turned the same way) to match a display
 //   escape    a timer to reach the far door, past live wires you can only cross
 //             mid-dash
+//   overload  anchors that only crack under an overload (Arc Discharge rounds,
+//             or rounds fired during Spin Up)
+//   hoarder   Level 5's boss: blinks, leaves turret nodes that shield it,
+//             bursts you dash through, waves of Chromatics between phases
 //   exit      reach the door: the agent beams out, and the
 //             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
@@ -31,7 +35,8 @@ import { CONFIG } from './config.js';
 import { drawGlow } from './sprites.js';
 import { rackHeight } from './pixelmap.js';
 import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack, sfxQueueRing, sfxShockDash, sfxAlarm } from './audio.js';
-import { STACKS, WIRE } from './map.js';
+import { STACKS, WIRE, VAULT } from './map.js';
+import { drawCharacterFrame } from './player.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
@@ -327,6 +332,71 @@ LEVELS[4] = {
   },
 };
 
+LEVELS[5] = {
+  id: 5,
+  name: "RAZE'S ROOM",
+  map: 'vault',
+  intro: 'raze',     // Null on what to expect from Raze (story.js INTROS) first
+  outro: 'raze',     // meeting Raze, then Raze and Null (story.js OUTROS) after
+  endOnBoss: true,   // the level ends the moment the boss dies
+  blurb: 'Break the hoard. Kill what feeds on him. Bring Raze home.',
+  outcome: "Raze is out. The Basement is quiet, for now.",
+  unlockTop: 'THE HOARD COLLAPSES. THE CHARGE STAYS IN YOUR EMITTER.',
+  points: {
+    core:    VAULT.core,
+    anchors: VAULT.anchors,
+  },
+  beats: (op, agent) => {
+    const L = (face, text) => ({ who: op, face, text });
+    const R = (face, text) => ({ who: 'raze', face, text });
+    const f = (dexFace, junoFace) => (op === 'dex' ? dexFace : junoFace);
+    const dex = agent === 'dex';
+    return [
+      { type: 'wave',
+        lines: [L(f('shocked', 'alarmed'), "That's him. On the core. They've got him in a cage made of light."),
+                R('stern', "Another one of Null's errand kids. Stay out of my sightline."),
+                L(f('angry', 'annoyed'), 'Charming. Clear the room first.')],
+        groups: [[['violet', 4], ['yellow', 1]], [['green', 2], ['violet', 3]], [['yellow', 2], ['green', 2], ['violet', 2]]],
+        objective: s => `Clear the vault (${s.left} left)`,
+        grant: true,   // the F ability, after this section
+        done: [L(f('cocky-grin', 'smirk'), 'Clear.'), R('smirk', "Not bad. For a kid.")] },
+
+      { type: 'overload',
+        lines: [L(f('laughing', 'soft-smile'), dex ? "Your emitter's holding a charge you can dump all at once. A ring of it." : 'Your coil can spin past its limit now. Four seconds of everything.'),
+                L(f('determined', 'focused'), 'Four anchors are feeding his cage. Plain fire glances off them.'),
+                L(f('neutral', 'focused'), dex ? 'Get close and let the ring go. That cracks them.' : 'Spin up and pour it into them. That cracks them.')],
+        eachDone: [[R('stern', 'One. Three more. Faster.')], [R('smirk', 'Two. Left one next. Are you blind?')], [R('neutral', '...Three. Keep going.')]],
+        objective: s => `Break the anchors (${s.anchors}/4)`,
+        interrupt: { cap: 5, period: 3, yellow: 0.25, green: 0.25 },
+        done: [L(f('shocked', 'alarmed'), "That's the last anchor. Something's coming up through the floor..."),
+               R('snarl', "That's the thing that's been eating me. Kill it. Slowly, if you can.")] },
+
+      { type: 'hoarder',
+        checkpoint: 'boss',
+        lines: [L(f('worried', 'concerned'), "It can't be hurt while its turrets are up. Take them out first."),
+                L(f('determined', 'focused'), 'And those bursts it fires: dash straight through them.')],
+        phase: [[R('angry', "It's calling for help. Coward.")], [R('snarl', 'Again. It always does this when it starts to lose.')]],
+        objective: s => (s.bossWave ? `Clear the swarm (${s.left} left)` : s.shielded ? 'Destroy its turret nodes' : 'Hit the Signal Hoarder!'),
+        done: [R('uneasy', '...Finally.')] },
+    ];
+  },
+};
+
+// Level 5's F abilities: the old signatures, kept as a card on a clear
+const SIG_POWERS = {
+  dex: { id: 'arc_discharge', name: 'ARC DISCHARGE', desc: 'Let your stored charge go as a ring of electric rounds that knocks Chromatics back.',
+         has: p => p.signature === 'dex', apply: p => { p.signature = 'dex'; p.abilities.push('signature'); },
+         hint: touch => (touch ? 'Tap its round button. It cracks the anchors.' : 'Press F. It cracks the anchors.') },
+  juno: { id: 'spin_up', name: 'SPIN UP', desc: 'For 4 seconds your minigun fires more than twice as fast, in a tight stream.',
+          has: p => p.signature === 'juno', apply: p => { p.signature = 'juno'; p.abilities.push('signature'); },
+          hint: touch => (touch ? 'Tap its round button. Rounds fired while it runs crack the anchors.' : 'Press F. Rounds fired while it runs crack the anchors.') },
+};
+// The Signal Hoarder (Level 5's boss)
+const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, fade: 0.45,
+                  nova: 14, novaSpeed: 135, novaDamage: 9, volleyEvery: 2.2,
+                  phases: [0.66, 0.33] };
+const ANCHOR_HP = 12;   // overload hits (an Arc Discharge round counts 4)
+
 // Level 4's abilities: the Level 1 sampler's preview, kept for good
 const WIRE_POWERS = {
   dex: { id: 'arc_round', name: 'ARC ROUND', desc: 'The last round of every burst arcs on to a Chromatic or box close by, for 10% more damage.',
@@ -371,7 +441,7 @@ const TANK_HITS  = 2;     // dash-ability hits to crack a frozen tank
 
 // What opening each level's door unlocks for keeps, per agent: the first
 // power-up, as a card in that character's Arcade upgrade offers
-export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS, 3: THROW_POWERS, 4: WIRE_POWERS };
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS, 3: THROW_POWERS, 4: WIRE_POWERS, 5: SIG_POWERS };
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -438,6 +508,7 @@ export class LevelRun {
       else if (b.type === 'servers') for (const s of this.servers) s.lit = true;
       else if (b.type === 'gather') for (const x of this.boxes) { x.open = true; x.got = true; }
       else if (b.type === 'tuning') this.dials.forEach((d, k) => { d.v = this.pattern[k]; });
+      else if (b.type === 'overload') for (const a of this.anchors) a.hp = 0;
     }
     this.idx = idx - 1;
     this._next();
@@ -452,6 +523,10 @@ export class LevelRun {
       const at = ([fx, fy], pad = 30) => freeSpot(map, W * fx, H * fy, pad);
       this.exitPos  = pts.lift ? at(pts.lift, 40) : pts.vault ? { x: W * pts.vault[0], y: H * pts.vault[1] } : map.playerSpawn();
       if (pts.terminal) this.terminalPos = at(pts.terminal, 40);
+      if (pts.anchors) {
+        this.corePos = { x: W * pts.core[0], y: H * pts.core[1] };
+        this.anchorPos = pts.anchors.map(([fx, fy]) => ({ x: W * fx, y: H * fy }));
+      }
       if (pts.boxes) {
         const raw = ([fx, fy]) => freeSpot(map, W * fx, H * fy, 12);
         this.boxPos = pts.boxes.map(raw);
@@ -525,6 +600,10 @@ export class LevelRun {
         this.dials = this.dialPos.map(p => ({ ...p, r: 13, v: 0, hitT: 0, shieldT: 0 }));
         this.pattern = this.dials.map(() => 1 + Math.floor(Math.random() * 2));   // every dial needs turning
       }
+    } else if (b.type === 'overload') {
+      if (!this.anchors) this.anchors = this.anchorPos.map(p => ({ ...p, r: 16, hp: ANCHOR_HP, shieldT: 0, hitT: 0 }));
+    } else if (b.type === 'hoarder') {
+      this.boss = null; this.bossPhase = 0; this.bossWave = null; this.novas = [];
     } else if (b.type === 'escape') {
       this.escapeT = b.time; this.escapeMax = b.time; this.alarmT = 0;
       for (const w of this.wires) w.side = 0;
@@ -620,6 +699,13 @@ export class LevelRun {
     const card = b.grant && (LEVEL_CARDS[this.id] || {})[this.agent];
     if (card && card.has && !card.has(this.api.player())) this.pendingPowerUp = card;
     if (b.type === 'exit') { this.complete = true; return; }
+    // Level 5: the boss dying ends the level; the agent beams out where they stand
+    if (this.def.endOnBoss && (b.type === 'hoarder' || b.type === 'boss')) {
+      this.extractT = 0;
+      const pl = this.api.player();
+      pl.invincible = Math.max(pl.invincible, 2);
+      return;
+    }
     this._next();
   }
 
@@ -649,6 +735,8 @@ export class LevelRun {
     else if (b.type === 'gather') this._updateGather(dt, b, pl);
     else if (b.type === 'tuning') this._updateTuning(dt, b);
     else if (b.type === 'escape') this._updateEscape(dt, b, pl);
+    else if (b.type === 'overload') this._updateOverload(dt, b, pl);
+    else if (b.type === 'hoarder') this._updateHoarder(dt, b, pl);
     else if (b.type === 'relays') this._updateRelays(dt, b, pl);
     else if (b.type === 'sequence') { this._updateSequence(dt, b); this._stepPads(pl, b); }
     else if (b.type === 'exit') {
@@ -670,6 +758,8 @@ export class LevelRun {
     this.extractT += dt;
     if (t0 < EXTRACT_BEAM && this.extractT >= EXTRACT_BEAM) { pl.startBeamOut(); this.api.beamOut(); }
     if (this.awaitUnlock || !pl.beamedOut || this.extractT < EXTRACT_BEAM + 1.6) return;
+    // A scene after the level (game.js plays it, then sets outroDone)
+    if (this.def.outro && !this.outroDone) { this.wantOutro = true; return; }
     if (this.api.needsUnlock()) this.awaitUnlock = true;
     else this.openDoor();
   }
@@ -892,6 +982,125 @@ export class LevelRun {
     if (this.escapeT <= 0) { this.failed = true; this.failReason = 'escape'; }
   }
 
+  // ── Level 5 ──
+  // Anchors: plain rounds glance off; Arc Discharge rounds (4 each) and rounds
+  // fired during Spin Up (1 each) crack them. F recharges twice as fast here.
+  _updateOverload(dt, b, pl) {
+    pl.signatureCooldown = Math.max(0, (pl.signatureCooldown || 0) - dt);
+    for (const a of this.anchors) { a.shieldT = Math.max(0, a.shieldT - dt); a.hitT = Math.max(0, a.hitT - dt); }
+    const live = this.anchors.filter(a => a.hp > 0);
+    const shots = this.api.projectiles ? this.api.projectiles().playerProjectiles : [];
+    for (const p of shots) {
+      for (const a of live) {
+        if (Math.hypot(p.x - a.x, p.y - a.y) > a.r + 3) continue;
+        p.active = false;
+        if (p.discharge || p.spun) {
+          a.hp = Math.max(0, a.hp - (p.discharge ? 4 : 1)); a.hitT = 0.15;
+          if (a.hp <= 0) {
+            const n = this.anchors.filter(x => x.hp <= 0).length;
+            sfxRelayCharged();
+            if (n < this.anchors.length) { this.radio.clear(); this.radio.say(b.eachDone[n - 1] || []); }
+          }
+        } else { a.shieldT = 0.3; if (!this._shieldSfx || this.t - this._shieldSfx > 0.3) { this._shieldSfx = this.t; sfxNodeWrong(); } }
+        break;
+      }
+    }
+    if (this.anchors.every(a => a.hp <= 0)) this._finishBeat();
+  }
+
+  // The Signal Hoarder: blinks to a new spot every few seconds, leaving a
+  // turret node where it was; it can't be hurt while any node stands. When it
+  // reforms it fires two rings of slow rounds (dash through them). At 66% and
+  // 33% it calls a wave of Chromatics, shielded until they're gone. When it
+  // dies, everything left dissolves and the level ends.
+  _updateHoarder(dt, b, pl) {
+    const es = this.api.enemies;
+    const map = this.api.map();
+    if (!this.boss) {
+      const sp = freeSpot(map, this.corePos.x, this.corePos.y - 190, 40);
+      const e = es.spawnEnemyAt('green', sp.x, sp.y);
+      e.boss = 'hoarder';
+      e.cfg = { ...e.cfg, size: HOARDER.size };
+      e.maxHp = e.hp = HOARDER.hp;
+      e.contactDamage = HOARDER.contact;
+      this.boss = e; this.blinkT = 2.5; this.volleyT = HOARDER.volleyEvery; this.nodes = [];
+      return;
+    }
+    const q = this.boss;
+    if (!q.isAlive) {
+      for (const e of es.enemies) if (e.isAlive) { e.shielded = false; e.takeDamage(1e9); }
+      this.novas = [];
+      sfxRelayCharged();
+      this._finishBeat();
+      return;
+    }
+    this.nodes = this.nodes.filter(n => n.isAlive);
+    // A wave between phases: shielded until it's cleared
+    if (this.bossWave) {
+      q.shielded = true;
+      this.bossWave.groupT += dt;
+      const alive = es.enemies.filter(e => e.isAlive && e !== q && !e.node).length;
+      const W = this.bossWave;
+      if (W.gi < W.groups.length && (W.gi === 0 || alive <= 2 || W.groupT > 7)) { this._spawnGroup(W.groups[W.gi]); W.gi++; W.groupT = 0; }
+      if (W.gi >= W.groups.length && alive === 0) { this.bossWave = null; this._dropEchoes(2); }
+      return;
+    }
+    q.shielded = this.nodes.length > 0;
+    const frac = q.hp / q.maxHp;
+    if (this.bossPhase < HOARDER.phases.length && frac <= HOARDER.phases[this.bossPhase]) {
+      this.bossPhase++;
+      this.radio.say(b.phase[this.bossPhase - 1] || []);
+      this.bossWave = { gi: 0, groupT: 0, groups: this.bossPhase === 1
+        ? [[['violet', 4], ['yellow', 1]], [['yellow', 2], ['violet', 2]]]
+        : [[['green', 2], ['yellow', 2]], [['violet', 4], ['green', 1]], [['yellow', 3]]] };
+      return;
+    }
+    // Blink: fade, leave a node behind, reform somewhere else and burst
+    if (q.blink === 'fade') {
+      q.blinkT -= dt;
+      if (q.blinkT <= 0) {
+        const n = es.spawnEnemyAt('green', q.x, q.y);
+        n.node = true; n.spawnT = 0.2;
+        this.nodes.push(n);
+        for (let k = 1; k < this.bossPhase + 1 && this.nodes.length < 6; k++) {   // more nodes as it weakens
+          const p2 = freeSpot(map, q.x + (k % 2 ? 70 : -70), q.y + 40, 20);
+          const n2 = es.spawnEnemyAt('green', p2.x, p2.y); n2.node = true; this.nodes.push(n2);
+        }
+        q.x = q._to.x; q.y = q._to.y; q.spawnT = 0; q.blink = null;
+        this.burstT = 0.5; this.burstLeft = 2;
+        sfxQueueRing();
+      }
+    } else if (!q.forming) {
+      this.blinkT -= dt;
+      if (this.blinkT <= 0) {
+        // Somewhere open, 200-320 px from the agent, clear of the cage
+        let to = null;
+        for (let k = 0; k < 30 && !to; k++) {
+          const a = Math.random() * Math.PI * 2, d = 200 + Math.random() * 120;
+          const p2 = freeSpot(map, pl.x + Math.cos(a) * d, pl.y + Math.sin(a) * d, 40);
+          if (Math.hypot(p2.x - this.corePos.x, p2.y - this.corePos.y) > 90 && Math.hypot(p2.x - pl.x, p2.y - pl.y) > 160) to = p2;
+        }
+        if (to) { q._to = to; q.blink = 'fade'; q.blinkT = HOARDER.fade; }
+        this.blinkT = frac < 0.5 ? HOARDER.blinkFast : HOARDER.blinkEvery;
+      }
+      // An aimed volley now and then
+      this.volleyT -= dt;
+      if (this.volleyT <= 0 && this.api.projectiles) {
+        const a = Math.atan2(pl.y - q.y, pl.x - q.x);
+        for (const o of [-0.15, 0, 0.15]) this.api.projectiles().spawnEnemy(q.x, q.y, a + o, 8, 170, 520, '#3dff7a');
+        this.volleyT = HOARDER.volleyEvery;
+      }
+    }
+    // The bursts after a blink: rings of slow rounds
+    if (this.burstLeft > 0 && !q.forming) {
+      this.burstT -= dt;
+      if (this.burstT <= 0 && this.api.projectiles) {
+        const off = this.burstLeft % 2 ? 0 : Math.PI / HOARDER.nova;
+        for (let k = 0; k < HOARDER.nova; k++) this.api.projectiles().spawnEnemy(q.x, q.y, off + k / HOARDER.nova * Math.PI * 2, HOARDER.novaDamage, HOARDER.novaSpeed, 620, '#3dff7a');
+        this.burstLeft--; this.burstT = 0.4;
+      }
+    }
+  }
   // n Echoes on open floor a short walk from the agent
   _dropEchoes(n, near = null) {
     const pl = near || this.api.player(), map = this.api.map();
@@ -1069,7 +1278,11 @@ export class LevelRun {
     const pieces = this.boxes ? this.boxes.filter(x => x.got).length : 0;
     const tuned = this.dials ? this.dials.filter((d, k) => d.v === this.pattern[k]).length : 0;
     const secs = this.escapeT != null ? Math.max(0, Math.ceil(this.escapeT)) : 0;
-    return b.objective({ left, done, servers, valvesOpen, drives, tanks, hold, blocked, mirrors, pieces, tuned, secs });
+    const anchors = this.anchors ? this.anchors.filter(a => a.hp <= 0).length : 0;
+    const shielded = !!(this.boss && this.boss.shielded);
+    const bossWave = !!this.bossWave;
+    const leftAdds = this.api.enemies.enemies.filter(e => e.isAlive && !e.boss && !e.node).length;
+    return b.objective({ left: b.type === 'hoarder' ? leftAdds : left, done, servers, valvesOpen, drives, tanks, hold, blocked, mirrors, pieces, tuned, secs, anchors, shielded, bossWave });
   }
 
   // ── Drawing ─────────────────────────────────────────────────
@@ -1319,6 +1532,70 @@ export class LevelRun {
     const g = ctx.createLinearGradient(gx - 60, 0, gx + 60, 60);
     g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(230,245,255,0.06)'); g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // Level 5: the anchors and their beams into the cage, Raze standing on the
+  // core inside bars of hoarded light (they fall when the boss dies), and the
+  // boss's shield and the tethers from its turret nodes
+  _drawRazeRoom(ctx, t) {
+    const c = this.corePos;
+    const caged = !(this.extractT != null || this.complete);
+    const gold = '#FFB52E';
+    const anchors = this.anchors || this.anchorPos.map(p => ({ ...p, hp: ANCHOR_HP, shieldT: 0, hitT: 0 }));
+    ctx.save();
+    for (const a of anchors) {
+      const x = Math.round(a.x), y = Math.round(a.y), live = a.hp > 0;
+      ctx.globalCompositeOperation = 'lighter';
+      if (live && caged) {   // the hoard flowing from the anchor into the cage
+        ctx.strokeStyle = '#B98CFF'; ctx.globalAlpha = 0.2; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(x, y - 18); ctx.lineTo(c.x, c.y - 30); ctx.stroke();
+        ctx.globalAlpha = 0.6; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, y - 18); ctx.lineTo(c.x, c.y - 30); ctx.stroke();
+        drawGlow(ctx, '#B98CFF', x, y - 18, 20, 0.35 + 0.1 * Math.sin(t * 2 + x));
+      }
+      if (a.shieldT > 0) { ctx.globalAlpha = a.shieldT / 0.3 * 0.6; ctx.strokeStyle = '#9AA4B0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y - 10, 18, 0, Math.PI * 2); ctx.stroke(); }
+      if (a.hitT > 0) drawGlow(ctx, this.color, x, y - 12, 22, 0.5 * a.hitT / 0.15);
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      // the pylon (pixel art), cracking as it takes hits
+      ctx.fillStyle = '#060504'; ctx.fillRect(x - 8, y - 26, 16, 27);
+      ctx.fillStyle = live ? '#2a2318' : '#141109'; ctx.fillRect(x - 7, y - 25, 14, 25);
+      ctx.fillStyle = live ? '#6a5428' : '#2a2318'; ctx.fillRect(x - 7, y - 25, 14, 2);
+      ctx.fillStyle = live ? '#B98CFF' : '#3a3040'; ctx.fillRect(x - 3, y - 20, 6, 6);
+      const cracks = Math.round((1 - a.hp / ANCHOR_HP) * 5);
+      ctx.fillStyle = '#FFE9C4';
+      for (let k = 0; k < cracks && live; k++) ctx.fillRect(x - 6 + (k * 5) % 12, y - 12 + (k % 3) * 3, 2, 1);
+    }
+    // Raze on the core
+    drawCharacterFrame(ctx, 'raze', 0, 1, c.x - 16, c.y - 52, 1);
+    if (caged) {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, '#B98CFF', c.x, c.y - 30, 46, 0.25 + 0.08 * Math.sin(t * 1.6));
+      ctx.strokeStyle = '#D9C2FF'; ctx.lineWidth = 2;
+      for (let k = 0; k < 7; k++) {
+        const bx = c.x - 24 + k * 8;
+        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 2 + k);
+        ctx.beginPath(); ctx.moveTo(bx, c.y - 62); ctx.lineTo(bx, c.y - 6); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, gold, c.x, c.y - 26, 40, 0.3);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // The boss's shield, and tethers from its nodes
+    const q = this.boss;
+    if (q && q.isAlive && q.shielded) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = '#7dffb0'; ctx.lineWidth = 1;
+      for (const n of this.nodes || []) { ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(q.x, q.y); ctx.stroke(); }
+      ctx.globalAlpha = 0.5 + 0.15 * Math.sin(t * 2.5) + (q.shieldHitT ? 0.3 : 0);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(q.x, q.y - 6, q.size * 1.9, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
     ctx.restore();
   }
 
@@ -1622,6 +1899,8 @@ export class LevelRun {
     if (b.type === 'gather' && this.boxes) return this.boxes.filter(x => !x.got).map(x => (x.open ? x.piece : x));
     if (b.type === 'tuning' && this.dials) return this.dials.filter((d, k) => d.v !== this.pattern[k]);
     if (b.type === 'escape') return [this.exitPos];
+    if (b.type === 'overload' && this.anchors) return this.anchors.filter(a => a.hp > 0);
+    if (b.type === 'hoarder' && this.boss && this.boss.isAlive && !this.bossWave) return this.boss.shielded ? this.nodes : [this.boss];
     if (b.type === 'beam' && this.mirrors) { const n = this._beamChain(); return n < this.mirrors.length ? [this.mirrors[n]] : []; }
     if (b.type === 'exit') return [this.exitPos];
     return [];
@@ -1631,6 +1910,7 @@ export class LevelRun {
   // beam of the agent's colour rising from it)
   drawOverRacks(ctx) {
     if (this.mirrorPos) this._drawBeam(ctx, this.t);
+    if (this.corePos) this._drawRazeRoom(ctx, this.t);
     if (!this.servers) return;
     const t = this.t;
     ctx.save();
@@ -1683,16 +1963,18 @@ export class LevelRun {
     this.radio.draw(ctx, W, H, this.objective, touch, (W < 600 ? 100 : 96) + (this.relays || this.hold ? 22 : 0));
     // Boss health, under the objective
     const q = this.boss;
-    if (q && q.isAlive && this.beat && this.beat.type === 'boss') {
+    const bt = this.beat && this.beat.type;
+    if (q && q.isAlive && (bt === 'boss' || bt === 'hoarder')) {
+      const hoard = bt === 'hoarder';
       const bw = Math.min(420, W - 60), bx = Math.round(W / 2 - bw / 2), by = (this.radio.objBottom || 40) + 8;
       ctx.save();
       ctx.fillStyle = 'rgba(7,11,18,0.8)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
-      ctx.fillStyle = '#2A1F48'; ctx.fillRect(bx, by, bw, 8);
-      ctx.fillStyle = '#8B5CFF'; ctx.fillRect(bx, by, Math.round(bw * q.hp / q.maxHp), 8);
+      ctx.fillStyle = hoard ? '#123a22' : '#2A1F48'; ctx.fillRect(bx, by, bw, 8);
+      ctx.fillStyle = hoard ? (q.shielded ? '#5a6a60' : '#3dff7a') : '#8B5CFF'; ctx.fillRect(bx, by, Math.round(bw * q.hp / q.maxHp), 8);
       ctx.fillStyle = '#0B0806';
-      for (const s of QUEUE.splits) ctx.fillRect(bx + Math.round(bw * s), by, 1, 8);
-      ctx.fillStyle = '#C4A8FF'; ctx.font = `bold ${W < 600 ? 10 : 11}px monospace`; ctx.textAlign = 'center';
-      ctx.fillText('THE QUEUE', W / 2, by + 22);
+      for (const s of hoard ? HOARDER.phases : QUEUE.splits) ctx.fillRect(bx + Math.round(bw * s), by, 1, 8);
+      ctx.fillStyle = hoard ? '#9dffc0' : '#C4A8FF'; ctx.font = `bold ${W < 600 ? 10 : 11}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText(hoard ? (q.shielded ? 'THE SIGNAL HOARDER  ·  SHIELDED' : 'THE SIGNAL HOARDER') : 'THE QUEUE', W / 2, by + 22);
       ctx.restore();
     }
     for (const tg of (toScreen ? this.targets : [])) {

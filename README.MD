@@ -19,7 +19,7 @@ touch controls).
 
 - **Story Mode:** pick who goes in; the other one talks you through it on
   comms. A prologue, a tutorial, Level 1 ("Server Floor"), Level 2
-  ("Cold Storage") Level 3 ("The Stacks", the first boss) and Level 4 ("Wire Room") so far. Clearing
+  ("Cold Storage") Level 3 ("The Stacks"), Level 4 ("Wire Room") and Level 5 ("Raze's Room"), the whole Basement arc. Clearing
   levels earns Chroma and **Story cards**.
 - **Arcade Mode:** 15 waves of escalating Chromatics with bosses. Every Story
   card you've earned joins your upgrade deck.

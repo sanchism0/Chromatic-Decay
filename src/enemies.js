@@ -242,6 +242,8 @@ class Enemy {
   }
 
   takeDamage(amount) {
+    // A shielded boss (the Signal Hoarder while its nodes stand) takes nothing
+    if (this.shielded) { this.shieldHitT = 0.25; return; }
     // Jammed by a stun grenade: takes 50% more
     if (this.jammed > 0) amount *= 1.5;
     // Track low-HP state before deducting (used by Frequency Shatter)
@@ -261,6 +263,8 @@ class Enemy {
     if (this.jammed > 0) this.jammed = Math.max(0, this.jammed - dt);
     if (this.forming) { this.spawnT += dt; return; }
 
+    // The Signal Hoarder is driven by its level (level.js _updateHoarder)
+    if (this.boss === 'hoarder') { this.shieldHitT = Math.max(0, (this.shieldHitT || 0) - dt); return; }
     // Bosses shrug stuns off quickly
     if (this.boss && this.stunTimer > 0.5) this.stunTimer = 0.5;
     // Stun check — skip all movement and firing while stunned
@@ -482,6 +486,15 @@ class Enemy {
       const a = Math.atan2(player.y - this.y, player.x - this.x);
       projectileSystem.spawnEnemy(this.x, this.y, a, this.cfg.projectile_damage, this.cfg.projectile_speed, 500, this.cfg.color);
     };
+    // A turret node (left behind by the Signal Hoarder): never moves, just fires
+    if (this.node) {
+      this._losT = (this._losT || 0) - dt;
+      if (this._losT <= 0) { this._los = !FLOW.ready || FLOW.clear(this.x, this.y, player.x, player.y); this._losT = 0.12; }
+      this._blocked = this._los ? 0 : 1;
+      this.fireTimer -= dt;
+      if (this.fireTimer <= 0) { shoot(); this.fireTimer = 1.4 / this.cfg.projectile_fire_rate; }
+      return;
+    }
 
     // Fading out: then jump and reform (the spawn gather plays again)
     if (this.blink === 'fade') {
