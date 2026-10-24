@@ -213,7 +213,7 @@ LEVELS[3] = {
                 L(f('worried', 'concerned'), dex ? "Anything else in the ring stops the pull. Stunned ones don't count."
                                                  : "Anything else in the ring stops the pull. Lure them out of it.")],
         half: [L(f('determined', 'focused'), 'Halfway. Keep them out.')],
-        objective: s => (s.blocked ? 'Clear the ring!' : `Pull the signal (${s.hold}%)`),
+        objective: s => (s.blocked ? `Clear the ring to keep pulling (${s.hold}%)` : `Pull the signal (${s.hold}%)`),
         interrupt: { cap: 5, period: 3, yellow: 0.35 },
         done: [L(f('shocked', 'alarmed'), "Got it. That's him, a piece of him anyway. The rest is past the vault.")] },
 
@@ -264,7 +264,7 @@ const THROW_POWERS = {
 const QUEUE = { hp: 900, size: 38, speed: 34, contact: 14,
                 ringEvery: 3.2, ringEveryLow: 2.4, windup: 0.6, ringSpeed: 120, ringMax: 560, ringDamage: 12,
                 splits: [0.75, 0.5, 0.25], splitCount: 5 };
-const HOLD = { r: 72, fill: 22, drain: 0.05 };   // ring radius, seconds to fill, drain per enemy per second
+const HOLD = { r: 72, fill: 22 };   // ring radius, seconds to fill (it never drains)
 
 // Level 2's dash abilities: granted after its first section, kept as a card
 // the first time it's cleared (STORY_CARDS has the Arcade versions)
@@ -288,7 +288,7 @@ export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }
 
 function freeSpot(map, x, y, pad = 46) {
   const clear = (px, py) => px > 60 && py > 60 && px < CONFIG.map_width - 60 && py < CONFIG.map_height - 60 &&
-    !map.obstacles.some(o => px + pad > o.x && px - pad < o.x + o.w && py + pad > o.y && py - pad < o.y + o.h);
+    ![...map.obstacles, ...(map.noSpawn || [])].some(o => px + pad > o.x && px - pad < o.x + o.w && py + pad > o.y && py - pad < o.y + o.h);
   if (clear(x, y)) return { x, y };
   for (let r = 12; r < 400; r += 12) {
     for (let k = 0; k < 16; k++) {
@@ -652,8 +652,8 @@ export class LevelRun {
   }
 
   // Hold: stand in the terminal's ring while it pulls the signal. Any
-  // Chromatic in the ring that isn't stunned stops the pull and drains it
-  // (a decoy thrown outside the ring pulls them out of it). Chromatics keep
+  // Chromatic in the ring that isn't stunned pauses the pull (a decoy thrown
+  // outside the ring pulls them out of it); it never drains. Chromatics keep
   // coming (the beat's interrupt).
   _updateHold(dt, b, pl) {
     const h = this.hold;
@@ -662,8 +662,9 @@ export class LevelRun {
     h.crowd = crowd;
     const inside = Math.hypot(pl.x - h.x, pl.y - h.y) < HOLD.r;
     this.charging = null;
-    if (crowd > 0) h.p = Math.max(0, h.p - HOLD.drain * crowd * dt);
-    else if (inside) {
+    // Progress only ever goes up: a Chromatic in the ring pauses it, and you
+    // can step out and come back without losing any (owner's rule)
+    if (crowd === 0 && inside) {
       h.p = Math.min(1, h.p + dt / HOLD.fill);
       this.charging = h;
       if (Math.random() < dt * 18) this.motes.push({ x: h.x, y: h.y - 18, t: 0, s: Math.random() });

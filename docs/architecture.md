@@ -102,7 +102,7 @@ level for now). Beat types:
 | `sequence` | Walk over floor pads in the order they lit (built, no longer used by Level 1) |
 | `drives` | Pick up items at `points.drives`. A level with `icy: true` makes the whole floor ice: you slide everywhere (`player.onIce`) |
 | `freezers` | Frozen tanks (`points.tanks`) that bullets don't hurt; the dash ability hits them (`TANK_HITS` each) through `level.dashTargets` |
-| `hold` | Stand in the terminal's ring (`HOLD`) while it pulls; any unstunned Chromatic in the ring stops and drains it |
+| `hold` | Stand in the terminal's ring (`HOLD`) while it pulls; any unstunned Chromatic in the ring pauses it; it never drains |
 | `beam` | Mirrors in sealed pockets (`points.mirrors`), turned by a thrown ability landing on them (`onThrowLand`, from `grenades.onLand` / `decoys.onLand`); the beam runs source → mirrors → vault; all right opens the vault |
 | `boss` | The Queue (`QUEUE`): a big violet `Enemy` with `boss`, `contactDamage` and a capped stun; the level sends its rings (`rings`, dash through them), splits it at thresholds, draws the health bar, and dissolves the rest when it dies |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |

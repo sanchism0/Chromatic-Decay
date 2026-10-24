@@ -102,7 +102,7 @@ granted after the first wave:
 | Beat | Play | Comms (gist) |
 |---|---|---|
 | Wave | Violets in big groups, a few yellows; then the ability screen | "The Stacks. Every stream nobody ever played ended up here." |
-| **Hold** (task) | Stand in the terminal's ring while it pulls Raze's signal (22 s). Any Chromatic in the ring that isn't stunned stops the pull and drains it: Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
+| **Hold** (task) | Stand in the terminal's ring while it pulls Raze's signal (22 s). Any Chromatic in the ring that isn't stunned pauses the pull (progress never drains; you can leave and come back): Dex stuns them where they stand, Juno throws the beacon outside the ring to pull them out. Up to 5 enemies, many yellows | "Anything else in the ring stops the pull." |
 | Wave | Violets and yellows together | "Something heard that." |
 | **Beam** (puzzle) | A beam runs from a wall emitter, above the racks, through three mirrors sealed in the pockets. Land the ability on a mirror (thrown over the walls) to turn it; the beam shows where each one points. All three right and the vault opens. Abilities recharge twice as fast here; up to 3 enemies | "The mirrors are sealed in. Throw your grenade/beacon over the wall." |
 | **Boss: The Queue** | A huge violet (900 health, about 35 s of shooting) rises from the vault and drifts after you. It winds up and sends out rings: dash through them (untouchable mid-dash, and a perfect dodge refunds the dash). At 75%, 50% and 25% it splits off five violets. When it dies, everything left dissolves | "That's not a Chromatic. That's all of them." |

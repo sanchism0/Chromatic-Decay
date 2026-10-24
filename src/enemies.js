@@ -562,6 +562,7 @@ class Enemy {
         const x = player.x + Math.cos(a) * d, y = player.y + Math.sin(a) * d;
         if (x < r || y < r || x > CONFIG.map_width - r || y > CONFIG.map_height - r) continue;
         if (map.obstacles.some(o => circleVsRect(x, y, r, o.x, o.y, o.w, o.h))) continue;
+        if ((map.noSpawn || []).some(o => circleVsRect(x, y, r, o.x, o.y, o.w, o.h))) continue;
         if (FLOW.ready && !FLOW.clear(x, y, player.x, player.y)) continue;
         let gap = Infinity;
         for (const [ox, oy] of others) gap = Math.min(gap, Math.hypot(ox - x, oy - y));

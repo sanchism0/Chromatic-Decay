@@ -40,6 +40,12 @@ const tag = mode + '-' + who;
   console.log('level', await ev('level && level.id'), 'map', await ev('map.layout'), '| start kit', JSON.stringify(await ev('level.powers')));
   await p.waitForTimeout(2200); await p.screenshot({ path: `${out}/${tag}-start.png` });
 
+  // Nothing may spawn inside the sealed pockets
+  const inPocket = '((x, y) => map.noSpawn.some(o => x > o.x && x < o.x + o.w && y > o.y && y < o.y + o.h))';
+  console.log('random spawns in a sealed pocket (of 2000):', await ev(`(() => { let n = 0; for (let i = 0; i < 2000; i++) { const sp = map.randomSpawn(player.x, player.y, [], 300, 0); if (${inPocket}(sp.x, sp.y)) n++; } return n; })()`),
+    '| pockets', await ev('map.noSpawn.length'));
+  await ev(`window.__inPocket = 0; window.__pk = setInterval(() => { for (const e of enemies.enemies) if (e.isAlive && ${inPocket}(e.x, e.y)) __inPocket++; }, 100);`);
+
   // Wave 1, then the thrown ability
   await skipTalk(); await waitFor('level.ready');
   for (let i = 0; i < 100 && await ev('level.idx') === 0 && !(await ev('state === STATES.POWER_UP')); i++) { await killAll(); await p.waitForTimeout(250); }
@@ -74,7 +80,7 @@ const tag = mode + '-' + who;
   await ev(`window.__b = enemies.spawnEnemyAt('violet', level.hold.x + 30, level.hold.y); __b.spawnT = 1; __b.maxHp = __b.hp = 999;`);
   await p.waitForTimeout(600);
   const pb = await ev('level.hold.p');
-  console.log('enemy in ring:', await ev('level.objective'));
+  console.log('enemy in ring:', await ev('level.objective'), '| pull holds at', (await ev('level.hold.p')).toFixed(3));
   await p.screenshot({ path: `${out}/${tag}-hold.png` });
   // Dex stuns it where it is; Juno throws the beacon outside the ring to pull it out
   await ev(`player.${id}Cooldown = 0; _useAbility('${id}', ${who === 'dex' ? '{ x: __b.x, y: __b.y }' : '{ x: level.hold.x - 150, y: level.hold.y + 20 }'})`);
@@ -88,7 +94,7 @@ const tag = mode + '-' + who;
   // Wave 2
   await skipTalk(); await waitFor('level.ready');
   for (let i = 0; i < 120 && await ev('level.beat.type') === 'wave'; i++) { await killAll(); await p.waitForTimeout(250); }
-  console.log('after wave 2:', await ev('level.beat.type'));
+  console.log('after wave 2:', await ev('level.beat.type'), '| enemy samples inside a pocket so far:', await ev('__inPocket'));
 
   // Beam: land the ability on each mirror from open floor nearby
   await skipTalk(); await waitFor('level.ready');

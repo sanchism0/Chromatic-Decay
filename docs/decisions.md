@@ -206,6 +206,7 @@ roughly even.
 - **Dash abilities (Level 2):** Dex's **Shock Dash** stuns and jams (+50% damage taken) every Chromatic he dashes through; Juno's **Parting Charge** drops a light bomb where she dashed from, which bursts 0.6 s later. Level 2 grants it after the first wave and keeps it if you clear the level. Some objectives (Level 2's frozen tanks) only break to the dash ability, never bullets.
 - **Level 3's puzzle uses the ability:** the beam mirrors sit in sealed pockets you can't walk into, so the only way to turn them is to lob the thrown ability (grenade or beacon) over the walls. The terminal hold is about keeping Chromatics out of the ring (stun them, or lure them out). Abilities recharge twice as fast during the beam puzzle so it isn't a wait.
 - **Thrown abilities on touch:** press the ability's round button and drag to aim (grenade and beacon alike).
+- **Chromatics never undo progress** (Oct 25, 2026): in Level 3's terminal hold they used to drain the ring, and with enemies constantly coming it was "pretty much impossible". Now the ring only fills: a Chromatic in it pauses the pull, and you can step out and come back without losing anything.
 - **No escorts.** The Echo following you to the lift was "kind of lame" (Oct 24, 2026); Level 2 makes the whole floor ice (owner: "make the whole level icy"; you slide everywhere) and frozen drives/tanks instead.
 - **No checkpoints for now:** dying restarts the whole level; revisit if levels get long.
 - **Cards belong to the character who earned them.** From Level 2 on, a character
