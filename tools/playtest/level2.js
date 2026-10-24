@@ -1,7 +1,7 @@
 // Headless playtest (see tools/playtest/README.md). Serve the repo on :8766 first.
 // Level 2 "Cold Storage": the cold map, the start kit (own cards), the dash
-// ability granted after wave 1 (Dex: Shock Dash, Juno: Parting Charge), ice
-// you slide on, the frozen drives, the frozen tanks only a dash ability can
+// ability granted after wave 1 (Dex: Shock Dash, Juno: Parting Charge), an
+// all-ice floor you slide on, the frozen drives, the frozen tanks only a dash ability can
 // crack, the lift exit, the card and the results.
 // Args: <outdir> [desk|phone|land] [dex|juno]
 const ROOT = process.env.REPO || require('path').resolve(__dirname, '../..');
@@ -68,7 +68,7 @@ const tag = mode + '-' + who;
   // Drives on the ice: sliding, then grab all three
   const drives = await ev('level.drives.map(d => [d.x, d.y])');
   console.log('drives at', JSON.stringify(drives.map(d => d.map(Math.round))), '| objective', await ev('level.objective'));
-  await ev(`player.x = level.ice[3].x + 30; player.y = level.ice[3].y + level.ice[3].h / 2;`);
+  await ev(`player.x = CONFIG.map_width * 0.66; player.y = CONFIG.map_height * 0.88;`);
   await p.waitForTimeout(200);
   console.log('on ice:', await ev('player.onIce'));
   if (!phone) {

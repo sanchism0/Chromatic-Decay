@@ -99,7 +99,7 @@ level for now). Beat types:
 | `relays` | Stand near relays to pull charge into your emitter while interrupters drain them |
 | `servers` | Shoot marked racks anywhere on the map to light them (arrows to each unlit one) |
 | `sequence` | Walk over floor pads in the order they lit (built, no longer used by Level 1) |
-| `drives` | Pick up items sitting in the middle of the level's ice patches (`points.ice`); you slide on ice (`player.onIce`) |
+| `drives` | Pick up items at `points.drives`. A level with `icy: true` makes the whole floor ice: you slide everywhere (`player.onIce`) |
 | `freezers` | Frozen tanks (`points.tanks`) that bullets don't hurt; the dash ability hits them (`TANK_HITS` each) through `level.dashTargets` |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
@@ -110,7 +110,7 @@ A beat's `interrupt: { cap, period, yellow }` keeps enemies coming during
 it (`_interrupt`: pairs, anywhere on the map, at least 320 px from the player).
 `grant: true` on a beat hands over the level's `LEVEL_CARDS` card for the
 rest of the level when it ends (Level 2's dash abilities). Level fields: `map`
-(room), `exit` ('lift'), `points` (positions as map fractions: ice, tanks, lift),
+(room), `exit` ('lift'), `points` (positions as map fractions: drives, tanks, lift), `icy`,
 `powerups` (Level 1's sampler only), `blurb`, `outcome`, `unlockTop`
 (the card screen's top line). The level talks to
 the game through `levelApi` in `game.js` (spawn enemies and Echoes, play

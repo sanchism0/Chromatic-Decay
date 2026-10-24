@@ -113,12 +113,12 @@ LEVELS[2] = {
   blurb: "Follow Raze into the frozen archive; get the lift running.",
   outcome: "Raze's archive drives recovered. He went down, to The Stacks.",
   unlockTop: 'THE LIFT DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
+  icy: true,     // the whole floor is ice: you slide everywhere
   // Where things are, as fractions of the map (nudged clear of racks).
-  // ice: floor patches [x, y, w, h] where you slide; a drive sits in the
-  // middle of each of the first three; tanks: the frozen coolant tanks
+  // drives: the frozen archive drives; tanks: the frozen coolant tanks
   points: {
     lift: [0.88, 0.90],
-    ice: [[0.32, 0.272, 0.18, 0.094], [0.60, 0.452, 0.22, 0.09], [0.10, 0.632, 0.22, 0.09], [0.62, 0.81, 0.26, 0.15]],
+    drives: [[0.41, 0.319], [0.71, 0.497], [0.21, 0.677]],
     tanks: [[0.14, 0.32], [0.88, 0.50], [0.40, 0.88]],
   },
   beats: (op, agent) => {
@@ -128,7 +128,7 @@ LEVELS[2] = {
     return [
       { type: 'wave',
         lines: [L(f('neutral', 'focused'), "Cold Storage. Raze's trace led down here, where they froze the old data."),
-                L(f('worried', 'concerned'), "Something's still moving in the aisles. Clear them.")],
+                L(f('worried', 'concerned'), "The whole floor's iced over, so you'll slide. And something's still moving in the aisles.")],
         groups: [[['violet', 3]], [['violet', 2], ['yellow', 1]], [['yellow', 2], ['violet', 2]]],
         objective: s => `Clear the aisles (${s.left} left)`,
         grant: true,   // the level's dash ability, after this section
@@ -137,8 +137,7 @@ LEVELS[2] = {
       { type: 'drives',
         lines: [L(f('laughing', 'soft-smile'), dex ? "Your dash is crackling now. Anything you dash through gets a shock."
                                                    : "Your dash leaves a charge behind now. It goes off a second after you."),
-                L(f('determined', 'focused'), "Raze's trace is split across three archive drives, frozen into the floor. I've marked them."),
-                L(f('worried', 'concerned'), "That floor's iced over. You'll slide, so watch your step.")],
+                L(f('determined', 'focused'), "Raze's trace is split across three archive drives, frozen into the floor. I've marked them.")],
         eachDone: [[L(f('determined', 'focused'), 'One drive.')], [L(f('cocky-grin', 'smirk'), 'Two. One more.')]],
         objective: s => `Grab the frozen drives (${s.drives}/3)`,
         interrupt: { cap: 4, period: 4, yellow: 0.25 },
@@ -242,10 +241,8 @@ export class LevelRun {
       this.exitPos  = pts.lift ? at(pts.lift, 40) : map.playerSpawn();
       if (pts.valves) this.valvePos = pts.valves.map(v => at(v, 26));
       if (pts.tanks) this.tankPos = pts.tanks.map(v => at(v, 26));
-      if (pts.ice) {
-        this.ice = pts.ice.map(([fx, fy, fw, fh]) => ({ x: W * fx, y: H * fy, w: W * fw, h: H * fh }));
-        this.drivePos = this.ice.slice(0, 3).map(r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 }));
-      }
+      if (pts.drives) this.drivePos = pts.drives.map(([fx, fy]) => ({ x: W * fx, y: H * fy }));
+      if (this.def.icy) this.cracks = this._makeCracks(W, H);
       return;
     }
     this.relayPos = [freeSpot(map, W * 0.2, H * 0.24), freeSpot(map, W * 0.8, H * 0.26), freeSpot(map, W * 0.5, H * 0.5)];
@@ -386,7 +383,7 @@ export class LevelRun {
     const b = this.beat;
     if (!b || this.complete) return;
     if (pl.hp <= 1 && !pl.beaming) { this.failed = true; return; }
-    pl.onIce = !!(this.ice && this.ice.some(r => pl.x > r.x && pl.x < r.x + r.w && pl.y > r.y && pl.y < r.y + r.h));
+    pl.onIce = !!this.def.icy;
     for (const tk of this.tanks || []) tk.hitT = Math.max(0, tk.hitT - dt);
     if (!this.ready) { if (!this.radio.busy && !pl.beaming) this.ready = true; else return; }
 
@@ -598,7 +595,7 @@ export class LevelRun {
   drawWorld(ctx) {
     const b = this.beat;
     const t = this.t;
-    if (this.ice) for (const r of this.ice) this._drawIce(ctx, r, t);
+    if (this.cracks) this._drawIce(ctx, t);
     if (this.relays || (b && b.type === 'relays')) {
       for (const r of (this.relays || this.relayPos.map(p => ({ ...p, charge: 0, done: false, drain: 0 })))) this._drawRelay(ctx, r, t);
     }
@@ -806,28 +803,35 @@ export class LevelRun {
     ctx.restore();
   }
 
-  // An ice patch: a pale glassy sheet over the floor with frosted edges and a
-  // few cracks; a glint slides across it now and then
-  _drawIce(ctx, r, t) {
-    const x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
-    ctx.save();
-    ctx.fillStyle = 'rgba(170,215,255,0.16)'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = 'rgba(200,232,255,0.22)';
-    ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y + h - 2, w, 2); ctx.fillRect(x, y, 2, h); ctx.fillRect(x + w - 2, y, 2, h);
-    ctx.strokeStyle = 'rgba(220,240,255,0.28)'; ctx.lineWidth = 1;
-    let sd = Math.round(r.x * 7 + r.y * 13);
+  // An icy floor: cracks scattered over the whole map, made once
+  _makeCracks(W, H) {
+    let sd = 4242;
     const rnd = () => { sd = (sd * 9301 + 49297) % 233280; return sd / 233280; };
-    for (let k = 0; k < 5; k++) {
-      let cx = x + rnd() * w, cy = y + rnd() * h;
-      ctx.beginPath(); ctx.moveTo(cx, cy);
-      for (let j = 0; j < 3; j++) { cx += (rnd() - 0.5) * 30; cy += (rnd() - 0.5) * 16; ctx.lineTo(Math.max(x, Math.min(x + w, cx)), Math.max(y, Math.min(y + h, cy))); }
-      ctx.stroke();
+    const out = [];
+    for (let k = 0; k < 90; k++) {
+      let x = rnd() * W, y = rnd() * H;
+      const pts = [[x, y]];
+      for (let j = 0; j < 3; j++) { x += (rnd() - 0.5) * 40; y += (rnd() - 0.5) * 22; pts.push([x, y]); }
+      out.push(pts);
     }
-    const gx = x + ((t * 60 + r.x) % (w + 60)) - 30;   // a glint sliding across
+    return out;
+  }
+
+  // The whole floor under a pale glassy sheet, with cracks and a slow glint
+  // sweeping across now and then (soft, never a flash)
+  _drawIce(ctx, t) {
+    const W = CONFIG.map_width, H = CONFIG.map_height;
+    ctx.save();
+    ctx.fillStyle = 'rgba(170,215,255,0.10)'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(220,240,255,0.22)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const c of this.cracks) { ctx.moveTo(c[0][0], c[0][1]); for (let j = 1; j < c.length; j++) ctx.lineTo(c[j][0], c[j][1]); }
+    ctx.stroke();
     ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createLinearGradient(gx - 20, 0, gx + 20, 0);
-    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(230,245,255,0.10)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g; ctx.fillRect(Math.max(x, gx - 20), y, Math.min(40, x + w - Math.max(x, gx - 20)), h);
+    const gx = ((t * 90) % (W + H + 400)) - 200;   // a diagonal glint
+    const g = ctx.createLinearGradient(gx - 60, 0, gx + 60, 60);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(230,245,255,0.06)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 

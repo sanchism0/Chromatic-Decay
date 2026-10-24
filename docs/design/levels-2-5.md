@@ -55,13 +55,13 @@ for keeping. His trace is split across three archive drives frozen into the
 floor. You leave with the drives and the lift running: down to The Stacks.
 
 **Map:** long parallel aisles of tall cold racks with cross-gaps. Pale
-blue-white palette, frost, and **ice patches** where you slide (your speed
+blue-white palette, frost, and **the whole floor is ice**: you slide everywhere (your speed
 eases in and out, and a dash keeps sliding).
 
 | Beat | Play | Comms (gist) |
 |---|---|---|
 | Wave | Violets and yellows down the aisles; then the **dash ability** screen | "Cold Storage. Raze's trace led down here." |
-| **Drives** (task) | Grab three drives sitting in ice patches. Up to 4 enemies at once | "Your dash crackles now / leaves a charge. Three drives, frozen into the floor. You'll slide." |
+| **Drives** (task) | Grab three frozen drives. Up to 4 enemies at once | "Your dash crackles now / leaves a charge. Three drives, frozen into the floor. You'll slide." |
 | Wave | Yellows in the narrow aisles | "They heard the ice crack." |
 | **Frozen tanks** (puzzle) | Three coolant tanks freeze the lift. Bullets do nothing; each needs two hits from the dash ability (Dex dashes through, Juno dashes away from it) | "Bullets won't touch that ice." |
 | Exit | Ride the lift: beam-out, card, results | "Hold on. Going down." |

@@ -45,7 +45,7 @@ The full plan (story, maps, beats, bosses, cards per level, build order) is in
 
 ### 2a. Level 2 "Cold Storage": built (Oct 24, 2026), awaiting the owner's playtest
 Wave → **dash ability granted** (Dex: Shock Dash, Juno: Parting Charge) →
-grab three archive drives frozen into ice patches (you slide on ice) → wave →
+grab three frozen archive drives (the whole floor is ice: you slide everywhere) → wave →
 crack three frozen coolant tanks (only the dash ability hurts them, two hits
 each) → ride the lift. Cold Storage map and icy palette. Clearing it keeps the
 dash ability as a Story card. (The first version's escort and valves were

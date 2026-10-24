@@ -200,7 +200,7 @@ roughly even.
   power-up permanently as a Story card for that character, with the unlock tune.
 - **Cards:** Levels 1, 2, 3 and 5 award Story cards; Level 4 pays Chroma only. (The plan was 1, 3 and 5; the owner then asked for **dash abilities** in Level 2 "to give people a reason to dash".) Plan: `docs/design/levels-2-5.md`.
 - **Dash abilities (Level 2):** Dex's **Shock Dash** stuns and jams (+50% damage taken) every Chromatic he dashes through; Juno's **Parting Charge** drops a light bomb where she dashed from, which bursts 0.6 s later. Level 2 grants it after the first wave and keeps it if you clear the level. Some objectives (Level 2's frozen tanks) only break to the dash ability, never bullets.
-- **No escorts.** The Echo following you to the lift was "kind of lame" (Oct 24, 2026); Level 2 uses ice on the floor (you slide) and frozen drives/tanks instead.
+- **No escorts.** The Echo following you to the lift was "kind of lame" (Oct 24, 2026); Level 2 makes the whole floor ice (owner: "make the whole level icy"; you slide everywhere) and frozen drives/tanks instead.
 - **No checkpoints for now:** dying restarts the whole level; revisit if levels get long.
 - **Cards belong to the character who earned them.** From Level 2 on, a character
   starts with only their own cards.
