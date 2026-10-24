@@ -25,16 +25,20 @@ export class HUD {
     const fs     = px => `${narrow ? Math.round(px * 0.72) : px}px monospace`;
 
     // ── HP Bar ─────────────────────────────────────────────────
-    const hpBarW = narrow ? Math.round(Math.min(160, W * 0.38)) : 200;
-    const hpBarH = narrow ? 10 : 14;
-    const hpX    = pad;
-    const hpY    = pad + (narrow ? 18 : 24);
+    // Touch: a slim bar tucked into the top-left corner, just the number
+    const touch  = 'ontouchstart' in window;
+    const hpBarW = touch ? Math.round(Math.min(120, W * 0.3)) : narrow ? Math.round(Math.min(160, W * 0.38)) : 200;
+    const hpBarH = touch ? 8 : narrow ? 10 : 14;
+    const hpX    = touch ? 10 : pad;
+    const hpY    = touch ? 10 : pad + (narrow ? 18 : 24);
     const hpPct  = clamp(player.hp / player.maxHp, 0, 1);
 
-    ctx.fillStyle = '#8A8E99';
-    ctx.font      = fs(20);
     ctx.textAlign = 'left';
-    ctx.fillText('HP', hpX, hpY - 5);
+    if (!touch) {
+      ctx.fillStyle = '#8A8E99';
+      ctx.font      = fs(20);
+      ctx.fillText('HP', hpX, hpY - 5);
+    }
 
     ctx.fillStyle = '#1E2130';
     ctx.fillRect(hpX, hpY, hpBarW, hpBarH);
@@ -51,7 +55,8 @@ export class HUD {
 
     ctx.fillStyle = '#C4C8D4';
     ctx.font      = fs(20);
-    if (narrow) ctx.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX, hpY + hpBarH + 16);
+    if (touch) { ctx.font = 'bold 12px monospace'; ctx.fillText(String(Math.ceil(player.hp)), hpX + hpBarW + 6, hpY + hpBarH); }
+    else if (narrow) ctx.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX, hpY + hpBarH + 16);
     else        ctx.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX + hpBarW + 8, hpY + hpBarH + 4);
 
     if (this.echoFlash > 0) {
@@ -61,7 +66,7 @@ export class HUD {
       ctx.globalAlpha = 1;
     }
 
-    let nextBarY = hpY + hpBarH + (narrow ? 22 : 4);
+    let nextBarY = hpY + hpBarH + (touch ? 6 : narrow ? 22 : 4);
 
     // ── Shield Bar (Warden) ────────────────────────────────────
     if (player.shield > 0 || player.maxHp !== CONFIG.player_base_hp) {

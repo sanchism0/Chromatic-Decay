@@ -7,7 +7,7 @@ import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEA
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD } from './grenade.js';
 import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE } from './profile.js';
-import { PLATFORM, refreshBoard, cycleBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
+import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
 import { EchoSystem, Echo } from './echoes.js';
@@ -310,8 +310,11 @@ function handleGameOver() {
 
 // ── Update ────────────────────────────────────────────────────
 
+let _prevState = null;
 function update(dt) {
   input.update();
+  if (state === STATES.TITLE && _prevState !== STATES.TITLE) resetBoard();
+  _prevState = state;
 
   adminPanel.update(dt);
 
@@ -1486,13 +1489,46 @@ input.uiHit = (x, y) => state === STATES.PLAYING &&
    (_grenadeBtn.r && x >= _grenadeBtn.r.x && x <= _grenadeBtn.r.x + _grenadeBtn.r.w && y >= _grenadeBtn.r.y && y <= _grenadeBtn.r.y + _grenadeBtn.r.h) ||
    (_dashBtn.r && x >= _dashBtn.r.x && x <= _dashBtn.r.x + _dashBtn.r.w && y >= _dashBtn.r.y && y <= _dashBtn.r.y + _dashBtn.r.h));
 
+// Touch buttons are round and see-through, in a row above the sticks:
+// AUTO up-left of the move stick; DASH (then the grenade) up-right
+const BTN_R = 27;
+const _btnRowY = H => H - 40 - input.joystickRadius * 2 - 14 - BTN_R;
+const _btnSlotX = (W, i) => W - 14 - BTN_R - i * (BTN_R * 2 + 14);   // 0 = far right
+
+// A round, see-through button; cdFrac (0..1) draws the recharge as a ring.
+// Returns its bounding box for hit tests.
+function _roundBtn(cx, cy, label, color, { sub = '', cdFrac = 0, glow = 0 } = {}) {
+  const R = BTN_R;
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,14,22,0.28)';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+  if (glow > 0) { ctx.shadowBlur = 14 * glow; ctx.shadowColor = color; }
+  ctx.globalAlpha = cdFrac > 0 ? 0.35 : 0.8;
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  if (cdFrac > 0) {
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cdFrac)); ctx.stroke();
+  }
+  ctx.globalAlpha = cdFrac > 0 ? 0.6 : 0.9;
+  ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center';
+  ctx.font = `bold ${label.length > 5 ? 9 : 11}px monospace`;
+  ctx.fillText(label, cx, cy + (sub ? 0 : 4));
+  if (sub) { ctx.font = '9px monospace'; ctx.fillStyle = color; ctx.fillText(sub, cx, cy + 12); }
+  ctx.restore();
+  return { x: cx - R, y: cy - R, w: R * 2, h: R * 2 };
+}
+
 function _drawAutoFireBtn(W, H) {
   const touch = 'ontouchstart' in window;
-  const w = touch ? 100 : 118, h = touch ? 34 : 30;
-  const x = touch ? (W - w) / 2 : W - w - 16;
-  const y = touch ? H - h - 34 : H - h - 20;
   const on = input.autoFire;
   const pulse = story.highlight === 'autofire' ? 0.5 + 0.5 * Math.sin(performance.now() / 160) : 0;
+  if (touch) {
+    _autoBtn.r = _roundBtn(14 + BTN_R, _btnRowY(H), 'AUTO', on ? '#00E5CC' : '#8FA8B8', { sub: on ? 'ON' : 'OFF', glow: pulse });
+    return;
+  }
+  const w = 118, h = 30, x = W - w - 16, y = H - h - 20;
   _autoBtn.r = drawSlabButton(ctx, x, y, w, h, on ? 'AUTO ● ON' : 'AUTO ○ OFF', {
     accent: on ? '#00E5CC' : '#8FA8B8', fontSize: 12, glow: 0.15 + pulse * 0.6,
   });
@@ -2162,24 +2198,14 @@ function _drawKeyBar(W, H) {
   ctx.textAlign = 'left';
 }
 
-// Touch buttons: a thin bar under the button fills as it recharges
-function _cooldownBar(r, cd, max, color) {
-  if (!r || cd <= 0) return;
-  ctx.fillStyle = 'rgba(7,11,18,0.8)'; ctx.fillRect(r.x, r.y + r.h + 1, r.w, 4);
-  ctx.fillStyle = color; ctx.fillRect(r.x, r.y + r.h + 1, r.w * (1 - cd / max), 4);
-}
-
 // Touch: a DASH button just above the aim stick
 const _dashBtn = { r: null };
 function _drawDashBtn(W, H) {
   _dashBtn.r = null;
   if (!('ontouchstart' in window) || !player) return;
-  const ready = (player.dashCooldown || 0) <= 0;
-  const w = 80, h = 40, x = W - w - 14, y = H - 40 - input.joystickRadius * 2 - h - 18;
-  _dashBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'DASH' : player.dashCooldown.toFixed(1), {
-    accent: ready ? '#E8F0FF' : '#4A5560', textColor: ready ? '#FFFFFF' : '#6E7A88', fontSize: 13, glow: ready ? 0.25 : 0,
-  });
-  _cooldownBar(_dashBtn.r, player.dashCooldown, player.dashCooldownMax || DASH_CD, '#E8F0FF');
+  const cd = player.dashCooldown || 0;
+  _dashBtn.r = _roundBtn(_btnSlotX(W, 0), _btnRowY(H), cd > 0 ? cd.toFixed(1) : 'DASH', '#E8F0FF',
+    { cdFrac: cd / (player.dashCooldownMax || DASH_CD) });
 }
 
 // Touch: the grenade's button, above the signature button if there is one
@@ -2190,12 +2216,7 @@ function _drawGrenade(W, H) {
   if (!player || !player.grenade || !('ontouchstart' in window)) return;
   const col = '#B6FF2E';
   const cd = player.grenadeCooldown || 0, ready = cd <= 0;
-  const w = 100, h = 34, x = (W - w) / 2;
-  const y = H - 34 - 34 - h - 12 - (player.signature ? h + 12 : 0);
-  _grenadeBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? 'GRENADE' : cd.toFixed(1), {
-    accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
-  });
-  _cooldownBar(_grenadeBtn.r, cd, GRENADE_CD, col);
+  _grenadeBtn.r = _roundBtn(_btnSlotX(W, 1), _btnRowY(H), ready ? 'GRENADE' : cd.toFixed(1), col, { cdFrac: cd / GRENADE_CD });
 }
 
 // Touch: the signature's button (desktop shows it in the key bar)
@@ -2207,11 +2228,7 @@ function _drawSignature(W, H) {
   const col = AGENT_COLOR[player.signature];
   const cd = player.signatureCooldown || 0, max = player.signatureCooldownMax || sig.cd;
   const ready = cd <= 0;
-  const w = 100, h = 34, x = (W - w) / 2, y = H - 34 - 34 - h - 12;
-  _sigBtn.r = drawSlabButton(ctx, x, y, w, h, ready ? sig.name.split(' ')[0] : cd.toFixed(1), {
-    accent: ready ? col : '#4A5560', fontSize: 12, glow: ready ? 0.4 : 0,
-  });
-  _cooldownBar(_sigBtn.r, cd, max, col);
+  _sigBtn.r = _roundBtn(_btnSlotX(W, player.grenade ? 2 : 1), _btnRowY(H), ready ? sig.name.split(' ')[0] : cd.toFixed(1), col, { cdFrac: cd / max });
 }
 
 // ── Character select ("Who goes in?") ─────────────────────────
@@ -2539,7 +2556,8 @@ function drawTitle(W, H) {
   ctx.fillStyle = '#7ADDD4';
   ctx.fillText(tag, W / 2, panelY + 12);
   const bottomLimit = H - (mobile ? 118 : 24);
-  _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile);
+  _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile,
+    'ontouchstart' in window ? null : { x: input.mouseX, y: input.mouseY });
 
   // ── Controls hint box (mobile only) ──────────────────────
   if (mobile) {
