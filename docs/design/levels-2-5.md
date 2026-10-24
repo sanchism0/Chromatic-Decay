@@ -36,8 +36,23 @@ Levels also get **longer, with as much interaction as Level 2** from here on.
 | 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
 | 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
 | 3 | **Stun Grenade (E)**: built | **Decoy Beacon (E)**: new. Throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
-| 4 | **To decide.** Suggestion: **Chain Arc** (passive): each hit jumps to the nearest other Chromatic | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
+| 4 | **Chain Arc** (passive, agreed): each hit jumps to the nearest other Chromatic. The owner rates it above Kinetic Finish | **To decide.** Suggestion: **Ricochet** (passive, from the Level 1 sampler): shots bounce off racks |
 | 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
+
+**Decoy Beacon (Juno, E), defined:**
+- **Throw:** like Dex's grenade: it arcs over racks and lands at the cursor
+  (desktop) or ahead in the aim direction (phone), up to about 200 px away.
+- **Lure:** on landing it pulses soft lilac light for **3 s**. Every violet
+  and yellow within about 220 px forgets Juno and crowds the beacon; yellows
+  lunge at it instead of her. Greens stay put but shoot at it.
+- **Payoff:** they bunch up in one spot, right in the minigun's stream. No
+  damage of its own; it buys space and lines up the kill.
+- **End:** the light fades (no flash) with a glassy chime; they turn back.
+- **Cooldown:** 10 s (the grenade's is 8 s), shown on the E slot and the
+  round touch button.
+- **In Level 3:** the terminal zone task is about keeping Chromatics *out*
+  of it (beacon pulls them away; Dex's grenade stuns them where they stand),
+  and the boss's split-off violets come in rings the beacon can gather.
 
 That makes the Arcade Story deck ten cards (up from three). Level 4's ability is passive because E and F are taken by Levels 3 and 5. Its tasks would then be built around hitting things you can't see directly: signal nodes tucked behind cable runs that only a chained or bounced shot reaches. Kinetic Finish,
 Piercing Stream, Ricochet and a possible Chain Arc stay Level 1 sampler
