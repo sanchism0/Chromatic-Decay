@@ -59,6 +59,7 @@ showed up in a picture.
 | `level4.js` | Level 4: greens, Arc Round / Ricochet, boxes ignore plain shots and walking but open to an arc (off a cable or a Chromatic) or a bounce, pieces, dials, escape: wire zaps you back unless you dash, time-out → DOOR SEALED → level restarts, out the door, card |
 | `screens.js` | Screenshots of every screen (title, map, character select, level HUD, power-up, card, results, failed, Arcade, upgrades, pause, settings, game over) for the 12 px minimum text check. Args: `<out> desk\|phone\|land` |
 | `level5.js` | Level 5: Raze caged, F ability, anchors ignore plain rounds and crack under it, the Hoarder (shielded by nodes, swarm phase), boss checkpoint, its death ends the level, the Raze and Null scene, card |
+| `cloudsave.js` | `boot.js` with a stand-in artifact database: a cloud save restores before the game starts, changes write back, and outside an artifact the game starts normally |
 | `arc.js` | Arc Round: only the last round of a Dex burst is electric; it jumps to an enemy within range, not one further away |
 | `grenadeaim.js` | Touch grenade: a tap throws nothing; press and drag shows the landing ring; letting go throws it there. Prints the phone zoom |
 | `comms.js` | Comms box just below the middle on desktop, at the top on phones; no shooting while a line is up; the game freezes with enemies around; Space moves the line on without dashing |

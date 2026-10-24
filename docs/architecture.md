@@ -43,6 +43,7 @@ With no options it's an Arcade run.
 ### Core
 | File | Role |
 |---|---|
+| `boot.js` | Loaded by `index.html`. Inside a claude.ai artifact it restores every `chromatic_decay_*` key from the artifact's database (private per signed-in viewer, `data/users/<id>/save`) before importing `game.js`, then writes changes back; elsewhere it just imports `game.js`. The preview artifacts must be published with `capabilities: {db: {}, user: {}}` |
 | `game.js` | Everything that ties the game together: state machine, runs, collisions, lighting, HUD buttons, all menus and screens (title, char select, story map, results, game over, archive, name entry). ~4,200 lines. |
 | `config.js` | Every tunable number: player stats, enemy stats, spawn mix, camera zoom, scoring. `admin.js` edits it live. |
 | `input.js` | Keyboard, mouse, twin-stick touch, swipe. Edge flags (`justPressed`, `mouseJustClicked`, `swipe`) last one frame. |

@@ -84,6 +84,8 @@ If a publish is refused because a file "is not what you last saw", check its
 hash against the previous `main` (`git show <sha>:src/x.js | sha256sum`), read
 it with the artifact read action, then publish again.
 
+**Publish both preview artifacts with `capabilities: {db: {}, user: {}}`** (omit it on later redeploys to keep it): `src/boot.js` keeps saves in the artifact's database, because browser storage there doesn't persist reliably.
+
 **claude.ai artifacts can't reach Supabase.** Scores there say "saved on this
 device". Real leaderboard testing happens on the GitHub Pages site.
 
