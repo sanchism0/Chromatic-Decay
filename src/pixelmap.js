@@ -56,6 +56,27 @@ const THEMES = {
     labels: [['COLD STORAGE', 0.11], ['ARCHIVE AISLES', 0.32], ['THE FREEZE', 0.68], ['FREIGHT LIFT', 0.92]],
     pits: false, tints: false, frost: true,
   },
+  // The Stacks: dusty sepia floor, towers of old tape in warm brown with
+  // amber reels, and amber rack lights
+  stacks: {
+    C: {
+      outline:   '#0b0806',
+      floor:     '#382c21', floorAlt: '#33281e',
+      seam:      '#160f0a', bevelLt: '#4a3c2e', bevelDk: '#1e1610',
+      screw:     '#5a4a38', dot: '#16110d',
+      pit:       '#060504', pitEdge: '#2e251d',
+      wall:      '#2c241c', wallLine: '#1a1510', wallTop: '#40342a',
+      red:       '#8a5a20',
+      rackTop:   '#3e3226', rackTopLt: '#7a644a', rackTopSide: '#4e3f30',
+      vent:      '#2a2119', screen: '#5a3a14', screenLine: '#ffc46a',
+      rim:       '#8a7256', rimCyan: '#c08a3a',
+      front:     '#2e251c', blade: '#3e3226', bladeGap: '#18130f', handle: '#7a644a',
+      strip:     '#ffc46a', stripDim: '#6a4a1a',
+    },
+    leds: ['#ffc46a', '#ff9a3c', '#ffe2a8', '#ffc46a'],
+    labels: [['THE STACKS', 0.10], ['THE VAULT', 0.5]],
+    pits: false, tints: false, frost: false,
+  },
 };
 let THEME = THEMES.basement;
 let C = THEME.C;

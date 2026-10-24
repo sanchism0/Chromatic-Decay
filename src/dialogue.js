@@ -311,6 +311,7 @@ export class Radio {
       ctx.fillStyle = '#00E5CC';
       ctx.fillText(label, W / 2, oy + (narrow ? 18 : 21));
       ctx.restore();
+      this.objBottom = oy + (narrow ? 24 : 28);
     }
   }
 }

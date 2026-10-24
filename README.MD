@@ -18,8 +18,8 @@ touch controls).
 ## Modes
 
 - **Story Mode:** pick who goes in; the other one talks you through it on
-  comms. A prologue, a tutorial, Level 1 ("Server Floor") and Level 2
-  ("Cold Storage") so far. Clearing
+  comms. A prologue, a tutorial, Level 1 ("Server Floor"), Level 2
+  ("Cold Storage") and Level 3 ("The Stacks", the first boss) so far. Clearing
   levels earns Chroma and **Story cards**.
 - **Arcade Mode:** 15 waves of escalating Chromatics with bosses. Every Story
   card you've earned joins your upgrade deck.

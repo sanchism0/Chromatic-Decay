@@ -162,9 +162,48 @@ function buildColdStorage() {
   return obs;
 }
 
+// ── Level 3 "The Stacks" ──────────────────────────────────────
+// Towers of old tape in a ring round an open centre (the vault, and the boss
+// arena). Three sealed pockets (racks on all four sides, no way in on foot)
+// hold the beam mirrors: you lob an ability over the walls to turn them.
+// A few low shelves break up the outer ring. The door is top centre.
+export const STACKS = {
+  centre: [0.5, 0.5],
+  ringR: 0.27,
+  pockets: [[0.12, 0.50], [0.50, 0.88], [0.88, 0.50]],   // centres of the sealed pockets
+  pocketIn: 0.075, pocketWall: 0.02,                       // interior size, wall thickness
+};
+function buildStacks() {
+  const obs = [];
+  const p = (fx, fy, fw, fh) => obs.push(makeRack(
+    Math.round(fx * W), Math.round(fy * H), Math.round(fw * W), Math.round(fh * H)));
+  // The ring: eight tall tape towers, turned so the gaps between them face
+  // straight up, down, left and right (the way in from the door, and the
+  // beam's lines to the pockets)
+  const T = 0.075;
+  for (let k = 0; k < 8; k++) {
+    const a = k / 8 * Math.PI * 2 + Math.PI / 8;
+    const cx = 0.5 + Math.cos(a) * STACKS.ringR, cy = 0.5 + Math.sin(a) * STACKS.ringR;
+    p(cx - T / 2, cy - T / 2, T, T);
+  }
+  // Sealed pockets
+  const I = STACKS.pocketIn, Wt = STACKS.pocketWall;
+  for (const [cx, cy] of STACKS.pockets) {
+    const x0 = cx - I / 2 - Wt, y0 = cy - I / 2 - Wt, S = I + 2 * Wt;
+    p(x0, y0, S, Wt); p(x0, y0 + S - Wt, S, Wt);           // top, bottom
+    p(x0, y0 + Wt, Wt, I); p(x0 + S - Wt, y0 + Wt, Wt, I); // left, right
+  }
+  // Low tape shelves in the outer ring
+  p(0.20, 0.17, 0.10, 0.03); p(0.70, 0.30, 0.03, 0.08);
+  p(0.24, 0.70, 0.03, 0.09); p(0.70, 0.76, 0.10, 0.03);
+  p(0.08, 0.30, 0.08, 0.03); p(0.84, 0.70, 0.08, 0.03);
+  return obs;
+}
+
 const LAYOUTS = {
   basement: { build: buildObstacles,    spawn: [0.5, 0.12] },
   cold:     { build: buildColdStorage,  spawn: [0.5, 0.10] },
+  stacks:   { build: buildStacks,       spawn: [0.5, 0.10] },
 };
 
 export class GameMap {

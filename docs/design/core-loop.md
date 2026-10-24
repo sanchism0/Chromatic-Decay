@@ -123,7 +123,7 @@ down to Cold Storage. Sable can be character 4 later.
 |---|---|---|---|---|---|---|---|
 | 1 | Server Floor | violet | Relays (3) | violet + yellow | Wake 4 servers | none | First power-up as a **Story card**, for the character who clears it (built) |
 | 2 | Cold Storage | violet + yellow | Frozen drives (all-ice floor) | yellow | Crack the tanks with the dash ability | none | Dash ability as a **Story card** (built) |
-| 3 | The Stacks | yellow | Hold the line | violet + yellow | Beam | **The Queue**: a huge violet made of unplayed streams | Tier 2 story node |
+| 3 | The Stacks | violet | Hold the terminal | violet + yellow | Beam (thrown ability turns the mirrors) | **The Queue**: a huge violet made of unplayed streams | Stun Grenade / Decoy Beacon as a **Story card** (built) |
 | 4 | Wire Room | green (new) | Gather fragments | yellow + green | Tuning | none | Workshop opens in full |
 | 5 | Raze's Room | all three | Hold the line | all three | Beam + Sequence | **Signal Hoarder** (green) | **Raze** rescued, and playable |
 

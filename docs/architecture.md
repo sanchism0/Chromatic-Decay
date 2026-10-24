@@ -51,7 +51,7 @@ With no options it's an Arcade run.
 ### World and drawing
 | File | Role |
 |---|---|
-| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
+| `map.js` | Rack layouts per room (`LAYOUTS`: `basement` for Arcade, the tutorial and Level 1; `cold` for Level 2; `stacks` for Level 3, with `STACKS` giving its ring and sealed pockets), camera, spawn helpers (`playerSpawn`, `randomSpawn`). Every map is 1174 × 1174 world px; a level picks its room with `map:` in `LEVELS`. |
 | `pixelmap.js` | Pixel-art floor and three-quarter racks, pre-rendered per zoom. A palette per room (`THEMES`: colours, LED colours, floor labels, pits, frost). Racks behind the player draw first, the rest after; `rackHeight()` gives a rack's drawn height. |
 | `sprites.js` | Cached glow and halo sprites (offscreen canvases) so glows are one `drawImage`. |
 | `particles.js` | Pooled particles (hit sparks, bullet clashes). |
@@ -70,6 +70,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `enemies.js` | The Chromatics: spawning (fade-in), per-type behaviour, the yellow lunge (`LUNGE`), the green blink (`BLINK`: stationary turret that teleports to the far side of a kiting player; `phased` while fading = can't be hit), flow-field pathing (`FLOW`), ghost drawing (wavelength-driven pulse and ripples, health-scaled core). |
 | `projectiles.js` | Player and enemy shots, pulse-shot visuals, rack bounce (Ricochet), `arc` (Arc Round: the last round of a Dex burst; `EnemySystem` jumps it to the nearest other enemy within `ARC_RANGE` and draws the bolt in `zaps`), `hitIds` (a round hits each enemy once, for piercing), `rackHits` (racks shot this frame, for Story objectives). |
 | `dashpowers.js` | Dash abilities (Level 2 cards): Dex's Shock Dash (stun + jam everything dashed through) and Juno's Parting Charge (a bomb where the dash started). Detects a dash starting itself; also hits `level.dashTargets`. |
+| `decoy.js` | Juno's Decoy Beacon (Level 3 card): thrown like the grenade; for 3 s it sets `enemies.lure`, and violets/yellows within 220 px go for it (yellows lunge at it, greens shoot it). `onLand` tells the level where it came down |
 | `grenade.js` | Dex's stun grenade: arcs over racks, stuns and jams (+50% damage taken), electricity and smoke, 8 s cooldown. |
 | `echoes.js` | Echo health pickups (pixel-art white figure, fog, fade-in, jewel sound). Legacy Fragment echoes too. |
 | `companions.js`, `traps.js`, `fragments.js` | **Legacy** class systems (Herald orbs, Weaver traps, Fragment data). Not used in play; kept as templates. |
@@ -101,6 +102,9 @@ level for now). Beat types:
 | `sequence` | Walk over floor pads in the order they lit (built, no longer used by Level 1) |
 | `drives` | Pick up items at `points.drives`. A level with `icy: true` makes the whole floor ice: you slide everywhere (`player.onIce`) |
 | `freezers` | Frozen tanks (`points.tanks`) that bullets don't hurt; the dash ability hits them (`TANK_HITS` each) through `level.dashTargets` |
+| `hold` | Stand in the terminal's ring (`HOLD`) while it pulls; any unstunned Chromatic in the ring stops and drains it |
+| `beam` | Mirrors in sealed pockets (`points.mirrors`), turned by a thrown ability landing on them (`onThrowLand`, from `grenades.onLand` / `decoys.onLand`); the beam runs source → mirrors → vault; all right opens the vault |
+| `boss` | The Queue (`QUEUE`): a big violet `Enemy` with `boss`, `contactDamage` and a capped stun; the level sends its rings (`rings`, dash through them), splits it at thresholds, draws the health bar, and dissolves the rest when it dies |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 
@@ -110,7 +114,7 @@ A beat's `interrupt: { cap, period, yellow }` keeps enemies coming during
 it (`_interrupt`: pairs, anywhere on the map, at least 320 px from the player).
 `grant: true` on a beat hands over the level's `LEVEL_CARDS` card for the
 rest of the level when it ends (Level 2's dash abilities). Level fields: `map`
-(room), `exit` ('lift'), `points` (positions as map fractions: drives, tanks, lift), `icy`,
+(room), `exit` ('lift' or 'vault'), `points` (positions as map fractions: drives, tanks, lift, terminal, vault, source, mirrors, dead), `icy`,
 `powerups` (Level 1's sampler only), `blurb`, `outcome`, `unlockTop`
 (the card screen's top line). The level talks to
 the game through `levelApi` in `game.js` (spawn enemies and Echoes, play

@@ -644,3 +644,26 @@ export function sfxLunge() {
   _noise(t + 0.03, 0.55, 0.1, 220, 0.7);     // rumble
   _osc('sine', 70, t + 0.02, 0.5, 0.1, 38);  // weight underneath
 }
+
+// ── Decoy Beacon (Juno) ────────────────────────────────────────
+// Landing: a soft glassy hum that swells in
+export function sfxDecoyLand() {
+  const t = _ac().currentTime;
+  _osc('triangle', 660, t, 0.6, 0.05, 700);
+  _osc('sine', 990, t + 0.04, 0.5, 0.025, 1040);
+  _osc('sine', 330, t, 0.7, 0.04, 320);
+}
+// Fading out: a short glassy chime falling away
+export function sfxDecoyEnd() {
+  const t = _ac().currentTime;
+  _osc('triangle', 1320, t, 0.35, 0.035, 880);
+  _osc('sine', 660, t + 0.05, 0.4, 0.03, 440);
+}
+
+// The Queue sending out a ring: a low glassy swell that rolls away
+export function sfxQueueRing() {
+  const t = _ac().currentTime;
+  _osc('sine', 110, t, 0.7, 0.12, 70);
+  _osc('triangle', 440, t, 0.5, 0.03, 220);
+  _noise(t, 0.4, 0.03, 500, 0.7);
+}

@@ -90,6 +90,7 @@ export class GrenadeSystem {
                         t: 0, life: 1.2 + Math.random() * 0.7, r: 11 + Math.random() * 7 });
     }
     sfxGrenadeBurst();
+    if (this.onLand) this.onLand(x, y);
   }
 
   // Drawn after the racks: the grenade flies over them, and the burst sits on top
