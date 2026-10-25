@@ -44,13 +44,17 @@ async function cloudSave() {
   if (!id) return;
   const ref = db.doc('data/users/' + id + '/save');
   const s = storage();
-  // Restore: the cloud copy wins over whatever this browser kept
+  // Restore: the cloud copy wins over whatever this browser kept. If it
+  // can't be read (slow or offline), stop here: writing back a fresh, empty
+  // save would wipe the real one in the cloud
+  let snap = null;
+  try { snap = await Promise.race([ref.get(), new Promise(r => setTimeout(() => r(null), 8000))]); } catch (e) {}
+  if (!snap) return;
   try {
-    const snap = await Promise.race([ref.get(), new Promise(r => setTimeout(() => r(null), 4000))]);
-    const data = snap && snap.exists ? snap.data() : null;
+    const data = snap.exists ? snap.data() : null;
     if (data && data.keys) {
       for (const [k, v] of Object.entries(data.keys)) if (k.startsWith(PREFIX) && typeof v === 'string') s.setItem(k, v);
-    } else if (snap) {
+    } else {
       // First visit with the cloud copy: keep what this browser already has
       const now = ourKeys(s);
       if (Object.keys(now).length) ref.set({ keys: now, at: Date.now() }).catch(() => {});
