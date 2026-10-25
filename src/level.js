@@ -388,7 +388,7 @@ LEVELS[5] = {
 
       { type: 'hoarder',
         checkpoint: 'boss',
-        lines: [L(f('worried', 'concerned'), "Every time it jumps it leaves a turret behind. It can't be hurt while any are up."),
+        lines: [L(f('worried', 'concerned'), "When it jumps it leaves turrets behind. It can't be hurt while any are up."),
                 L(f('determined', 'focused'), 'Take them all out and their light comes back at it. That should stun it.'),
                 L(f('determined', 'focused'), 'And those bursts it fires: dash straight through them.')],
         phase: [[R('angry', "It's calling for help. Coward.")], [R('snarl', 'Again. It always does this when it starts to lose.')]],
@@ -411,13 +411,17 @@ const SIG_POWERS = {
           hint: touch => (touch ? 'Tap its round button. Line anchors up: one laser fills a light on each.' : 'Press F. Line anchors up: one laser fills a light on each.') },
 };
 // The Signal Hoarder (Level 5's boss)
-const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, blinkThird: 7,  // blinkThird: the wait once 2 turrets stand
+const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2,
                   fade: 0.45,
                   nova: 14, novaSpeed: 135, novaDamage: 9, volleyEvery: 2.2,
                   phases: [0.66, 0.33],
-                  maxNodes: [2, 3, 3],         // turrets on the map at once, by phase (owner's caps)
+                  // Turrets come in sets, by phase: the whole set drops on one
+                  // jump, spread round the arena, and no more come until every
+                  // one is down (no rebuilding while you work through them)
+                  sets: [1, 3, 5],
+                  setRing: [110, 200],         // the set spreads over this ring round the core
+                  escorts: [1, 2], escortGap: 5,   // greens alongside it at all times (outside its waves)
                   arena: [100, 200],           // it only jumps within this ring (px) round the core
-                  cluster: 190,                // and, while turrets stand, within this of every one
                   // Bullet patterns from phase 2 on: a rotating spiral of slow
                   // rounds for spiralOn s, then quiet for spiralOff s
                   spiralOn: 2.4, spiralOff: 2.8, spiralGap: 0.13, spiralSpeed: 115, spiralTurn: 2.1, spiralDamage: 7 };
@@ -1138,6 +1142,15 @@ export class LevelRun {
       this._finishBeat();
       return;
     }
+    // Escorts: always one green with it, a second after a short wait
+    if (!this.bossWave) {
+      const esc = es.enemies.filter(e => e.isAlive && e.type === 'green' && !e.node && e !== q).length;
+      this.escortT = (this.escortT ?? HOARDER.escortGap) - dt;
+      if (esc < HOARDER.escorts[0] || (esc < HOARDER.escorts[1] && this.escortT <= 0)) {
+        this._spawnGroup([['green', 1]]);
+        this.escortT = HOARDER.escortGap;
+      }
+    }
     // Every turret down: each fallen turret sends a beam of its light back into
     // the Hoarder, and when they land it's stunned for HOARDER_STUN seconds
     this.nodes = this.nodes.filter(n => n.isAlive);
@@ -1186,11 +1199,22 @@ export class LevelRun {
     if (q.blink === 'fade') {
       q.blinkT -= dt;
       if (q.blinkT <= 0) {
-        // One turret per jump, never more than maxNodes standing
-        if (this.nodes.length < HOARDER.maxNodes[Math.min(this.bossPhase, 2)]) {
-          const n = es.spawnEnemyAt('green', q.x, q.y);
-          n.node = true; n.spawnT = 0.2;
-          this.nodes.push(n);
+        // No turrets standing: the next set drops all at once, one where it
+        // stood and the rest spread evenly round the arena
+        if (!this.nodes.length) {
+          const count = HOARDER.sets[Math.min(this.bossPhase, 2)], c = this.corePos;
+          const spots = [{ x: q.x, y: q.y }];
+          const a0 = Math.atan2(q.y - c.y, q.x - c.x);
+          for (let i = 1; i < count; i++) {
+            const a = a0 + i / count * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+            const d = HOARDER.setRing[0] + Math.random() * (HOARDER.setRing[1] - HOARDER.setRing[0]);
+            spots.push(freeSpot(map, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, 40));
+          }
+          for (const sp of spots) {
+            const n = es.spawnEnemyAt('green', sp.x, sp.y);
+            n.node = true; n.spawnT = 0.2;
+            this.nodes.push(n);
+          }
         }
         q.x = q._to.x; q.y = q._to.y; q.spawnT = 0; q.blink = null;
         this.burstT = 0.5; this.burstLeft = 2;
@@ -1199,25 +1223,19 @@ export class LevelRun {
     } else if (!q.forming) {
       this.blinkT -= dt;
       if (this.blinkT <= 0) {
-        // Somewhere open inside its arena (a ring round the core, so its
-        // turrets stay close together), not on top of the agent
+        // Somewhere open inside its arena (a ring round the core), not on
+        // top of the agent
         let to = null;
         const [r0, r1] = HOARDER.arena, c = this.corePos;
-        // While turrets stand, the next one lands near all of them, so a
-        // full set is never more than a short run apart ("we aren't fast
-        // enough to cover the ground")
-        const near = p2 => this.nodes.every(nd => Math.hypot(p2.x - nd.x, p2.y - nd.y) < HOARDER.cluster);
         for (let k = 0; k < 80 && !to; k++) {
           const a = Math.random() * Math.PI * 2, d = r0 + Math.random() * (r1 - r0);
           const p2 = freeSpot(map, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, 40);
           const dc = Math.hypot(p2.x - c.x, p2.y - c.y);
           if (dc > r0 - 20 && dc < r1 + 30 && Math.hypot(p2.x - pl.x, p2.y - pl.y) > (k < 50 ? 140 : 90)
-              && Math.hypot(p2.x - q.x, p2.y - q.y) > 70 && (k >= 70 || near(p2))) to = p2;
+              && Math.hypot(p2.x - q.x, p2.y - q.y) > 70) to = p2;
         }
         if (to) { q._to = to; q.blink = 'fade'; q.blinkT = HOARDER.fade; }
-        // With 2 turrets up, the jump that would add a third comes slower:
-        // a full set is the top of its difficulty, and takes longer to reach
-        this.blinkT = this.nodes.length >= 2 ? HOARDER.blinkThird : frac < 0.5 ? HOARDER.blinkFast : HOARDER.blinkEvery;
+        this.blinkT = frac < 0.5 ? HOARDER.blinkFast : HOARDER.blinkEvery;
       }
       // An aimed volley now and then
       this.volleyT -= dt;

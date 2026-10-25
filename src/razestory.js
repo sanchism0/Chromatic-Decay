@@ -145,7 +145,7 @@ export const RAZE_BEATS = {
       eachDone: [[D('cocky-grin', 'One!')], [J('focused', 'Two.')], [R('smirk', 'Three. Keep up.')]],
       objective: s => `Hit each anchor with 2 Laser Rounds (${s.anchors}/4 broken)`,
       done: [J('alarmed', "That's the last anchor. Something's coming up through the floor..."), R('snarl', 'Hello again.')] },
-    { lines: [D('worried', "It's back. It leaves a turret every time it jumps, and it can't be hurt while any are up."),
+    { lines: [D('worried', "It's back. It leaves turrets behind when it jumps, and it can't be hurt while any are up."),
               J('focused', 'Take them all out and their light comes back at it. That stuns it.'),
               R('stern', "And dash through its bursts. I had years to watch it.")],
       phase: [[R('angry', 'Calling for help. Still a coward.')], [D('worried', "It's calling more!"), R('snarl', "Let it. I'm not in a cage this time.")]],

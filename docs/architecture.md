@@ -115,7 +115,7 @@ level for now). Beat types:
 | `tuning` | Dials (`points.dials`) turned the same way, cycling 0→1→2, to match `pattern` on the display |
 | `escape` | A timer (`time`) to reach `exitPos`; `wires` across the corridor zap and push back unless `player.dashT > 0`; alarm, red edge in `drawHud`; timing out sets `failReason` (DOOR SEALED) |
 | `overload` | Anchors (`points.anchors`, `ANCHOR_HP`) that only take damage from rounds flagged `discharge` (Arc Discharge, 4 each) or `spun` (fired during Spin Up); F recharges twice as fast |
-| `hoarder` | The Signal Hoarder (`HOARDER`): a green `Enemy` with `boss: 'hoarder'` (its AI lives in `_updateHoarder`), `shielded` while turret nodes (`node: true` greens) stand, rings of rounds after each blink, waves at `phases`. With `endOnBoss` its death ends the level |
+| `hoarder` | The Signal Hoarder (`HOARDER`): a green `Enemy` with `boss: 'hoarder'` (its AI lives in `_updateHoarder`), `shielded` while turret nodes (`node: true` greens) stand (dropped in sets, `HOARDER.sets`, only when none are up), 1–2 green escorts (`HOARDER.escorts`), rings of rounds after each blink, waves at `phases`. With `endOnBoss` its death ends the level |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 
