@@ -356,7 +356,7 @@ LEVELS[5] = {
         lines: [L(f('shocked', 'alarmed'), "That's him. On the core. They've got him in a cage made of light."),
                 R('stern', "Another one of Null's errand kids. Stay out of my sightline."),
                 L(f('angry', 'annoyed'), 'Charming. Clear the room first.')],
-        groups: [[['violet', 4], ['yellow', 1]], [['green', 2], ['violet', 3]], [['yellow', 2], ['green', 2], ['violet', 2]]],
+        groups: [[['violet', 3], ['yellow', 1]], [['green', 2], ['violet', 2]], [['yellow', 2], ['green', 1], ['violet', 2]]],
         objective: s => `Clear the vault (${s.left} left)`,
         grant: true,   // the F ability, after this section
         done: [L(f('cocky-grin', 'smirk'), 'Clear.'), R('smirk', "Not bad. For a kid.")] },
@@ -367,7 +367,7 @@ LEVELS[5] = {
                 L(f('neutral', 'focused'), dex ? 'Each one takes two blasts. Get close and let it go.' : 'Go unstable and pour it into one until its lights fill. Two lights each.')],
         eachDone: [[R('stern', 'One. Three more. Faster.')], [R('smirk', 'Two. Left one next. Are you blind?')], [R('neutral', '...Three. Keep going.')]],
         objective: s => (dex ? `Hit each anchor with 2 Arc Discharges (${s.anchors}/4 broken)` : `Fill each anchor's 2 lights with Half-Life (${s.anchors}/4 broken)`),
-        interrupt: { cap: 5, period: 3, yellow: 0.25, green: 0.25 },
+        interrupt: { cap: 4, period: 3, yellow: 0.25, green: 0.25 },
         done: [L(f('shocked', 'alarmed'), "That's the last anchor. Something's coming up through the floor..."),
                R('snarl', "That's the thing that's been eating me. Kill it. Slowly, if you can.")] },
 
@@ -396,7 +396,8 @@ const SIG_POWERS = {
 const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, fade: 0.45,
                   nova: 14, novaSpeed: 135, novaDamage: 9, volleyEvery: 2.2,
                   phases: [0.66, 0.33],
-                  maxNodes: 3,                 // turrets on the map at once (owner: no more than this)
+                  maxNodes: [2, 3, 3],         // turrets on the map at once, by phase (owner's caps)
+                  arena: [130, 280],           // it only jumps within this ring (px) round the core
                   // Bullet patterns from phase 2 on: a rotating spiral of slow
                   // rounds for spiralOn s, then quiet for spiralOff s
                   spiralOn: 2.4, spiralOff: 2.8, spiralGap: 0.13, spiralSpeed: 115, spiralTurn: 2.1, spiralDamage: 7 };
@@ -1126,8 +1127,8 @@ export class LevelRun {
       this.bossPhase++;
       this.radio.say(b.phase[this.bossPhase - 1] || []);
       this.bossWave = { gi: 0, groupT: 0, groups: this.bossPhase === 1
-        ? [[['violet', 4], ['yellow', 1]], [['yellow', 2], ['violet', 2]]]
-        : [[['green', 2], ['yellow', 2]], [['violet', 4], ['green', 1]], [['yellow', 3]]] };
+        ? [[['violet', 3], ['yellow', 1]], [['yellow', 2], ['violet', 1]]]
+        : [[['green', 1], ['yellow', 2]], [['violet', 3], ['green', 1]], [['yellow', 2]]] };
       return;
     }
     // Blink: fade, leave a node behind, reform somewhere else and burst
@@ -1135,7 +1136,7 @@ export class LevelRun {
       q.blinkT -= dt;
       if (q.blinkT <= 0) {
         // One turret per jump, never more than maxNodes standing
-        if (this.nodes.length < HOARDER.maxNodes) {
+        if (this.nodes.length < HOARDER.maxNodes[Math.min(this.bossPhase, 2)]) {
           const n = es.spawnEnemyAt('green', q.x, q.y);
           n.node = true; n.spawnT = 0.2;
           this.nodes.push(n);
@@ -1147,12 +1148,15 @@ export class LevelRun {
     } else if (!q.forming) {
       this.blinkT -= dt;
       if (this.blinkT <= 0) {
-        // Somewhere open, 200-320 px from the agent, clear of the cage
+        // Somewhere open inside its arena (a ring round the core, so its
+        // turrets stay close together), not on top of the agent
         let to = null;
-        for (let k = 0; k < 30 && !to; k++) {
-          const a = Math.random() * Math.PI * 2, d = 200 + Math.random() * 120;
-          const p2 = freeSpot(map, pl.x + Math.cos(a) * d, pl.y + Math.sin(a) * d, 40);
-          if (Math.hypot(p2.x - this.corePos.x, p2.y - this.corePos.y) > 90 && Math.hypot(p2.x - pl.x, p2.y - pl.y) > 160) to = p2;
+        const [r0, r1] = HOARDER.arena, c = this.corePos;
+        for (let k = 0; k < 40 && !to; k++) {
+          const a = Math.random() * Math.PI * 2, d = r0 + Math.random() * (r1 - r0);
+          const p2 = freeSpot(map, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, 40);
+          const dc = Math.hypot(p2.x - c.x, p2.y - c.y);
+          if (dc > r0 - 20 && dc < r1 + 30 && Math.hypot(p2.x - pl.x, p2.y - pl.y) > 140 && Math.hypot(p2.x - q.x, p2.y - q.y) > 90) to = p2;
         }
         if (to) { q._to = to; q.blink = 'fade'; q.blinkT = HOARDER.fade; }
         this.blinkT = frac < 0.5 ? HOARDER.blinkFast : HOARDER.blinkEvery;
