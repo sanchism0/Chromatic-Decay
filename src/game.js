@@ -2908,6 +2908,9 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
 
 function drawTitle(W, H) {
   const mobile = W < 600;
+  // Phones on their side: two columns (title and buttons left, the
+  // leaderboard right), so the records get the whole height
+  const land = !mobile && H < 450;
   const pulse  = Math.sin(Date.now() * 0.003) * 0.5 + 0.5;
   const teal    = '#00E5CC';
   const tealDim = '#00897B';
@@ -2932,9 +2935,21 @@ function drawTitle(W, H) {
 
   // ── Title ─────────────────────────────────────────────────
   ctx.textAlign = 'center';
-  if (mobile) {
-    const titleSize = Math.max(36, Math.min(52, Math.floor(W * 0.12)));
-    const titleY1   = H * 0.16;
+  let subY = 0;   // the subtitle's baseline (phones lay out from it)
+  if (land) {
+    const cx = W * 0.27, titleSize = Math.max(24, Math.min(34, Math.floor(W * 0.04)));
+    ctx.shadowBlur = 22; ctx.shadowColor = teal; ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${titleSize}px monospace`;
+    ctx.fillText('CHROMATIC DECAY', cx, 22 + titleSize);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#7ADDD4'; ctx.font = '12px monospace';
+    ctx.fillText('The signal is gone. You are not.', cx, 22 + titleSize + 22);
+    subY = 22 + titleSize + 22;
+  } else if (mobile) {
+    // Compact, so short screens (a browser's own bars take room) still show
+    // most of the leaderboard
+    const titleSize = Math.max(32, Math.min(48, Math.floor(W * 0.11)));
+    const titleY1   = Math.max(72, Math.min(H * 0.13, 110));
     ctx.shadowBlur = 22; ctx.shadowColor = teal; ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${titleSize}px monospace`;
     ctx.fillText('CHROMATIC', W / 2, titleY1);
@@ -2947,7 +2962,8 @@ function drawTitle(W, H) {
     ctx.beginPath(); ctx.moveTo(W/2 - ulW/2, ulY); ctx.lineTo(W/2 + ulW/2, ulY); ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#7ADDD4'; ctx.font = '13px monospace';
-    ctx.fillText('The signal is gone. You are not.', W / 2, titleY1 + titleSize * 2.1);
+    subY = titleY1 + titleSize * 1.15 + 32;
+    ctx.fillText('The signal is gone. You are not.', W / 2, subY);
   } else {
     // Anchor title block just above button row
     const playH    = 60;
@@ -2971,11 +2987,23 @@ function drawTitle(W, H) {
   }
 
   // ── Buttons ───────────────────────────────────────────────
-  if (mobile) {
+  if (land) {
+    const bw = Math.min(W * 0.44, 320), bx = W * 0.27 - bw / 2;
+    const playH = 44, storyH = 36, smH = 34, smW = (bw - 10) / 2;
+    const playY = subY + 16, storyY = playY + playH + 8, smY = storyY + storyH + 8;
+    _titleBtns.start   = { x: bx,           y: playY,  w: bw,  h: playH };
+    _titleBtns.story   = { x: bx,           y: storyY, w: bw,  h: storyH };
+    _titleBtns.archive = { x: bx,           y: smY,    w: smW, h: smH };
+    _titleBtns.admin   = { x: bx + smW + 10, y: smY,   w: smW, h: smH };
+    _drawSciFiBtn(bx,            playY,  bw,  playH,  'ARCADE MODE', true, pulse, teal);
+    _drawSciFiBtn(bx,            storyY, bw,  storyH, 'STORY MODE', false, pulse, tealDim);
+    _drawSciFiBtn(bx,            smY,    smW, smH,    'ARCHIVE',  false, pulse, tealDim);
+    _drawSciFiBtn(bx + smW + 10, smY,    smW, smH,    'SETTINGS', false, pulse, tealDim);
+  } else if (mobile) {
     const playW = Math.min(W * 0.88, 340);
     const playH = 52;
     const playX = W / 2 - playW / 2;
-    const playY = H * (H < 700 ? 0.38 : 0.44);   // short phones: leave room for records
+    const playY = Math.min(subY + 24, H * 0.44);
     const storyH = 44;
     const storyY = playY + playH + 10;
     const smW   = (playW - 12) / 2;
@@ -3014,38 +3042,24 @@ function drawTitle(W, H) {
   }
 
   // ── Leaderboards: one at a time, ‹ › or swipe to cycle ──
-  const panelY = (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 14;
-  const panelW = mobile ? W * 0.92 : Math.min(600, W * 0.62);
-  const panelX = W / 2 - panelW / 2;
+  const panelY = land ? 48 : (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 14;
+  const panelW = land ? W * 0.44 : mobile ? W * 0.92 : Math.min(600, W * 0.62);
+  const panelX = land ? W * 0.53 : W / 2 - panelW / 2;
   // Your name (tap to change), then the board in the space left
   const nm = playerName();
   ctx.font = '11px monospace'; ctx.textAlign = 'center';
   const tag = nm ? `PLAYING AS ${nm}  ·  CHANGE` : 'CHOOSE A NAME';
   const tw = ctx.measureText(tag).width;
-  _titleBtns.name = { x: W / 2 - tw / 2 - 8, y: panelY - 2, w: tw + 16, h: 20 };
+  const tagX = land ? panelX + panelW / 2 : W / 2;
+  _titleBtns.name = { x: tagX - tw / 2 - 8, y: panelY - 2, w: tw + 16, h: 20 };
   ctx.fillStyle = '#7ADDD4';
-  ctx.fillText(tag, W / 2, panelY + 12);
-  const bottomLimit = H - (mobile ? 118 : 24);
-  _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile,
+  ctx.fillText(tag, tagX, panelY + 12);
+  const bottomLimit = H - (mobile ? 24 : land ? 6 : 24);
+  _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile || land,
     'ontouchstart' in window ? null : { x: input.mouseX, y: input.mouseY });
 
-  // ── Controls hint box (mobile only) ──────────────────────
-  if (mobile) {
-    const boxH = 72, boxX = 14, boxW = W - 28;
-    const boxY = H - boxH - 30;
-    ctx.fillStyle = 'rgba(7,11,18,0.85)';
-    ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.fill();
-    ctx.strokeStyle = tealDim + '55'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.stroke();
-    _drawSciFiCorners(boxX, boxY, boxW, boxH, 8, tealDim + '88');
-    ctx.fillStyle = '#6A8E8A'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
-    ctx.textAlign = 'center';
-    ctx.fillText('LEFT THUMB  move',            boxX + boxW / 2, boxY + 30);
-    ctx.fillText('RIGHT THUMB  aim + fire',     boxX + boxW / 2, boxY + 50);
-  }
-
   // ── Version ───────────────────────────────────────────────
-  if (_titleBoard.rect.y + _titleBoard.h < H - 22) {
+  if (!land && _titleBoard.rect.y + _titleBoard.h < H - 22) {
     ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
     ctx.fillText('v0.3.0', W / 2, H - 8);
   }

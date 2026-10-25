@@ -28,14 +28,17 @@ export const BOARDS = [
   { id: 'chroma',         title: 'LIFETIME CHROMA',     kind: 'chroma' },
 ];
 
-// Start on your own platform's Arcade board
+// Start on your own platform's Arcade board (if it has no runs yet, the
+// other platform's: an empty board looked like the records were missing)
 let _idx = PLATFORM === 'mobile' ? 1 : 0;
+let _picked = false;   // the player has cycled boards since the title opened
 const _cache = {};   // board id → { rows, status: 'loading' | 'ok' | 'offline', at }
 
 export const currentBoard = () => BOARDS[_idx];
 // Back to your own platform's Arcade board (each time the title screen opens)
-export function resetBoard() { _idx = PLATFORM === 'mobile' ? 1 : 0; }
+export function resetBoard() { _idx = PLATFORM === 'mobile' ? 1 : 0; _picked = false; }
 export function cycleBoard(step) {
+  _picked = true;
   _idx = (_idx + step + BOARDS.length) % BOARDS.length;
   refreshBoard();
 }
@@ -163,11 +166,19 @@ const AGENT_LETTER = { d: 'dex', j: 'juno', r: 'raze' };
 // they sit in the header (and a swipe works too).
 // Returns the arrow hit boxes { prev, next } and the panel rect (for swipes).
 export function drawBoard(ctx, x, y, w, maxH, narrow, mouse = null) {
-  const b = currentBoard();
-  const c = _cache[b.id] || { rows: [], status: 'loading' };
+  let b = currentBoard();
+  let c = _cache[b.id] || { rows: [], status: 'loading' };
   if (!_cache[b.id]) refreshBoard(b);
-  const rowH = narrow ? 15 : 16;
-  const rows = c.rows.slice(0, Math.max(0, Math.min(10, Math.floor((maxH - 58) / rowH))));
+  // Your platform's Arcade board is empty: show the other one instead
+  if (!_picked && b.kind === 'arcade' && !b.weekly && c.status === 'ok' && !c.rows.length) {
+    _idx = BOARDS.findIndex(o => o.kind === 'arcade' && !o.weekly && o.platform !== b.platform);
+    _picked = true;
+    b = currentBoard(); c = _cache[b.id] || { rows: [], status: 'loading' };
+    if (!_cache[b.id]) refreshBoard(b);
+  }
+  const short = maxH < 140;   // landscape phones: tighter rows so a few fit
+  const rowH = short ? 13 : narrow ? 15 : 16;
+  const rows = c.rows.slice(0, Math.max(1, Math.min(10, Math.floor((maxH - 58) / rowH))));
   const h = 58 + Math.max(1, rows.length) * rowH + 6 + (c.status === 'offline' ? 12 : 0);
   const fs = narrow ? 10 : 11;
 
