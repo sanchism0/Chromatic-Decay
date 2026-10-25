@@ -1,12 +1,15 @@
 """Build Raze's in-game walk sheet from his cleaned frames.
 
-  python tools/clean_sprite_sheet.py <grid-free sheet> <frames_dir> 28 11.1
+  python tools/clean_sprite_sheet.py assets/characters/source/raze-sprite-sheet-v2.jpg <frames_dir> 28 10.6
   python tools/build_raze_sprite.py <frames_dir> assets/characters/raze/sprite/raze-walk.png
 
-His generated sheet (assets/characters/source/raze-sprite-sheet-v1.jpg) has
-black grid lines; paint them over with the magenta background first. Its rows:
-front x3; left, three-quarter right, right; left, three-quarter right, right;
-back x3. Magenta fringe pixels left on the edges are removed here.
+Sheet v2 (the owner's, Oct 2026; replaced v1, which read badly at game size)
+on magenta, 17 frames in reading order: front x3; left walk, left stand,
+three-quarter back; right x5 with one left walk (q_09); backs and a front.
+10.6 forces a ~10.85 px grid so he stands 42 px tall like Dex and Juno.
+Facing left and right share one stride: left walk, left stand, and the
+right walk (q_08) mirrored; facing right is the same three flipped.
+Magenta fringe pixels left on the edges are removed here.
 
 Sheet layout (same as Dex and Juno): rows down, left, right, up; columns
 step A, standing, step B; 32 x 44 cells, feet on the bottom row. Prints the
@@ -22,20 +25,20 @@ src, out = sys.argv[1], sys.argv[2]
 def load(k):
     a = np.asarray(Image.open(f'{src}/q_{k:02d}.png').convert('RGBA')).copy().astype(int)
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    a[(a[..., 3] > 0) & (r - g > 40) & (b - g > 40)] = 0          # magenta fringe
+    a[(a[..., 3] > 0) & (r - g > 22) & (b - g > 22) & (b > 35)] = 0   # magenta fringe (dark JPEG edge too)
     lab, n = ndimage.label(a[..., 3] > 0)
     if n > 1:
         s = ndimage.sum(np.ones(lab.shape), lab, range(1, n + 1))
         a[np.isin(lab, [i + 1 for i in range(n) if s[i] < 0.10 * s.max()])] = 0
     return a.astype(np.uint8)
 
-F = {k: load(k) for k in range(12)}
+F = {k: load(k) for k in range(17)}
 mirror = lambda a: np.ascontiguousarray(a[:, ::-1])
 rows = [
-    [F[1], F[0], F[2]],              # down
-    [F[3], mirror(F[4]), F[6]],      # left
-    [F[5], F[4], F[8]],              # right
-    [F[10], F[9], F[11]],            # up
+    [F[0], F[1], F[2]],                          # down
+    [F[3], F[4], mirror(F[8])],                  # left
+    [mirror(F[3]), mirror(F[4]), F[8]],          # right
+    [F[15], F[12], F[16]],                       # up (the backs with his rifle)
 ]
 CW, CH = 32, 44
 sheet = Image.new('RGBA', (CW * 3, CH * 4), (0, 0, 0, 0))
@@ -58,7 +61,5 @@ for r, row in enumerate(rows):
     lens.append(lrow)
 sheet.save(out)
 print('saved', out, sheet.size)
-# His coat is gold, never orange (owner's rule): recolour the new sheet
-import subprocess, sys as _sys, os as _os
-subprocess.run([_sys.executable, _os.path.join(_os.path.dirname(__file__), 'recolor_raze.py'), out], check=True)
+# (v2's coat is already gold; recolor_raze.py was for v1's orange)
 print('lens', lens)
