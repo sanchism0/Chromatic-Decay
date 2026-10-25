@@ -3054,18 +3054,12 @@ function drawTitle(W, H) {
   _titleBtns.name = { x: tagX - tw / 2 - 8, y: panelY - 2, w: tw + 16, h: 20 };
   ctx.fillStyle = '#7ADDD4';
   ctx.fillText(tag, tagX, panelY + 12);
-  const bottomLimit = H - (mobile ? 40 : land ? 6 : 24);
+  const bottomLimit = H - (mobile ? 24 : land ? 6 : 24);
   _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile || land,
     'ontouchstart' in window ? null : { x: input.mouseX, y: input.mouseY });
 
-  // ── Controls hint (upright phones): one quiet line at the bottom ──
-  if (mobile) {
-    ctx.fillStyle = '#6A8E8A'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('LEFT THUMB move  ·  RIGHT THUMB aim + fire', W / 2, H - 24, W - 24);
-  }
-
   // ── Version ───────────────────────────────────────────────
-  if (!land && _titleBoard.rect.y + _titleBoard.h < H - (mobile ? 40 : 22)) {
+  if (!land && _titleBoard.rect.y + _titleBoard.h < H - 22) {
     ctx.fillStyle = '#8A8E99'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
     ctx.fillText('v0.3.0', W / 2, H - 8);
   }
