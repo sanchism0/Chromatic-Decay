@@ -395,13 +395,17 @@ const SIG_POWERS = {
 // The Signal Hoarder (Level 5's boss)
 const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, fade: 0.45,
                   nova: 14, novaSpeed: 135, novaDamage: 9, volleyEvery: 2.2,
-                  phases: [0.66, 0.33] };
+                  phases: [0.66, 0.33],
+                  maxNodes: 3,                 // turrets on the map at once (owner: no more than this)
+                  // Bullet patterns from phase 2 on: a rotating spiral of slow
+                  // rounds for spiralOn s, then quiet for spiralOff s
+                  spiralOn: 2.4, spiralOff: 2.8, spiralGap: 0.13, spiralSpeed: 115, spiralTurn: 2.1, spiralDamage: 7 };
 // Anchors: each needs ANCHOR_PIPS overloads. Dex: one Arc Discharge that
 // reaches it = one (however many of its rounds hit). Juno: SPUN_PER_PIP rounds
 // fired during Half-Life = one (a full Half-Life on target is about two).
 const ANCHOR_PIPS = 2, SPUN_PER_PIP = 12;
 const ANCHOR_HP = ANCHOR_PIPS;   // kept for the drawing code
-const HOARDER_STUN = 2;          // seconds stunned when its last turret falls
+const HOARDER_STUN = 1.5;        // seconds stunned when its last turret falls
 
 // Level 4's abilities: the Level 1 sampler's preview, kept for good
 const WIRE_POWERS = {
@@ -1130,12 +1134,11 @@ export class LevelRun {
     if (q.blink === 'fade') {
       q.blinkT -= dt;
       if (q.blinkT <= 0) {
-        const n = es.spawnEnemyAt('green', q.x, q.y);
-        n.node = true; n.spawnT = 0.2;
-        this.nodes.push(n);
-        for (let k = 1; k < this.bossPhase + 1 && this.nodes.length < 6; k++) {   // more nodes as it weakens
-          const p2 = freeSpot(map, q.x + (k % 2 ? 70 : -70), q.y + 40, 20);
-          const n2 = es.spawnEnemyAt('green', p2.x, p2.y); n2.node = true; this.nodes.push(n2);
+        // One turret per jump, never more than maxNodes standing
+        if (this.nodes.length < HOARDER.maxNodes) {
+          const n = es.spawnEnemyAt('green', q.x, q.y);
+          n.node = true; n.spawnT = 0.2;
+          this.nodes.push(n);
         }
         q.x = q._to.x; q.y = q._to.y; q.spawnT = 0; q.blink = null;
         this.burstT = 0.5; this.burstLeft = 2;
@@ -1162,13 +1165,36 @@ export class LevelRun {
         this.volleyT = HOARDER.volleyEvery;
       }
     }
-    // The bursts after a blink: rings of slow rounds
+    // The bursts after a blink: rings of slow rounds. Phase 3: each ring
+    // has a gap, aimed a little off the agent, to slip through
     if (this.burstLeft > 0 && !q.forming) {
       this.burstT -= dt;
       if (this.burstT <= 0 && this.api.projectiles) {
         const off = this.burstLeft % 2 ? 0 : Math.PI / HOARDER.nova;
-        for (let k = 0; k < HOARDER.nova; k++) this.api.projectiles().spawnEnemy(q.x, q.y, off + k / HOARDER.nova * Math.PI * 2, HOARDER.novaDamage, HOARDER.novaSpeed, 620, '#3dff7a');
+        const gapAt = Math.atan2(pl.y - q.y, pl.x - q.x) + (Math.random() - 0.5) * 1.2;
+        for (let k = 0; k < HOARDER.nova; k++) {
+          const a = off + k / HOARDER.nova * Math.PI * 2;
+          if (this.bossPhase >= 2) { let d = a - gapAt; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) < 0.42) continue; }
+          this.api.projectiles().spawnEnemy(q.x, q.y, a, HOARDER.novaDamage, HOARDER.novaSpeed, 620, '#3dff7a');
+        }
         this.burstLeft--; this.burstT = 0.4;
+      }
+    }
+    // Phase 2 on: a rotating spiral (3 arms; phase 3: 4 arms, reversing each time)
+    if (this.bossPhase >= 1 && !q.forming && q.blink !== 'fade' && this.api.projectiles) {
+      this.spiralT = (this.spiralT ?? HOARDER.spiralOff) - dt;
+      if (this.spiralT <= 0) {
+        if (!this.spiralOn) { this.spiralOn = true; this.spiralT = HOARDER.spiralOn; this.spiralA = Math.random() * Math.PI * 2; this.spiralDir = this.bossPhase >= 2 ? -(this.spiralDir || 1) : 1; this.spiralShotT = 0; sfxQueueRing(); }
+        else { this.spiralOn = false; this.spiralT = HOARDER.spiralOff; }
+      }
+      if (this.spiralOn) {
+        this.spiralA += HOARDER.spiralTurn * this.spiralDir * dt;
+        this.spiralShotT -= dt;
+        if (this.spiralShotT <= 0) {
+          const arms = this.bossPhase >= 2 ? 4 : 3;
+          for (let k = 0; k < arms; k++) this.api.projectiles().spawnEnemy(q.x, q.y, this.spiralA + k / arms * Math.PI * 2, HOARDER.spiralDamage, HOARDER.spiralSpeed, 640, '#7dffb0');
+          this.spiralShotT = HOARDER.spiralGap;
+        }
       }
     }
   }
