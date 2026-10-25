@@ -674,7 +674,9 @@ export class Player {
     if (gold) this.goldRounds--;
     const count  = this.character === 'dex' || this.character === 'juno' ? 1 : this.projCount;
     const half   = Math.floor(count / 2);
-    const damage = this.effectiveDamage * W.dmg * flashMultiplier * (isOverload ? 3 : 1) * (gold ? 2 : 1);
+    // Half-Life (Juno's F): rounds hit twice as hard and pierce two targets
+    const halfLife = this.spinUpTimer > 0;
+    const damage = this.effectiveDamage * W.dmg * flashMultiplier * (isOverload ? 3 : 1) * (gold ? 2 : 1) * (halfLife ? 2 : 1);
     const spray  = (Math.random() - 0.5) * 2 * W.spread;
     const from   = this.emitterPos();
     // Aim from the lens itself at the cursor, so shots still land where you
@@ -690,14 +692,14 @@ export class Player {
         damage,
         this.projSpeed,
         this.projRange,
-        gold ? 99 : this.piercingShots,
+        gold ? 99 : this.piercingShots + (halfLife ? 2 : 0),
         this.projectileBounce,
         isOverload || gold,
       );
       if (shot) {
         shot.rackBounce = this.rackBounce || 0;
         shot.arc = !!(finalRound && this.arcRound);
-        shot.spun = this.spinUpTimer > 0;
+        shot.spun = halfLife;
       }
     }
   }

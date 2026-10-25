@@ -6,9 +6,9 @@ import { haloSprite, drawGlow } from './sprites.js';
 import { sfxLungeWindup, sfxLunge, sfxBlinkOut, sfxBlinkIn, sfxShockDash } from './audio.js';
 
 // Half-Life (Juno): a Chromatic hit by her rounds while it runs decays: its
-// stolen colour bleeds away, DECAY.dps health a second for DECAY.time seconds.
-// Small on purpose (owner: "so it isn't OP for now").
-const DECAY = { dps: 3, time: 3 };
+// stolen colour bleeds away, DECAY.dps health a second for DECAY.time seconds
+// (doubled after the first playtest: she couldn't win Level 5 with it).
+const DECAY = { dps: 6, time: 3 };
 
 // Arc Round (Dex): the last round of a burst jumps to the nearest other
 // enemy within this many px, for the same damage

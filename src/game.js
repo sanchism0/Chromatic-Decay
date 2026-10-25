@@ -1438,7 +1438,9 @@ function drawGame(W, H) {
   projectiles.draw(ctx);
   projectiles.drawFizzles(ctx);
   enemies.draw(ctx);
+  _drawHalfLife(ctx, false);
   player.draw(ctx);
+  _drawHalfLife(ctx, true);
   drain.draw(ctx, player);
   companions.draw(ctx);
   particles.draw(ctx);
@@ -1516,6 +1518,13 @@ function drawGame(W, H) {
   resetTransform();
 
   hud.draw(ctx, player, elapsed, waveSystem, W, H);
+  // Half-Life running: a steady lilac tint round the screen edge
+  if (player && player.spinUpTimer > 0) {
+    const k = Math.min(1, player.spinUpTimer);
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.38, W / 2, H / 2, Math.max(W, H) * 0.72);
+    g.addColorStop(0, 'rgba(229,140,255,0)'); g.addColorStop(1, `rgba(229,140,255,${(0.22 * k).toFixed(3)})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
   lore.draw(ctx, W, H);
   _drawEchoBeacon(W, H);
   story.drawTutorialHud(ctx, W, H);
@@ -2360,11 +2369,45 @@ function _useAbility(id, at) {
   }
 }
 
+// Half-Life running: Juno stands in a lilac radiation field. Under her, two
+// rings turning opposite ways with a trefoil-ish tick pattern; over her,
+// motes rising off her and a soft glow. Fades out over its last second.
+function _drawHalfLife(ctx, over) {
+  const T = player && player.spinUpTimer;
+  if (!(T > 0)) return;
+  const col = '#E58CFF', t = _gameTime(), k = Math.min(1, T);
+  const x = player.x, y = player.y;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  if (!over) {
+    for (const [r, dir, n] of [[22, 1, 3], [30, -1, 6]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 0.7 * k;
+      for (let i = 0; i < n; i++) {
+        const a0 = t * 2.2 * dir + i * Math.PI * 2 / n;
+        ctx.beginPath(); ctx.ellipse(x, y + 4, r, r * 0.5, 0, a0, a0 + Math.PI / n * 0.9); ctx.stroke();
+      }
+    }
+    drawGlow(ctx, col, x, y, 40, 0.3 * k);
+  } else {
+    ctx.fillStyle = col;
+    for (let i = 0; i < 10; i++) {
+      const f = (t * 0.8 + i / 10) % 1, a = i * 2.4;
+      ctx.globalAlpha = (1 - f) * k;
+      ctx.fillRect(Math.round(x + Math.cos(a) * (10 + f * 6)) - 1, Math.round(y - 6 - f * 34) - 1, 2, 2);
+    }
+    drawGlow(ctx, col, x, y - 10, 26, 0.22 * k);
+  }
+  ctx.restore();
+}
+function _gameTime() { return performance.now() / 1000; }
+
 // What each activated ability looks like in the HUD
 function _abilityInfo(id) {
   if (THROWS[id]) return { name: THROWS[id].name, color: THROWS[id].color, cd: THROWS[id].cd(), max: THROWS[id].max };
   if (id === 'signature' && player.signature) {
     const sig = SIGNATURES[player.signature];
+    // Half-Life running: the slot lights up and counts down
+    if (player.spinUpTimer > 0) return { name: `ON ${player.spinUpTimer.toFixed(1)}`, color: AGENT_COLOR[player.signature], cd: 0, max: 1 };
     return { name: sig.name.split(' ')[0], color: AGENT_COLOR[player.signature], cd: player.signatureCooldown || 0, max: player.signatureCooldownMax || sig.cd };
   }
   return null;
@@ -2451,7 +2494,8 @@ function _drawSignature(W, H) {
   const col = AGENT_COLOR[player.signature];
   const cd = player.signatureCooldown || 0, max = player.signatureCooldownMax || sig.cd;
   const ready = cd <= 0;
-  _sigBtn.r = _roundBtn(_btnSlotX(W, _throwId() ? 2 : 1), _btnRowY(H), ready ? sig.name.split(' ')[0] : cd.toFixed(1), col, { cdFrac: cd / max });
+  const on = player.spinUpTimer > 0;
+  _sigBtn.r = _roundBtn(_btnSlotX(W, _throwId() ? 2 : 1), _btnRowY(H), on ? `ON ${player.spinUpTimer.toFixed(1)}` : ready ? sig.name.split(' ')[0] : cd.toFixed(1), col, { cdFrac: on ? 0 : cd / max });
 }
 
 // ── Character select ("Who goes in?") ─────────────────────────
