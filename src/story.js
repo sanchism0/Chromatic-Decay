@@ -181,7 +181,7 @@ const raze_outro = (agent) => {
     O(dexIn ? 'annoyed' : 'angry', 'That kid just killed the thing that was eating you.'),
     R('smirk', 'And the voice in the ear has opinions. Cute.'),
     dexIn ? A('angry', 'Okay, you know what, I just crawled through your whole basement for—') : A('annoyed', 'We just crawled through your whole basement for you.'),
-    R('laughing', "Relax. If I wanted you dead, you'd have been dead the second you walked in. I had a lot of time to practise my aim."),
+    R('laughing', "Relax. If I wanted you dead, you'd have been dead the second you walked in. I had a lot of time to practice my aim."),
     O(dexIn ? 'concerned' : 'worried', dexIn ? "...He's joking. Dex, he's joking. Right?" : "...He's joking. Juno, tell me he's joking."),
     R('neutral', "Where's Null?"),
     { caption: 'INCOMING  ·  PRIORITY SIGNAL' },

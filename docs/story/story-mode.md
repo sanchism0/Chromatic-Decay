@@ -149,7 +149,7 @@ threaten you. Let him." "Don't turn your back on him. Not yet."
 | Boss | The Signal Hoarder: "the thing that's been eating me". Turrets shield it; dash through its bursts; it calls swarms ("Coward.") | Checkpoint. Its death ends the level |
 
 **After it** (`OUTROS.raze`): Raze points his rifle at the agent, insults
-their emitter, jokes about having had "a lot of time to practise my aim". Then
+their emitter, jokes about having had "a lot of time to practice my aim". Then
 Null: "You took your time." / "I thought you were gone." / "I WAS gone." Raze
 remembers Null owes him; Null needs what he remembers of the Collapse. "Your
 kids can carry my bags." Card: RAZE IS OUT.
