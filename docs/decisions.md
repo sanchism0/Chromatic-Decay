@@ -319,7 +319,9 @@ roughly even.
   desktop, swipe on phones. The board resets to your platform's Arcade board
   whenever the title screen opens.
 - Desktop and mobile Arcade scores are separate ("touch controls are a
-  different game").
+  different game"). If your platform's board has no runs yet, the title opens
+  on the other one instead (Oct 2026: on phones the empty mobile board looked
+  like "I don't see any of the records").
 - **Story points:** 1 per level cleared with each different character (Raze
   adds a third point per level once unlocked).
 - **Lifetime Chroma is one number:** violet 1, yellow 10, green 100, orange 1,000,

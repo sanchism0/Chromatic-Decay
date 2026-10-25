@@ -3025,7 +3025,7 @@ function drawTitle(W, H) {
   _titleBtns.name = { x: W / 2 - tw / 2 - 8, y: panelY - 2, w: tw + 16, h: 20 };
   ctx.fillStyle = '#7ADDD4';
   ctx.fillText(tag, W / 2, panelY + 12);
-  const bottomLimit = H - (mobile ? 118 : 24);
+  const bottomLimit = H - (mobile ? 118 : H < 450 ? 4 : 24);
   _titleBoard = drawBoard(ctx, panelX, panelY + 22, panelW, bottomLimit - panelY - 22, mobile,
     'ontouchstart' in window ? null : { x: input.mouseX, y: input.mouseY });
 
