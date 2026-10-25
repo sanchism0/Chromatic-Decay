@@ -114,7 +114,7 @@ roughly even.
 | | Gun | Feel | Numbers (`WEAPONS` in `player.js`) |
 |---|---|---|---|
 | Juno | Minigun | lots of low-damage rounds, slight spray | 5 shots/s, damage ×0.40 (bumped from 0.34: she was "a little bit underpowered") |
-| Dex | Burst | three quick rounds per trigger pull | 0.85 bursts/s, 3 rounds, damage ×0.66 |
+| Dex | Burst | three quick rounds per trigger pull | 0.85 bursts/s, 3 rounds, damage ×0.60 (was 0.66; "he clears really quickly") |
 | Raze | Heavy | slow, very strong gold rounds | 0.55 shots/s, damage ×3.2 (data only; not playable yet) |
 
 - **+1 projectile means more of your gun's thing:** Dex gets a 4-round burst (not

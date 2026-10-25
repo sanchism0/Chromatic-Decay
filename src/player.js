@@ -69,7 +69,7 @@ export { WALK_CYCLE, CELL_W, CELL_H };
 // heavy rounds still fan out.
 export const WEAPONS = {
   juno: { name: 'Minigun', rate: 5.0,  burst: 1, gap: 0,     dmg: 0.40, spread: 0.07 },
-  dex:  { name: 'Burst',   rate: 0.85, burst: 3, gap: 0.075, dmg: 0.66, spread: 0.025 },
+  dex:  { name: 'Burst',   rate: 0.85, burst: 3, gap: 0.075, dmg: 0.60, spread: 0.025 },
   raze: { name: 'Heavy',   rate: 0.55, burst: 1, gap: 0,     dmg: 3.2,  spread: 0 },
 };
 
