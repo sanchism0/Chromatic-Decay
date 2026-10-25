@@ -341,3 +341,9 @@ roughly even.
   `docs/design/core-loop.md`, not built.
 - A 16-bit art direction was discussed and **not** taken; the current pixel art
   stays.
+- **Unlock hints are gold.** STORY MODE wears "N CARDS TO EARN" (unlocked
+  levels, free characters, cards not yet earned); the map marks each waiting
+  card with a glowing ◆ in that character's colour and gives the row a gold
+  edge. ARCADE MODE wears "NEW" until each newly earned Story card has come up
+  in an upgrade offer, where it carries a gold NEW tag once. Soft glows only,
+  no blinking.

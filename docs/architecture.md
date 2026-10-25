@@ -88,7 +88,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `story.js` | Scenes before levels (`playInterlude`; `INTROS` by `intro:` in `LEVELS`: `stacks` before Level 3, `wire` before Level 4, `raze` before Level 5; `OUTROS` by `outro:` play after a level, before the card), each keyed by agent. Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
 | `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
-| `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. `razeFree()`: Raze is playable once Level 5 is cleared by anyone (`recordClear(5)` also sets `characters.raze` and returns an `{ kind: 'agent' }` unlock for the results); `seen.raze` hides his NEW tag. |
+| `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. `razeFree()`: Raze is playable once Level 5 is cleared by anyone (`recordClear(5)` also sets `characters.raze` and returns an `{ kind: 'agent' }` unlock for the results); `seen.raze` hides his NEW tag. `seenCards` (`'who:id'`) lists Story cards already offered in Arcade (`cardSeen`, `markCardsSeen`); old saves count every earned card as seen. Menu hints (`_canEarn`, `_cardsWaiting`, `_newArcadeCards` in game.js) read these. |
 | `razestory.js` | Raze's Story: who's on the line for him per level (`RAZE_OPS`), his lines per beat (`RAZE_BEATS`, merged over the level's own by `applyLines`), Level 5's lines for Dex and Juno once he's free (`POST_RESCUE_L5`), his scenes before/after levels by level id (`RAZE_SCENES`, `RAZE_SIDES`) and his results lines (`RAZE_OUTCOMES`). |
 | `leaderboard.js` | Supabase calls, the six boards, posting runs, rank, player sync, offline fallback, board drawing. |
 | `lore.js` | Arcade's lore feed: one-line blurbs on first sightings and milestones. |
@@ -148,7 +148,7 @@ After each `wave`/`relays` beat the agent gets the next `POWERUPS` entry
 
 | Key | Contents |
 |---|---|
-| `chromatic_decay_profile` | `{ chroma, clears, cards, player {id, name}, lifetime, best, storyAt, characters {raze}, seen {raze}, signatures (legacy) }` |
+| `chromatic_decay_profile` | `{ chroma, clears, cards, player {id, name}, lifetime, best, storyAt, characters {raze}, seen {raze}, seenCards ['who:id'], signatures (legacy) }` |
 | `chromatic_decay_scores` | This device's last 50 Arcade runs (offline fallback board) |
 | `chromatic_decay_prologue_done` | `'1'` after the prologue |
 | `chromatic_decay_character` | Last picked character |

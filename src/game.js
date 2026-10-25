@@ -11,7 +11,7 @@ import { DashPowers } from './dashpowers.js';
 import { NetSystem } from './nets.js';
 import { SnareSystem, SNARE_CD, SNARE_RADIUS } from './snare.js';
 import { RAZE_SCENES, RAZE_SIDES, RAZE_OUTCOMES } from './razestory.js';
-import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE, razeFree, seenNew, markSeen } from './profile.js';
+import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE, razeFree, seenNew, markSeen, cardSeen } from './profile.js';
 import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
@@ -2031,6 +2031,29 @@ function updateStoryMap(dt) {
   }
 }
 
+// Story cards still to earn: levels open to play, characters free to play them
+const _canEarn = (lv, who) => {
+  const c = (LEVEL_CARDS[lv] || {})[who];
+  return !!c && !!LEVELS[lv] && levelUnlocked(lv) && (who !== 'raze' || razeFree()) && !hasCard(who, c.id);
+};
+const _cardsWaiting = () => Object.keys(LEVEL_CARDS).flatMap(lv => ['dex', 'juno', 'raze'].filter(who => _canEarn(+lv, who)));
+// Earned Story cards that haven't come up in an Arcade offer yet
+const _newArcadeCards = () => STORY_CARDS.filter(c => hasCard(c.who, c.id) && !cardSeen(c.who, c.id));
+
+// A small gold tag on a menu button's top-right corner
+function _btnTag(b, text) {
+  if (!b) return;
+  ctx.save();
+  ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+  const w = Math.round(ctx.measureText(text).width + 12), h = 18;
+  const x = Math.round(b.x + b.w - w - 6), y = Math.round(b.y - h / 2);
+  ctx.shadowBlur = 10; ctx.shadowColor = '#FFD23F';
+  ctx.fillStyle = '#FFD23F'; ctx.fillRect(x, y, w, h);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#0D0E12'; ctx.fillText(text, x + w / 2, y + 13);
+  ctx.restore();
+}
+
 function drawStoryMap(W, H) {
   ctx.fillStyle = '#0D0E12'; ctx.fillRect(0, 0, W, H);
   dimBackdrop(ctx, W, H, 0);
@@ -2069,7 +2092,8 @@ function drawStoryMap(W, H) {
     const playable = row.id === 0 || (LEVELS[row.id] && levelUnlocked(row.id));
     const built = row.id === 0 || !!LEVELS[row.id];
     const hover = playable && _hitBtn(_mapBtns.rows.find(x => x.id === row.id)?.r);
-    const accent = playable ? (row.id === 0 ? '#8FA8B8' : '#00E5CC') : '#3A4450';
+    const waiting = playable && row.id > 0 && ['dex', 'juno', 'raze'].some(who => _canEarn(row.id, who));
+    const accent = playable ? (row.id === 0 ? '#8FA8B8' : waiting ? '#FFD23F' : '#00E5CC') : '#3A4450';
     const top = drawSlab(ctx, rowX, y, rowW, rowH, { accent, depth: 5, lift: hover ? 1 : 0, glow: playable ? 0.2 : 0 });
     _mapBtns.rows.push({ id: row.id, r: { x: rowX, y: y - 4, w: rowW, h: rowH + 8 } });
     ctx.textAlign = 'left';
@@ -2093,16 +2117,23 @@ function drawStoryMap(W, H) {
       sub('Coming soon', '#5A6470');
       if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
-      // A tick per character who has cleared it; signatures come from these
+      // A tick per character who has cleared it; a glowing ◆ for anyone whose
+      // card here is still waiting
       sub(row.id === 5 && razeFree() ? LEVELS[5].blurbPost : LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;
       for (const who of razeFree() ? ['raze', 'juno', 'dex'] : ['juno', 'dex']) {
-        const n = timesCleared(row.id, who);
-        const label = `${who.toUpperCase()} ${n ? '✓' : '·'}`;
-        ctx.fillStyle = n ? AGENT_COLOR[who] : '#4A5560';
-        ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
+        const n = timesCleared(row.id, who), card = _canEarn(row.id, who);
+        const label = card ? `◆ ${who.toUpperCase()}` : `${who.toUpperCase()} ${n ? '✓' : '·'}`;
+        ctx.fillStyle = n || card ? AGENT_COLOR[who] : '#4A5560';
+        if (card) {
+          ctx.save();
+          ctx.globalAlpha = 0.7 + 0.3 * Math.sin(Date.now() * 0.003 + rx * 0.05);
+          ctx.shadowBlur = 10; ctx.shadowColor = AGENT_COLOR[who];
+          ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
+          ctx.restore();
+        } else ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
         rx -= ctx.measureText(label).width + 14;
       }
     }
@@ -2751,6 +2782,8 @@ function drawCharSelect(W, H) {
     const got = all.filter(([who, id]) => hasCard(who, id)).length;
     sub = got >= all.length ? `STORY CARDS ${got}/${all.length}  ·  Every custom ability is in your deck`
                             : `STORY CARDS ${got}/${all.length}  ·  Play Story Mode to add custom abilities`;
+    const fresh = _newArcadeCards().length;
+    if (fresh) { sub = `${fresh} NEW CARD${fresh > 1 ? 'S' : ''} IN YOUR DECK` + (W < 600 ? '' : `  ·  STORY CARDS ${got}/${all.length}`); ctx.fillStyle = '#FFD23F'; }
   }
   _fitFont(sub, W - 32, short ? 11 : 13, '');
   ctx.fillText(sub, W / 2, headY + (short ? 18 : 26));
@@ -2771,7 +2804,9 @@ function drawCharSelect(W, H) {
     const sel = selectedCharacter === c.id;
     const locked = !_canPick(c.id);
     const accent = locked ? '#4A4636' : c.color;
-    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : 0.1, screen: 6 });
+    // Story level: a soft glow on anyone who can still earn its card
+    const earnable = _csMode === 'level' && !locked && _canEarn(_pendingLevel, c.id);
+    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : earnable ? 0.35 + 0.15 * Math.sin(Date.now() * 0.003) : 0.1, screen: 6 });
     _charBtns[c.id] = { x, y: top - 4, w: cardW, h: cardH + 16 };
 
     // Walking toward the camera on a loop (selected walks, the others stand)
@@ -2797,7 +2832,7 @@ function drawCharSelect(W, H) {
       const reward = (LEVEL_CARDS[_pendingLevel] || {})[c.id];
       if (reward) {
         const got = hasCard(c.id, reward.id);
-        items.push(block(got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `CLEAR TO KEEP: ${reward.name}`, 'bold 12px monospace', got ? c.color : '#7ADDD4', 4));
+        items.push(block(got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `◆ CLEAR TO KEEP: ${reward.name}`, 'bold 12px monospace', got ? c.color : '#FFD23F', 4));
       }
     }
     const LH = 15;
@@ -3040,6 +3075,11 @@ function drawTitle(W, H) {
     _drawSciFiBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE', false, pulse, tealDim);
     _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
   }
+
+  // Something new waiting: cards to earn in Story, cards new to the Arcade deck
+  const toEarn = _cardsWaiting().length;
+  if (toEarn) _btnTag(_titleBtns.story, `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN`);
+  if (_newArcadeCards().length) _btnTag(_titleBtns.start, 'NEW');
 
   // ── Leaderboards: one at a time, ‹ › or swipe to cycle ──
   const panelY = land ? 48 : (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 14;
