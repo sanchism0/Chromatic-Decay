@@ -406,7 +406,7 @@ const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3
 // fired during Half-Life = one (a full Half-Life on target is about two).
 const ANCHOR_PIPS = 2, SPUN_PER_PIP = 12;
 const ANCHOR_HP = ANCHOR_PIPS;   // kept for the drawing code
-const HOARDER_STUN = 1.5;        // seconds stunned when its last turret falls
+const HOARDER_STUN = 2;        // seconds stunned when its last turret falls
 
 // Level 4's abilities: the Level 1 sampler's preview, kept for good
 const WIRE_POWERS = {
