@@ -135,6 +135,11 @@ export const STORY_CARDS = [
     apply: p => { p.shockDash = true; } },
   { id: 'parting_charge', who: 'juno', name: 'Parting Charge', desc: 'Dashing leaves a light bomb where you started; it bursts a moment later.', baseWeight: 5, cap: 1,
     apply: p => { p.dashBomb = true; } },
+  // Level 5's F abilities
+  { id: 'arc_discharge', who: 'dex', active: true, name: 'Arc Discharge', desc: 'Activated: a shotgun blast of electric rounds that pierce and stun.', baseWeight: 5, cap: 1,
+    apply: p => { p.signature = 'dex'; p.abilities.push('signature'); } },
+  { id: 'spin_up', who: 'juno', active: true, name: 'Half-Life', desc: 'Activated: 5 seconds of rounds that make Chromatics decay.', baseWeight: 5, cap: 1,
+    apply: p => { p.signature = 'juno'; p.abilities.push('signature'); } },
   // Level 4's trick shots
   { id: 'arc_round', who: 'dex', name: 'Arc Round', desc: 'The last round of every burst arcs on to another enemy close by, for 10% more damage.', baseWeight: 5, cap: 1,
     apply: p => { p.arcRound = true; } },

@@ -98,6 +98,27 @@ const THEMES = {
     labels: [['WIRE ROOM', 0.10], ['SWITCHBOARD', 0.40], ['SERVICE CORRIDOR', 0.86]],
     pits: false, tints: false, frost: false,
   },
+  // Raze's Room: near-black floor with gold seams, black walls trimmed in
+  // gold, gold lights
+  vault: {
+    C: {
+      outline:   '#060504',
+      floor:     '#1c1812', floorAlt: '#19150f',
+      seam:      '#0a0806', bevelLt: '#2e271c', bevelDk: '#100d09',
+      screw:     '#6a5428', dot: '#0e0b08',
+      pit:       '#050403', pitEdge: '#2a2318',
+      wall:      '#1a1610', wallLine: '#0f0c08', wallTop: '#2c2418',
+      red:       '#a07020',
+      rackTop:   '#1c1914', rackTopLt: '#4a3f2c', rackTopSide: '#28231a',
+      vent:      '#141109', screen: '#5a3c0a', screenLine: '#ffb52e',
+      rim:       '#c08a30', rimCyan: '#e0a040',
+      front:     '#14110c', blade: '#211c14', bladeGap: '#0a0806', handle: '#c08a30',
+      strip:     '#ffb52e', stripDim: '#6a4a10',
+    },
+    leds: ['#ffb52e', '#ffd070', '#ff8a20', '#ffb52e'],
+    labels: [["RAZE'S ROOM", 0.07]],
+    pits: false, tints: false, frost: false,
+  },
 };
 let THEME = THEMES.basement;
 let C = THEME.C;

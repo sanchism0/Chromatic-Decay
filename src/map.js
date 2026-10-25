@@ -232,6 +232,30 @@ function buildWireRoom() {
   return obs;
 }
 
+// ── Level 5 "Raze's Room" ─────────────────────────────────────
+// A wide open vault: Raze caged on a small core in the middle, four signal
+// anchors round the edge, a few long walls far out near the corners, and four
+// small blocks part way out to bounce shots off (clear of the boss's room).
+export const VAULT = {
+  core: [0.5, 0.5], coreSize: 0.07,
+  anchors: [[0.5, 0.17], [0.83, 0.5], [0.5, 0.83], [0.17, 0.5]],
+};
+function buildVault() {
+  const obs = [];
+  const p = (fx, fy, fw, fh) => obs.push(makeRack(
+    Math.round(fx * W), Math.round(fy * H), Math.round(fw * W), Math.round(fh * H)));
+  const c = VAULT.coreSize;
+  p(0.5 - c / 2, 0.5 - c / 2, c, c);                               // Raze's cage on the core
+  // Long walls far out, near the corners
+  p(0.06, 0.08, 0.20, 0.03); p(0.06, 0.08, 0.03, 0.18);
+  p(0.74, 0.89, 0.20, 0.03); p(0.91, 0.74, 0.03, 0.18);
+  p(0.74, 0.08, 0.20, 0.03); p(0.06, 0.74, 0.03, 0.18);
+  // Small blocks to bounce off
+  p(0.30, 0.30, 0.05, 0.02); p(0.65, 0.68, 0.05, 0.02);
+  p(0.68, 0.30, 0.02, 0.05); p(0.30, 0.65, 0.02, 0.05);
+  return obs;
+}
+
 // Floor nothing may spawn or blink onto: the inside of the sealed pockets
 function stacksNoSpawn() {
   const s = (STACKS.pocketIn / 2 + STACKS.pocketWall) * W;
@@ -243,6 +267,7 @@ const LAYOUTS = {
   cold:     { build: buildColdStorage,  spawn: [0.5, 0.10] },
   stacks:   { build: buildStacks,       spawn: [0.5, 0.10], noSpawn: stacksNoSpawn },
   wire:     { build: buildWireRoom,     spawn: [0.42, 0.08] },
+  vault:    { build: buildVault,        spawn: [0.5, 0.06] },
 };
 
 export class GameMap {

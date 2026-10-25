@@ -487,9 +487,10 @@ export function sfxSignature(who) {
     _noise(t, 0.18, 0.2, 2400, 0.8);
     _osc('sawtooth', 1400, t, 0.3, 0.08, 120);
     _osc('sine', 120, t, 0.35, 0.2, 45);
-  } else if (who === 'juno') {  // Spin Up: a motor winding up
-    _osc('sawtooth', 120, t, 0.6, 0.05, 900);
-    _osc('triangle', 240, t, 0.6, 0.06, 1800);
+  } else if (who === 'juno') {  // Half-Life: a low unstable hum and a scatter of dry ticks
+    _osc('sine', 90, t, 0.7, 0.07, 70);
+    _osc('triangle', 660, t, 0.5, 0.025, 610);
+    for (let i = 0; i < 10; i++) _noise(t + 0.03 + Math.random() * 0.55, 0.012, 0.06, 4500, 3);
   } else {                      // Gold Standard: a heavy chime
     [523.2, 784, 1046.5].forEach((f, i) => _osc('triangle', f, t + i * 0.05, 0.6, 0.08));
   }

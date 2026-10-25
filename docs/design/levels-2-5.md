@@ -149,7 +149,7 @@ Code: `gather`, `tuning` and `escape` beats in `level.js`, the Wire Room map
 enemies and from cable hits (`projectiles.arcRackHits`); rounds that have
 ricocheted carry `bounced`.
 
-## Level 5: Raze's Room (plan v3, Oct 25, 2026, after the owner defined Raze)
+## Level 5: Raze's Room (built, Oct 25, 2026)
 
 **Story:** the bottom of the Basement, where the Chromatics have kept Raze
 alive for years, draining his memories into the hoard. He's seen early, caged
@@ -165,11 +165,21 @@ rescue happens in the scene after.
   turn your back on him either."
 - Dex and Juno are uneasy; the banter turns nervous.
 
-**Map:** a round vault, the raised core in the middle with Raze in a cage of
-hoarded colour; four signal anchors round the edge. Gold-on-black.
+**Map:** a wide open vault (owner's call): Raze caged on a small core in the
+middle, four anchors round the edge, a few long walls far out near the corners,
+and four small blocks part way out for Juno to bounce off (clear of the boss).
+Gold-on-black. Built: `VAULT` in `map.js`.
 
-**The ability (F, after the first wave):** Dex's Arc Discharge, Juno's Spin Up
-(as in v2). The anchors only crack while overloaded by it.
+**Boss as built:** 1,100 health. Blinks every 4.2 s (3.2 below half) and leaves
+a turret node (more as it weakens); shielded while any node stands. After each
+blink, two rings of slow rounds (dash through). Aimed three-round volleys.
+At 66% and 33% it calls a wave and is shielded until it's cleared (two Echoes
+after each). Its death ends the level; the agent beams out where they stand.
+
+**The ability (F, after the first wave):** Dex's **Arc Discharge** (a shotgun
+blast of piercing, stunning electric rounds) and Juno's **Half-Life** (5 s of
+rounds that make Chromatics decay). Each anchor needs two overloads: two Arc
+Discharges, or about one full Half-Life on target.
 
 | Beat | Play |
 |---|---|
@@ -230,6 +240,6 @@ One level at a time, each tested on desktop and phone, then merged:
 1. Engineering above, plus **Level 2** (dash abilities, ice, drives, frozen tanks, Cold Storage map). Built.
 2. **Level 3** (hold zone, mirror beam, The Queue, Decoy Beacon). Built.
 3. **Level 4** (gather, tuning, escape). Built.
-4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities, Raze unlock).
+4. **Level 5** (anchors, Signal Hoarder, rescue, F abilities). Built; Raze's playable kit and unlock come later.
 
 Each step also: comms lines for both operators, a playtest script, the docs.

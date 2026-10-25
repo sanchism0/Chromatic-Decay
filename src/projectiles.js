@@ -37,6 +37,8 @@ class Projectile {
     this.rackBounce = 0;        // ricochets left off racks (set after spawn)
     this.arc        = false;    // Arc Round: jumps to a nearby enemy on hit (set after spawn)
     this.bounced    = false;    // has ricocheted off a rack (Level 4's junction boxes need this)
+    this.discharge  = false;    // from Dex's Arc Discharge ring (Level 5's anchors need this)
+    this.spun       = false;    // fired during Juno's Half-Life (makes enemies decay; fills Level 5's anchors)
     this.hitIds     = null;     // enemies this round has already hit
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
@@ -229,9 +231,10 @@ export class ProjectileSystem {
     const ux = p.vx / p.speed, uy = p.vy / p.speed;    // travel direction
     const px = -uy, py = ux;                             // across it
     const gold = p.overload;
-    const core = gold ? '#FFE9A8' : p.arc ? '#F2FFD6' : '#FFFFFF';
-    const wave = gold ? '255,200,90' : p.arc ? '182,255,46' : '200,232,255';
-    const coreLen = gold ? 10 : 8, coreW = gold ? 3 : 2;
+    const elec = p.arc || p.stunRound, rad = p.spun;
+    const core = gold ? '#FFE9A8' : elec ? '#F2FFD6' : rad ? '#F6DDFF' : '#FFFFFF';
+    const wave = gold ? '255,200,90' : elec ? '182,255,46' : rad ? '229,140,255' : '200,232,255';
+    const coreLen = gold ? 10 : rad ? 11 : 8, coreW = gold || rad ? 3 : 2;
     const trail = Math.min(gold ? 34 : 28, p.traveled * t.a);   // grows out of the lens
     const base = gold ? 4 : 3, amp = 1.5, lambda = 10;
     const phase = p.age * 30;
@@ -266,6 +269,18 @@ export class ProjectileSystem {
         const o = w - (coreW - 1) / 2;
         ctx.fillRect(Math.round(sx - ux * d + px * o), Math.round(sy - uy * d + py * o), 1, 1);
       }
+    }
+
+    // Half-Life: an unstable round sheds lilac motes behind it and wears a halo
+    if (rad) {
+      for (let k = 0; k < 4; k++) {
+        const d = 6 + ((p.age * 120 + k * 9) % 34);
+        const j = Math.sin(p.age * 40 + k * 2.3) * 4;
+        ctx.fillStyle = `rgba(229,140,255,${(0.75 * (1 - d / 40)).toFixed(3)})`;
+        ctx.fillRect(Math.round(sx - ux * d + px * j), Math.round(sy - uy * d + py * j), 2, 2);
+      }
+      ctx.fillStyle = 'rgba(229,140,255,0.35)';
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + p.age * 8; ctx.fillRect(Math.round(sx + Math.cos(a) * 5), Math.round(sy + Math.sin(a) * 5), 1, 1); }
     }
 
     // Muzzle ripple at the lens for the first moment — a ring that opens

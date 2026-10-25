@@ -26,7 +26,7 @@ says where things stand and what to do next.
 from Level 1), Stun Grenade (Dex, activated; defined but **no level awards it
 yet**). So the Arcade Story deck is tiny: this is the biggest gap in the core loop.
 
-**Story map:** Levels 1–4 are playable; Level 5 (Raze's Room) shows as coming soon.
+**Story map:** Levels 1–5 are playable.
 
 ## Recommended next steps
 
@@ -60,8 +60,14 @@ keeps the thrown ability.
 Greens debut → ability (Dex: Arc Round, Juno: Ricochet, kept as cards) →
 six shielded junction boxes holding Raze's memories (arc jump or bounced round only) → wave →
 tuning dials → escape down a corridor with four live wires (dash through),
-22 s, alarm; time-out seals the door and restarts the level. Next: Level 5 (Raze's Room, boss,
-rescue, F abilities, Raze unlock).
+22 s, alarm; time-out seals the door and restarts the level. 
+
+### 2d. Level 5 "Raze's Room": built (Oct 25, 2026), awaiting the owner's playtest
+Null's warning scene → Raze seen caged on the core → wave → F ability (Arc
+Discharge / Spin Up) → four overload-only anchors → the Signal Hoarder (nodes
+shield it, bursts, two swarm phases, checkpoint) → its death ends the level →
+meeting Raze, then Raze and Null → card. Next: **Raze's playable kit and
+unlock** (proposal in `docs/design/levels-2-5.md`).
 
 ### 3. Per-character mechanics
 "Focusing on what the next 3 to 5 improvements will be per character." Each
