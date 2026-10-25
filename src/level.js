@@ -393,11 +393,13 @@ const SIG_POWERS = {
           hint: touch => (touch ? 'Tap its round button. Rounds fired while it runs fill the anchors.' : 'Press F. Rounds fired while it runs fill the anchors.') },
 };
 // The Signal Hoarder (Level 5's boss)
-const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, fade: 0.45,
+const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, blinkThird: 7,  // blinkThird: the wait once 2 turrets stand
+                  fade: 0.45,
                   nova: 14, novaSpeed: 135, novaDamage: 9, volleyEvery: 2.2,
                   phases: [0.66, 0.33],
                   maxNodes: [2, 3, 3],         // turrets on the map at once, by phase (owner's caps)
-                  arena: [130, 280],           // it only jumps within this ring (px) round the core
+                  arena: [100, 200],           // it only jumps within this ring (px) round the core
+                  cluster: 190,                // and, while turrets stand, within this of every one
                   // Bullet patterns from phase 2 on: a rotating spiral of slow
                   // rounds for spiralOn s, then quiet for spiralOff s
                   spiralOn: 2.4, spiralOff: 2.8, spiralGap: 0.13, spiralSpeed: 115, spiralTurn: 2.1, spiralDamage: 7 };
@@ -1152,14 +1154,21 @@ export class LevelRun {
         // turrets stay close together), not on top of the agent
         let to = null;
         const [r0, r1] = HOARDER.arena, c = this.corePos;
-        for (let k = 0; k < 40 && !to; k++) {
+        // While turrets stand, the next one lands near all of them, so a
+        // full set is never more than a short run apart ("we aren't fast
+        // enough to cover the ground")
+        const near = p2 => this.nodes.every(nd => Math.hypot(p2.x - nd.x, p2.y - nd.y) < HOARDER.cluster);
+        for (let k = 0; k < 80 && !to; k++) {
           const a = Math.random() * Math.PI * 2, d = r0 + Math.random() * (r1 - r0);
           const p2 = freeSpot(map, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, 40);
           const dc = Math.hypot(p2.x - c.x, p2.y - c.y);
-          if (dc > r0 - 20 && dc < r1 + 30 && Math.hypot(p2.x - pl.x, p2.y - pl.y) > 140 && Math.hypot(p2.x - q.x, p2.y - q.y) > 90) to = p2;
+          if (dc > r0 - 20 && dc < r1 + 30 && Math.hypot(p2.x - pl.x, p2.y - pl.y) > (k < 50 ? 140 : 90)
+              && Math.hypot(p2.x - q.x, p2.y - q.y) > 70 && (k >= 70 || near(p2))) to = p2;
         }
         if (to) { q._to = to; q.blink = 'fade'; q.blinkT = HOARDER.fade; }
-        this.blinkT = frac < 0.5 ? HOARDER.blinkFast : HOARDER.blinkEvery;
+        // With 2 turrets up, the jump that would add a third comes slower:
+        // a full set is the top of its difficulty, and takes longer to reach
+        this.blinkT = this.nodes.length >= 2 ? HOARDER.blinkThird : frac < 0.5 ? HOARDER.blinkFast : HOARDER.blinkEvery;
       }
       // An aimed volley now and then
       this.volleyT -= dt;
