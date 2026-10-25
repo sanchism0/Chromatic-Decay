@@ -154,10 +154,9 @@ roughly even.
   silhouette ("Free him in Story Level 5", LOCKED) so players know who they're
   working toward; never in the prologue. The rescue's results show NEW AGENT:
   RAZE, and his card says NEW until he's picked.
-- **His sprite comes from the owner's second sheet** (v2, Oct 2026: the first
-  "kinda whack" at game size: cluttered side views, orange coat). Gold coat,
-  rifle on his back from every side, built by `tools/build_raze_sprite.py`.
-  His portraits are the owner's art, untouched.
+- **His sprite's coat was shifted from orange to gold** (`tools/recolor_raze.py`,
+  run by `build_raze_sprite.py`). His portraits were already gold and are the
+  owner's art, so they're untouched.
 - **Sable** is kept for a possible character 4. Not the rescue target.
 
 ### Null
