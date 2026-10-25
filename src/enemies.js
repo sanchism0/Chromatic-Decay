@@ -251,6 +251,8 @@ class Enemy {
     if (this.shielded) { this.shieldHitT = 0.25; return; }
     // Jammed by a stun grenade: takes 50% more
     if (this.jammed > 0) amount *= 1.5;
+    // Held in Raze's Snare Trap: takes 35% more
+    if (this.snareT > 0) amount *= 1.35;
     // Track low-HP state before deducting (used by Frequency Shatter)
     this.wasBelow25 = (this.hp / this.maxHp) < 0.25;
     this.hp -= amount;
@@ -274,6 +276,8 @@ class Enemy {
       if (!this.isAlive) return;
     }
     if (this.jammed > 0) this.jammed = Math.max(0, this.jammed - dt);
+    if (this.netT > 0)   this.netT   = Math.max(0, this.netT - dt);
+    if (this.snareT > 0) this.snareT = Math.max(0, this.snareT - dt);
     if (this.forming) { this.spawnT += dt; return; }
 
     // The Signal Hoarder is driven by its level (level.js _updateHoarder)
@@ -828,6 +832,7 @@ class Enemy {
 
   drawHalo(ctx) {
     if (!this.alive) return;
+    if (this.netT > 0 || this.snareT > 0) this._drawCaught(ctx);
     if (this.node) return;
     // Decaying: flakes of its colour drift off and up, with a faint sick glow
     if (this.decayT > 0) {
@@ -846,6 +851,37 @@ class Enemy {
     const form = easeOut(Math.min(1, this.spawnT / SPAWN_IN)) * this.fadeK;
     const r = this.drawSize * (this.type === 'pink' ? 4 : 3.2) * (0.35 + 0.65 * form);
     drawGlow(ctx, this.cfg.glow_color, this.x, this.y - this.lift, r, 0.18 * form * glowStrength(this.type) * (0.85 + 0.15 * (this._pulse ?? 1)));
+  }
+
+  // Caught by Raze: in his Net, a mesh of gold light over it (it fades as the
+  // net wears off); in his Snare, gold loops turning round its base
+  _drawCaught(ctx) {
+    const x = this.x, y = this.y - this.lift, r = this.drawSize * 1.3, t = Date.now() / 1000;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#FFD23F'; ctx.lineWidth = 1;
+    if (this.netT > 0) {
+      ctx.globalAlpha = 0.8 * Math.min(1, this.netT / 0.4);
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(Math.PI / 4 + Math.sin(t * 2 + this.id) * 0.08);
+      for (let i = -2; i <= 2; i++) {
+        const o = i * r * 0.4, h = Math.sqrt(Math.max(0, r * r - o * o));
+        ctx.beginPath(); ctx.moveTo(o, -h); ctx.lineTo(o, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-h, o); ctx.lineTo(h, o); ctx.stroke();
+      }
+      ctx.restore();
+      drawGlow(ctx, '#FFD23F', x, y, r * 1.6, 0.18);
+    }
+    if (this.snareT > 0) {
+      ctx.globalAlpha = 0.85 * Math.min(1, this.snareT / 0.4);
+      ctx.lineWidth = 1.5;
+      for (let k = 0; k < 3; k++) {
+        const a0 = t * (2 + k) * (k % 2 ? -1 : 1) + k * 2.1, rr = this.drawSize * (0.9 + k * 0.25);
+        ctx.beginPath(); ctx.ellipse(this.x, this.y + 2, rr, rr * 0.45, 0, a0, a0 + Math.PI * 1.3); ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
   _drawHpBar(ctx) {
@@ -1012,11 +1048,19 @@ export class EnemySystem {
         // it passes through, which used to spend a piercing round's pierce on
         // the same enemy over and over
         if (proj.hitIds && proj.hitIds.includes(e.id)) continue;
+        // A Net tracer only hits what it's steering onto
+        if (proj.tracer && proj.homeTo && proj.homeTo !== e && proj.homeTo.isAlive) continue;
         const dx = e.x - proj.x, dy = e.y - proj.y;
-        if (dx * dx + dy * dy < (e.hitSize + 3) * (e.hitSize + 3)) {
+        const reach = e.hitSize + (proj.rifle ? 7 : 3);   // Raze's rounds are slow to come: a little more forgiving
+        if (dx * dx + dy * dy < reach * reach) {
+          const first = !proj.hitIds;
           (proj.hitIds || (proj.hitIds = [])).push(e.id);
           // ── Volatile Signal: bonus damage based on travel distance ──
           let dmg = proj.damage;
+          // Follow-Up: the same Chromatic hit again without a miss in between
+          if (first && player && player.followUp) dmg *= player.followUpHit(e);
+          // A Net tracer into something netted
+          if (proj.tracer && e.netT > 0) dmg *= 2.5;
           if (player && player.volatileSignal) {
             const travelBonus = Math.min(0.5, (proj.traveled / 100) * 0.05);
             dmg += proj.damage * travelBonus;

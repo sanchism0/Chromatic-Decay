@@ -3,13 +3,16 @@
 // Arc Discharge, Juno: Spin Up), anchors that ignore plain rounds and crack
 // under the F ability, the Signal Hoarder (nodes shield it, bursts, phase
 // waves, checkpoint), the level ending on its death, the scene with Raze and
-// Null, the card. Args: <outdir> [desk|phone|land] [dex|juno]
+// Null, the card. Args: <outdir> [desk|phone|land] [dex|juno|raze] [post]
+// post (implied for raze): Raze is already free, so the cage is empty and
+// Dex and Juno get no scene after it
 const ROOT = process.env.REPO || require('path').resolve(__dirname, '../..');
 const { chromium } = require('playwright'); const fs = require('fs'); const path = require('path');
 const out = process.argv[2] + '/lvl5', mode = process.argv[3] || 'desk', who = process.argv[4] || 'dex';
+const post = who === 'raze' || process.argv[5] === 'post';
 const phone = mode === 'phone' || mode === 'land', land = mode === 'land';
 fs.mkdirSync(out, { recursive: true });
-const tag = mode + '-' + who;
+const tag = mode + '-' + who + (post && who !== 'raze' ? '-post' : '');
 (async () => {
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: land ? { width: 844, height: 390 } : phone ? { width: 390, height: 844 } : { width: 1280, height: 720 }, hasTouch: phone });
@@ -17,11 +20,14 @@ const tag = mode + '-' + who;
   await p.route('**/src/game.js*', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(path.join(ROOT, 'src/game.js'), 'utf8') + '\nwindow.__ev = s => eval(s);\n' }));
   await p.route('**/rest/v1/**', r => r.abort());
   await p.goto('http://127.0.0.1:8766/index.html');
-  await p.evaluate(() => {
+  await p.evaluate(post => {
     localStorage.clear(); localStorage.setItem('chromatic_decay_prologue_done', '1');
-    localStorage.setItem('chromatic_decay_profile', JSON.stringify({ clears: { 1: { dex: 1, juno: 1 }, 2: { dex: 1, juno: 1 }, 3: { dex: 1, juno: 1 }, 4: { dex: 1, juno: 1 } },
-      cards: { dex: ['heavy_bursts', 'shock_dash', 'stun_grenade', 'arc_round'], juno: ['hot_barrel', 'parting_charge', 'decoy_beacon', 'ricochet'] }, player: { id: 'ptest', name: 'TEST' } }));
-  });
+    const clears = { 1: { dex: 1, juno: 1, raze: 1 }, 2: { dex: 1, juno: 1, raze: 1 }, 3: { dex: 1, juno: 1, raze: 1 }, 4: { dex: 1, juno: 1, raze: 1 } };
+    if (post) clears[5] = { dex: 1 };
+    localStorage.setItem('chromatic_decay_profile', JSON.stringify({ clears, characters: { raze: post },
+      cards: { dex: ['heavy_bursts', 'shock_dash', 'stun_grenade', 'arc_round'], juno: ['hot_barrel', 'parting_charge', 'decoy_beacon', 'ricochet'],
+               raze: ['follow_up', 'net', 'snare_trap', 'punch_through'] }, player: { id: 'ptest', name: 'TEST' } }));
+  }, post);
   await p.reload(); await p.waitForTimeout(900);
   const ev = s => p.evaluate(c => __ev(c), s);
   const key = async k => { await p.keyboard.down(k); await p.waitForTimeout(60); await p.keyboard.up(k); await p.waitForTimeout(60); };
@@ -57,8 +63,8 @@ const tag = mode + '-' + who;
     for (; n < 8 && await ev(`level.anchors && level.anchors[${i}].hp > 0`); n++) {
       await skipTalk(); await killAdds();
       await ev(`(() => { const a = level.anchors[${i}]; player.x = a.x + 34; player.y = a.y + 26; player.signatureCooldown = 0; })()`);
-      if (who === 'juno') {
-        await ev(`input.setAutoFire(true)`);
+      if (who === 'juno' || who === 'raze') {
+        if (who === 'juno') await ev(`input.setAutoFire(true)`);
         if (!phone) { const sx = await ev(`(level.anchors[${i}].x - camera.x) * ZOOM`), sy = await ev(`(level.anchors[${i}].y - 12 - camera.y) * ZOOM`); await p.mouse.move(sx, sy); }
         else await ev(`input.touchAimAngle = Math.atan2(level.anchors[${i}].y - 12 - player.y, level.anchors[${i}].x - player.x)`);
       }
@@ -113,7 +119,7 @@ const tag = mode + '-' + who;
   await skipTalk(); await waitFor('level.boss && !level.boss.forming', 6000);
   // Kill it: the level ends, then the scene, card, results
   await ev('level.boss.shielded = false; level.nodes.forEach(n => n.takeDamage(1e9)); level.bossPhase = 2; level.boss.takeDamage(1e9);');
-  await waitFor('state === STATES.STORY', 10000);
+  await waitFor('state === STATES.STORY' + (post && who !== 'raze' ? ' || state === STATES.ABILITY_UNLOCK || state === STATES.LEVEL_END' : ''), 10000);
   console.log('boss down → scene:', await ev('state === STATES.STORY && story.phase'), '| lines', await ev('story.scene && story.scene.lines.length'));
   await p.waitForTimeout(700); await p.screenshot({ path: `${out}/${tag}-raze.png` });
   for (let i = 0; i < 12; i++) { await ev('story.updateScene(0.016, true)'); await p.waitForTimeout(80); }

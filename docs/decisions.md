@@ -115,16 +115,48 @@ roughly even.
 |---|---|---|---|
 | Juno | Minigun | lots of low-damage rounds, slight spray | 5 shots/s, damage ×0.40 (bumped from 0.34: she was "a little bit underpowered") |
 | Dex | Burst | three quick rounds per trigger pull | 0.85 bursts/s, 3 rounds, damage ×0.60 (was 0.66; "he clears really quickly") |
-| Raze | Heavy | slow, very strong gold rounds | 0.55 shots/s, damage ×3.2 (data only; not playable yet) |
+| Raze | Long Rifle | one slow, heavy gold round that flies fast and far and goes through one Chromatic | 0.9 shots/s, one round a pull, like Dex's pulls (owner: "slow attack speed... we can test and iterate"; 0.75 was tried and cleared crowds half as fast), damage ×1.8, round speed ×2.4 (slower rounds missed walking targets a third of the time), range ×1.3, pierce 1, a slightly bigger hit area. 85% move speed, 120 px dash |
 
 - **+1 projectile means more of your gun's thing:** Dex gets a 4-round burst (not
   doubled bullets); Juno fires 25% faster. Never just duplicate shots.
 - Default fire was slowed on request to 1.5 shots/s at 360 px/s for the base stats.
 
 ### Raze
-- The market-crash trading algorithm Echo from the lore, now a **playable gold
-  character**. The Basement arc (Levels 1–5) is the mission to **rescue him**;
-  clearing Level 5 unlocks him. Then he clears Level 1 for his own cards.
+- **A person, not an Echo** (the old "trading algorithm Echo" idea is gone): an
+  OG marksman, Null's oldest partner, held in the Basement for years. The
+  Basement arc (Levels 1–5) is the mission to **rescue him**; clearing Level 5
+  unlocks him. Full definition: `docs/design/levels-2-5.md`.
+- **Colour: gold/yellow `#FFD23F`, never orange** ("I prefer for his color to be
+  more gold or yellow than orange… dont make his stuff orange"). Changed from
+  `#FFB52E`. Keep it clear of the yellow Chromatics' `#e9ff6a` (greener).
+- **He earns an ability per level only by replaying Levels 1–5 as him.**
+- **His Story runs use the same levels, new dialogue only.** He has his own
+  reason to be there (retraining, and a mission of his own), since he can't
+  rescue himself or collect his own memories. Who's in his ear rotates: nobody
+  wants the job because they're afraid of him. Dex and Juno are obnoxious and
+  funny; Raze is baffled by the jokes, with comic PTSD, and slowly warms up.
+- **Once he's saved, Level 5 no longer shows him caged, for every character.**
+- **His kit (owner's picks, Oct 25, 2026; "fit the same styles but toward his
+  own unique brand"):** Long Rifle; L1 **Follow-Up** (the owner's idea:
+  consecutive hits on the same enemy without missing hit harder, so most drop
+  in 2 and "he can crush bosses too"); L2 **Net** ("like Caitlyn": fire a net,
+  get thrown the other way, over low walls; anything caught takes a fast
+  tracer from the next shot); L3 **Snare Trap**; L4 **Punch-Through**; L5
+  **Laser Round** ("thin, piercing, max range"). Numbers and level fits:
+  `docs/design/levels-2-5.md`. Net direction: you're thrown the way you move,
+  the net flies the way you came (standing still: at the cursor), with no new
+  buttons.
+- **He joins seamlessly, even at Level 1:** every level works with his tools
+  (the tanks crack to net + tracer, boxes to Punch-Through, anchors to the
+  laser), Level 1 has his own sampler (Follow-Up → Snare Trap →
+  Punch-Through), and every level has his lines.
+- **The pick screen before and after:** before the rescue he's there as a dark
+  silhouette ("Free him in Story Level 5", LOCKED) so players know who they're
+  working toward; never in the prologue. The rescue's results show NEW AGENT:
+  RAZE, and his card says NEW until he's picked.
+- **His sprite's coat was shifted from orange to gold** (`tools/recolor_raze.py`,
+  run by `build_raze_sprite.py`). His portraits were already gold and are the
+  owner's art, so they're untouched.
 - **Sable** is kept for a possible character 4. Not the rescue target.
 
 ### Null

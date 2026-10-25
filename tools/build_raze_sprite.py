@@ -58,4 +58,7 @@ for r, row in enumerate(rows):
     lens.append(lrow)
 sheet.save(out)
 print('saved', out, sheet.size)
+# His coat is gold, never orange (owner's rule): recolour the new sheet
+import subprocess, sys as _sys, os as _os
+subprocess.run([_sys.executable, _os.path.join(_os.path.dirname(__file__), 'recolor_raze.py'), out], check=True)
 print('lens', lens)

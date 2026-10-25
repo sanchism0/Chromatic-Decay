@@ -16,7 +16,8 @@ node tools/playtest/storyflow.js /tmp/out            # add "phone" for a phone v
 node tools/playtest/level2.js /tmp/out desk dex     # desk | phone | land,  dex | juno
 node tools/playtest/level3.js /tmp/out desk juno    # same args
 node tools/playtest/level4.js /tmp/out desk dex     # same args
-node tools/playtest/level5.js /tmp/out desk juno    # same args
+node tools/playtest/level5.js /tmp/out desk juno    # same args; add `post` for after the rescue (dex|juno|raze)
+node tools/playtest/razestory.js /tmp/out desk 1234 # Raze, Levels 1-4 with his own tools
 node tools/playtest/boards.js /tmp/out desk          # desk | phone; add "offline" to cut the database
 node tools/playtest/lunge.js /tmp/out
 node tools/playtest/pierce.js /tmp/out
@@ -58,7 +59,8 @@ showed up in a picture.
 | `interlude.js` | The scenes before Levels 3 and 4: play after the pick, Space moves through, Esc / SKIP skips, then the level starts; Level 2 has none. Args: `<out> desk\|phone dex\|juno 3\|4` |
 | `level4.js` | Level 4: greens, Arc Round / Ricochet, boxes ignore plain shots and walking but open to an arc (off a cable or a Chromatic) or a bounce, pieces, dials, escape: wire zaps you back unless you dash, time-out → DOOR SEALED → level restarts, out the door, card |
 | `screens.js` | Screenshots of every screen (title, map, character select, level HUD, power-up, card, results, failed, Arcade, upgrades, pause, settings, game over) for the 12 px minimum text check. Args: `<out> desk\|phone\|land` |
-| `level5.js` | Level 5: Raze caged, F ability, anchors ignore plain rounds and crack under it, the Hoarder (shielded by nodes, swarm phase), boss checkpoint, its death ends the level, the Raze and Null scene, card |
+| `level5.js` | Level 5: Raze caged, F ability, anchors ignore plain rounds and crack under it, the Hoarder (shielded by nodes, swarm phase), boss checkpoint, its death ends the level, the Raze and Null scene, card, NEW AGENT on the results. With `raze` or `post`: the empty core, no meeting scene for Dex and Juno, Raze's own ending |
+| `razestory.js` | Raze's Story, Levels 1-4 (pick a subset with e.g. `23`): his scenes, his sampler, the Net catching a frozen tank and the tracer cracking it, the Snare holding Chromatics in the terminal ring and turning the mirrors, Punch-Through into the boxes and dials, the hop stopped by the corridor wall, his cards and results lines |
 | `cloudsave.js` | `boot.js` with a stand-in artifact database: a cloud save restores before the game starts, changes write back, and outside an artifact the game starts normally |
 | `arc.js` | Arc Round: only the last round of a Dex burst is electric; it jumps to an enemy within range, not one further away |
 | `grenadeaim.js` | Touch grenade: a tap throws nothing; press and drag shows the landing ring; letting go throws it there. Prints the phone zoom |

@@ -62,12 +62,11 @@ six shielded junction boxes holding Raze's memories (arc jump or bounced round o
 tuning dials → escape down a corridor with four live wires (dash through),
 22 s, alarm; time-out seals the door and restarts the level. 
 
-### 2d. Level 5 "Raze's Room": built (Oct 25, 2026), awaiting the owner's playtest
+### 2d. Level 5 "Raze's Room": built and merged (Oct 25, 2026)
 Null's warning scene → Raze seen caged on the core → wave → F ability (Arc
-Discharge / Spin Up) → four overload-only anchors → the Signal Hoarder (nodes
+Discharge / Half-Life) → four overload-only anchors → the Signal Hoarder (nodes
 shield it, bursts, two swarm phases, checkpoint) → its death ends the level →
-meeting Raze, then Raze and Null → card. Next: **Raze's playable kit and
-unlock** (proposal in `docs/design/levels-2-5.md`).
+meeting Raze, then Raze and Null → card. Raze's playable kit followed (section 4).
 
 ### 3. Per-character mechanics
 "Focusing on what the next 3 to 5 improvements will be per character." Each
@@ -76,11 +75,16 @@ character should play very differently over time. Brainstorm with the owner
 2–5. Design around interactions, not labels (the owner rejected class-style
 labels).
 
-### 4. Raze
-Unlocked by clearing Level 5. Needs a sprite: placeholder first (the owner said
-no new art for now; a gold light figure fits). `WEAPONS.raze` already exists
-(slow, heavy gold rounds). Story points and the D/J/R board column already
-expect him.
+### 4. Raze: built (Oct 25, 2026), awaiting the owner's playtest
+Playable once Level 5 is cleared. Long Rifle (slow, heavy, far), 85% speed,
+longer dash; one card per level by replaying the Story as him: Follow-Up, Net,
+Snare Trap, Punch-Through, Laser Round. His own lines and scenes for every
+level, a rotating operator, a mystery thread (the friend's voice that called
+him down), and Level 5 changes for everyone once he's free. Locked silhouette
+on the pick screen before; NEW AGENT on the rescue's results. Details:
+`docs/design/levels-2-5.md` (kit), `docs/story/story-mode.md` (story).
+**To tune after playtests:** fire rate (0.9/s; an aim-bot clears Level 1's second wave about 1.4x slower than Dex, his first wave about the same), Follow-Up (+80% / x2), Net
+(hold 2.2 s, tracer x2.5, 2.4 s cooldown), Laser (3.5x, 8 s).
 
 ### 5. Later, parked ideas
 - **Workshop:** spend Chroma on skill-tree nodes per character (designed in

@@ -6,7 +6,9 @@ Ten years after the Collapse, the Chromatics (ghosts made of stolen light) have
 taken the colour out of everything. **Dex** and **Juno** fight them with
 hand-built Pulse Emitters that fire coherent light, the one signal a Chromatic
 can't swallow. A voice called **Null** sends them into the Basement to rescue
-**Raze**, an Echo that still knows who he is.
+**Raze**, his oldest partner, a marksman the Chromatics have held for years.
+Bring him home and he joins you: a third agent with a long rifle and his own
+story.
 
 ## Play
 
@@ -20,7 +22,8 @@ touch controls).
 - **Story Mode:** pick who goes in; the other one talks you through it on
   comms. A prologue, a tutorial, Level 1 ("Server Floor"), Level 2
   ("Cold Storage") Level 3 ("The Stacks"), Level 4 ("Wire Room") and Level 5 ("Raze's Room"), the whole Basement arc. Clearing
-  levels earns Chroma and **Story cards**.
+  levels earns Chroma and **Story cards**. Once Raze is free, replay the
+  levels as him: same floors, his own lines, one of his tricks back per level.
 - **Arcade Mode:** 15 waves of escalating Chromatics with bosses. Every Story
   card you've earned joins your upgrade deck.
 - **Leaderboards:** Arcade (desktop and mobile, all-time and this week), Story

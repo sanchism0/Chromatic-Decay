@@ -26,7 +26,7 @@ relatively new. The Chromatics took him alive and have kept him in the
 Basement for years, draining his memories into the hoard; it's left him a bit
 crazy. He threatens people, especially early on, and Dex and Juno are a little
 afraid of him. The Basement arc (Levels 1–5) is the mission to rescue him; he
-becomes playable (gold, `#FFB52E`) after Level 5. **He's a person, not an Echo.** **Sable** (a server load balancer) is kept for a possible fourth
+becomes playable (gold, `#FFD23F`, never orange) after Level 5. **He's a person, not an Echo.** **Sable** (a server load balancer) is kept for a possible fourth
 character.
 
 ## Writing rules (from the owner's feedback)
@@ -154,6 +154,45 @@ Null: "You took your time." / "I thought you were gone." / "I WAS gone." Raze
 remembers Null owes him; Null needs what he remembers of the Collapse. "Your
 kids can carry my bags." Card: RAZE IS OUT.
 
+**Once Raze is free** (Level 5 cleared by anyone), Level 5 changes for
+everyone: the cage is empty and the hoard is knotting itself back together on
+the core. Dex and Juno get no Null warning before it and no meeting after; Raze
+is on the line now, heckling ("Don't embarrass me", "Kill it again. Slower
+this time"). Results: "The Signal Hoarder is down again."
+
+## Raze's Story (built)
+
+Same levels, same tasks; only the talking changes (`src/razestory.js`). He
+can't rescue himself or pull his own memories out of the walls, so his runs
+have their own reasons:
+
+- **Retraining.** Null sends him back down: his hands shake on the reload, he
+  flinches at lifts.
+- **Taking back his tricks.** The Chromatics drained him for years and kept
+  copies of how he hunts (the greens' flanking is his). Each floor holds some:
+  the frozen drives and junction boxes are *recordings* of him, not memories.
+  Clearing a floor gives a trick back: that's his card.
+- **His own hunt.** Something called him down the night he was taken, and it
+  sounded like a friend. Each level turns up a little more; at the end he knows
+  it was never in the Basement: "it's up top. Somewhere with signal."
+
+**Who's on the line rotates**, because nobody wants the job (they're a bit
+afraid of him): Level 1 Dex (lost a coin toss with two heads), 2 Juno (Dex
+"needs a lie-down"), 3 Dex (Juno "has a thing"), 4 Juno (Dex is "resting his
+voice"), 5 both, unasked. The kids are loud and funny; Raze is baffled by them
+and jumpy in ways he won't explain (lifts, queues, small rooms). He warms up
+slowly: "kid" until the last scene, when he uses their names.
+
+| Level | Scene before | Comms (gist) |
+|---|---|---|
+| 1 Server Floor | Null sends him back down; Dex drew the short straw ("Talk while I'm aiming and I'll come back up there") | The servers logged the night he was taken: a signal calling his name. "It sounded like a friend." Dex: "That's my line!" |
+| 2 Cold Storage | none | Recordings of him, frozen into the floor; "I walked right in. Like I was answering a call." Perfect-dash tip: "I invented it." "...I hate lifts." |
+| 3 The Stacks | The lift down: the toaster story, and Raze laughs ("you kids fought it with kitchenware") | A tape of his own voice: "I'm coming down. Keep the line open." "Why is it always a queue down here?" "Thanks for the toaster story." |
+| 4 Wire Room | Juno, the scoreboard and noodles ("Put me down for four hundred. And noodles.") | The greens' flank is his. The same voice in every recording. "I just got OUT of a basement!" "That was fun. Don't tell Null." |
+| 5 Raze's Room | Back to where they kept him; both kids on the line ("Nobody flipped a coin") | The hoard growing on the core; "I'm not in a cage this time." After: the quiet, noodles, the voice is up top, "Dex. Juno. Keep the channel open." |
+
+Results lines are his own too (`RAZE_OUTCOMES`).
+
 ## Later (planned)
 
 | # | Level | Story beat |
@@ -182,6 +221,8 @@ objectives (not endless waves), a set-piece encounter, and a short outro.
    The ending turns on who's been in the field and who's been on the phone.
 
 Threads to pay off along the way:
+- What called Raze down the night he was taken, in a friend's voice. It's up
+  top, somewhere with signal (Raze's Level 5 ending).
 - Why Juno left the partnership.
 - What Null wants with Echoes that still remember themselves.
 - The operator getting cut off, with one level played without the voice in your ear.

@@ -73,6 +73,8 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `enemies.js` | The Chromatics: spawning (fade-in), per-type behaviour, the yellow lunge (`LUNGE`), the green blink (`BLINK`: stationary turret that teleports to the far side of a kiting player; `phased` while fading = can't be hit), flow-field pathing (`FLOW`), ghost drawing (wavelength-driven pulse and ripples, health-scaled core). |
 | `projectiles.js` | Player and enemy shots, pulse-shot visuals, rack bounce (Ricochet), `arc` (Arc Round: the last round of a Dex burst; `EnemySystem` jumps it to the nearest other enemy within `ARC_RANGE` and draws the bolt in `zaps`), `hitIds` (a round hits each enemy once, for piercing), `rackHits` (racks shot this frame, for Story objectives). |
 | `dashpowers.js` | Dash abilities (Level 2 cards): Dex's Shock Dash (stun + jam everything dashed through) and Juno's Parting Charge (a bomb where the dash started). Detects a dash starting itself; also hits `level.dashTargets`. |
+| `nets.js` | Raze's Net (his Level 2 card). player.js starts the hop (`netDash`: thrown the way he moves, standing still away from the aim, `NET_HOP`, low racks ignored, `tall` ones not) and sets `justNet`; game.js fires the net, which catches up to 3 Chromatics (`netT`, held) or `level.dashTargets` (frozen tanks) and fills `player.tracerQueue`. The next `_shoot` fires a tracer at each (`tracer`, `homeTo`: steers on, flies over racks, 2.5x into netted enemies; tanks are hit on arrival). |
+| `snare.js` | Raze's Snare Trap (his Level 3 card): thrown like the grenade (`onLand` → the level's mirrors); arms, then holds the first 3 Chromatics to cross it (`snareT` +35% damage taken, and a stun so Level 3's ring ignores them), with twisting tethers. |
 | `decoy.js` | Juno's Decoy Beacon (Level 3 card): thrown like the grenade; for 3 s it sets `enemies.lure`, and violets/yellows within 220 px go for it (yellows lunge at it, greens shoot it). `onLand` tells the level where it came down |
 | `grenade.js` | Dex's stun grenade: arcs over racks, stuns and jams (+50% damage taken), electricity and smoke, 8 s cooldown. |
 | `echoes.js` | Echo health pickups (pixel-art white figure, fog, fade-in, jewel sound). Legacy Fragment echoes too. |
@@ -86,7 +88,8 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `story.js` | Scenes before levels (`playInterlude`; `INTROS` by `intro:` in `LEVELS`: `stacks` before Level 3, `wire` before Level 4, `raze` before Level 5; `OUTROS` by `outro:` play after a level, before the card), each keyed by agent. Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
 | `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
-| `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. |
+| `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. `razeFree()`: Raze is playable once Level 5 is cleared by anyone (`recordClear(5)` also sets `characters.raze` and returns an `{ kind: 'agent' }` unlock for the results); `seen.raze` hides his NEW tag. |
+| `razestory.js` | Raze's Story: who's on the line for him per level (`RAZE_OPS`), his lines per beat (`RAZE_BEATS`, merged over the level's own by `applyLines`), Level 5's lines for Dex and Juno once he's free (`POST_RESCUE_L5`), his scenes before/after levels by level id (`RAZE_SCENES`, `RAZE_SIDES`) and his results lines (`RAZE_OUTCOMES`). |
 | `leaderboard.js` | Supabase calls, the six boards, posting runs, rank, player sync, offline fallback, board drawing. |
 | `lore.js` | Arcade's lore feed: one-line blurbs on first sightings and milestones. |
 | `admin.js` | Developer tuning panel: edits `CONFIG`, export/import JSON, clear local scores. Open the game with `?dev` (e.g. `…/Chromatic-Decay/?dev`), then Settings → DEVELOPER TUNING. |
@@ -120,6 +123,14 @@ Each beat has `lines` (briefing on comms; enemies wait for it), an
 `objective(state)` string, optional `eachDone` lines and `done` lines.
 A beat's `interrupt: { cap, period, yellow }` keeps enemies coming during
 it (`_interrupt`: pairs, anywhere on the map, at least 320 px from the player).
+**Raze and the rescue:** `LevelRun` picks his operator from `RAZE_OPS` and lays
+his lines over the beats; `post` is true on Level 5 once he's free (the core
+is drawn empty, Dex and Juno get `POST_RESCUE_L5`), and `outroKey` says whether
+the scene after it plays (only before the rescue, or for Raze). game.js's
+`_sceneFor` / `_sceneSides` pick the scene before or after a level for the
+agent; `level.onLaser` takes Raze's Laser Round (anchors). Obstacles marked
+`tall` (map.js: Level 3's mirror pockets, Level 4's corridor walls) stop his
+Net hop.
 `checkpoint: true` on a beat (Level 3's boss) records `checkpointIdx`; dying after it, the fail screen offers a retry that rebuilds the level with `new LevelRun(id, agent, api, { idx })` (`_skipTo` marks earlier beats done) and re-applies `granted` abilities. game.js keeps it in `_checkpoint`, cleared by any fresh `startRun`.
 `grant: true` on a beat hands over the level's `LEVEL_CARDS` card for the
 rest of the level when it ends (Level 2's dash abilities). Level fields: `map`
@@ -137,7 +148,7 @@ After each `wave`/`relays` beat the agent gets the next `POWERUPS` entry
 
 | Key | Contents |
 |---|---|
-| `chromatic_decay_profile` | `{ chroma, clears, cards, player {id, name}, lifetime, best, storyAt, characters, signatures (legacy) }` |
+| `chromatic_decay_profile` | `{ chroma, clears, cards, player {id, name}, lifetime, best, storyAt, characters {raze}, seen {raze}, signatures (legacy) }` |
 | `chromatic_decay_scores` | This device's last 50 Arcade runs (offline fallback board) |
 | `chromatic_decay_prologue_done` | `'1'` after the prologue |
 | `chromatic_decay_character` | Last picked character |

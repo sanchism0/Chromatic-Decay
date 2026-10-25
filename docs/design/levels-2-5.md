@@ -31,13 +31,15 @@ first wave, and the task and puzzle need it. Clearing the level keeps it as a
 Story card for that character. Each character ends the arc with five cards.
 Levels also get **longer, with as much interaction as Level 2** from here on.
 
-| Level | Dex | Juno |
-|---|---|---|
-| 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster |
-| 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later |
-| 3 (built) | **Stun Grenade (E)** | **Decoy Beacon (E)**: throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun |
-| 4 | **Arc Round** (passive, owner's call): the last round of each burst is electric and jumps to something close by. Previewed in Level 1's sampler; Level 4 makes it a card | **Ricochet** (passive): rounds bounce once off racks. Previewed in Level 1's sampler; Level 4 makes it a card |
-| 5 | **Arc Discharge (F)**: from the old signature code. A ring of shots that knocks back and stuns | **Spin Up (F)**: from the old signature code. Fires twice as fast with a tighter stream for 4 s |
+| Level | Dex | Juno | Raze |
+|---|---|---|---|
+| 1 (built) | Heavy Bursts: 4-round bursts, +15% damage | Hot Barrel: minigun 25% faster | Follow-Up |
+| 2 (built) | **Shock Dash**: everything he dashes through is stunned and jammed (+50% damage taken) | **Parting Charge**: a light bomb drops where she dashed from and bursts 0.6 s later | Net |
+| 3 (built) | **Stun Grenade (E)** | **Decoy Beacon (E)**: throw a beacon that pulls Chromatics to it for 3 s; they bunch up for the minigun | Snare Trap (E) |
+| 4 (built) | **Arc Round** (passive, owner's call): the last round of each burst is electric and jumps to something close by. Previewed in Level 1's sampler; Level 4 makes it a card | **Ricochet** (passive): rounds bounce once off racks. Previewed in Level 1's sampler; Level 4 makes it a card | Punch-Through |
+| 5 (built) | **Arc Discharge (F)**: a shotgun blast of 11 electric rounds that pierce, stun and jam | **Half-Life (F)**: 5 s of rounds that hit twice as hard, pierce two and make what they hit decay | Laser Round (F) |
+
+Raze's are detailed under Raze, at the end of this doc.
 
 **Decoy Beacon (Juno, E), defined:**
 - **Throw:** like Dex's grenade: it arcs over racks and lands at the cursor
@@ -58,9 +60,8 @@ That makes the Arcade Story deck ten cards (up from three). Level 4's ability is
 Piercing Stream, Ricochet and a possible Chain Arc stay Level 1 sampler
 power-ups for now, and are candidates for later levels or the Workshop.
 
-**Raze** earns his own cards by replaying Levels 1, 3 and 5 as him. His set
-gets designed once he's playable (heavy gold rounds suggest pierce,
-armour-break, a slow-time shot).
+**Raze** earns one card per level by replaying Levels 1–5 as him (built
+Oct 25, 2026; his kit is at the end of this doc, under Raze).
 
 ---
 
@@ -210,18 +211,34 @@ Then **RAZE UNLOCKED**.
   early on.
 - **Look:** a long gold-and-black coat, a mechanical left arm, dreadlocks with
   glowing gold tips, a headband and headset, a long rifle on his back. Colour
-  `#FFB52E`. Art: `assets/characters/raze/` (walk sheet, eight portraits:
+  `#FFD23F`. Art: `assets/characters/raze/` (walk sheet, eight portraits:
   neutral, stern, smirk, laughing, uneasy, shocked, angry, snarl; turnaround).
-- **Kit (proposal, think Caitlyn):**
-  - **Gun: Long Rifle.** Slow rate of fire, heavy rounds that pierce, long range.
-  - **Slow on his feet** (about 85% of Dex and Juno's speed); the gun makes up for it.
-  - **E: Snare Trap.** Set a trap on the floor; the first Chromatics over it are
-    held and slowed.
-  - **Passive: Hunter's Mark.** Every fifth round is a heavy gold round (double
-    damage, pierces everything).
-  - **Dash: Slip.** Longer than the others' dash and leaves a puff of smoke
-    that enemies lose him in for a moment ("he can escape anything").
-- **Unlock:** clearing Level 5. Arcade first; Story levels need lines for him.
+- **Kit (built Oct 25, 2026; the owner picked it, "think Caitlyn"):** same
+  slots as Dex and Juno, his own brand: patience, range, traps, one big shot.
+
+  | Level (slot) | Dex | Juno | **Raze** | His way through that level's task |
+  |---|---|---|---|---|
+  | Gun | Burst | Minigun | **Long Rifle**: one heavy gold round every ~1.1 s (0.9/s, the same rhythm as Dex's trigger pulls), very fast (2.4x) and far (1.3x), goes through one Chromatic, a little forgiving to hit with. About 3 to bring down a yellow, 2 a violet | Plain shooting |
+  | Movement | normal | normal | **85% speed; dash 120 px** (88 for the others) | |
+  | 1 (upgrade) | Heavy Bursts | Hot Barrel | **Follow-Up**: the same Chromatic hit again without a miss in between takes +80%, then double from the third hit on. Three gold brackets round it show the streak. Most enemies drop in 2; bosses melt | |
+  | 2 (dash) | Shock Dash | Parting Charge | **Net**: his dash throws him the way he's moving (standing still: away from the aim) in a 150 px hop that clears low racks, and fires a net of gold light back the other way. Up to 3 caught are held 2.2 s; his next shot sends a tracer into each (2.5x damage), steering onto them over racks. 2.4 s cooldown | Frozen tanks: the net catches the tank, the tracer cracks it (twice each) |
+  | 3 (E) | Stun Grenade | Decoy Beacon | **Snare Trap**: lobbed over racks; arms in 0.25 s; holds the first 3 Chromatics that cross it for 2.5 s (twisting gold tethers), +35% damage taken. 9 s cooldown | Terminal ring: held counts as stunned. Mirrors: it lands on them like the grenade |
+  | 4 (passive) | Arc Round | Ricochet | **Punch-Through**: rounds go straight through one rack or cable bundle (a gold ring where they go in and out) | Junction boxes and dials: a round that went through a cable counts |
+  | 5 (F) | Arc Discharge | Half-Life | **Laser Round**: one thin laser right across the room, through every Chromatic on its line, 3.5x damage; a gold core with two strands twisting round it. Stops at a rack (Punch-Through: one). 8 s cooldown | Anchors: each laser fills a light on every anchor it crosses, so lining two up is the skill |
+
+  - **Tall walls** (`tall` in map.js): the hop clears low racks but not the
+    walls that seal a puzzle or a route: Level 3's mirror pockets and Level 4's
+    corridor walls (so the escape can't be skipped).
+  - **Arcade:** his cards join the shared pool like everyone's. Follow-Up is
+    smaller for the others' guns (Dex +15%/+30%, Juno +10%/+20%) because their
+    rounds land far more often. One F signature per run.
+- **Unlock:** clearing Level 5 with anyone (`razeFree()` in profile.js). Before
+  that he's on the pick screen as a dark silhouette, "Free him in Story Level
+  5. LOCKED"; tapping him does nothing but light that line. The first clear
+  shows NEW AGENT: RAZE on the results; his card carries a NEW tag until he's
+  picked once. Not in the prologue (that's Dex and Juno's).
+- **Story as Raze:** same levels, his own lines (`src/razestory.js`); see
+  `docs/story/story-mode.md`.
 
 ## Engineering, done once before Level 2
 
