@@ -157,6 +157,9 @@ roughly even.
 - **His sprite's coat was shifted from orange to gold** (`tools/recolor_raze.py`,
   run by `build_raze_sprite.py`). His portraits were already gold and are the
   owner's art, so they're untouched.
+- **The first sprite stays** (Oct 2026): a second sheet was tried; its feet
+  were better but the original reads more clearly in play ("the old one is
+  more clear").
 - **Sable** is kept for a possible character 4. Not the rescue target.
 
 ### Null
