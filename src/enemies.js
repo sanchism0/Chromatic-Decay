@@ -1050,7 +1050,9 @@ export class EnemySystem {
               sfxShockDash();
               tgt.hit();
             } else if (best) {
-              best.takeDamage(dmg * 1.1);   // the arc hits 10% harder
+              // The arc hits 10% harder than the round did before Dex's
+              // bullets were trimmed (0.66 → 0.60); the trim is bullets only
+              best.takeDamage(dmg * 1.1 * (0.66 / 0.60));
               this.zaps.push({ x1: e.x, y1: e.y, x2: best.x, y2: best.y, t: 0, seed: Math.floor(Math.random() * 1e5) });
               sfxShockDash();
               if (!best.isAlive) killed.push(best);
