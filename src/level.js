@@ -13,19 +13,21 @@
 //   beam      turn sealed-in mirrors (by landing a thrown ability on them) until
 //             the beam from the wall reaches the vault
 //   boss      a big Chromatic with its own health bar and attacks (The Queue)
-//   gather    junction boxes that only open to an Arc Round jump or a bounced
-//             round; each drops one of Raze's memories to walk over
+//   gather    junction boxes that only open to an Arc Round jump, a bounced
+//             round or one punched through a rack; each drops one of Raze's
+//             memories to walk over
 //   tuning    dials (turned the same way) to match a display
 //   escape    a timer to reach the far door, past live wires you can only cross
 //             mid-dash
 //   overload  anchors that only crack under an overload (Arc Discharge rounds,
-//             or rounds fired during Half-Life)
+//             rounds fired during Half-Life, or Raze's Laser Round)
 //   hoarder   Level 5's boss: blinks, leaves turret nodes that shield it,
 //             bursts you dash through, waves of Chromatics between phases
 //   exit      reach the door: the agent beams out, and the
 //             first time, opening it unlocks a card for keeps
 // The operator (the character who stayed behind) talks over comms between
-// beats; enemies wait for the briefing to finish. Power drawn from the map
+// beats; enemies wait for the briefing to finish. Raze, once he's free, gets
+// his own lines and a rotating operator (razestory.js). Power drawn from the map
 // takes on the agent's colour — green for Dex, pink for Juno, gold for Raze.
 // Clearing a section grants the agent a set power-up for the rest of the level
 // (game.js shows it). Going down fails the level.
@@ -37,6 +39,7 @@ import { rackHeight } from './pixelmap.js';
 import { sfxRelayCharged, sfxNode, sfxNodeWrong, sfxWaveClear, sfxIceCrack, sfxQueueRing, sfxShockDash, sfxAlarm } from './audio.js';
 import { STACKS, WIRE, VAULT } from './map.js';
 import { drawCharacterFrame } from './player.js';
+import { RAZE_OPS, RAZE_BEATS, POST_RESCUE_L5, applyLines } from './razestory.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
@@ -55,6 +58,15 @@ export const POWERUPS = {
     { id: 'hot_barrel', name: 'HOT BARREL', desc: 'The minigun fires 25% faster.',                 apply: p => { p.projCount += 1; } },
     { name: 'PIERCING STREAM', desc: 'Rounds pass through one enemy.',                apply: p => { p.piercingShots += 1; } },
     { name: 'RICOCHET',        desc: 'Rounds bounce once off racks.',                 apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; } },
+  ],
+  // Raze: his Level 1 card, then previews of his Level 3 and 4 cards
+  raze: [
+    { id: 'follow_up', name: 'FOLLOW-UP', desc: 'Hit the same Chromatic twice in a row without missing: the second round hits 80% harder, every one after that twice as hard.',
+      apply: p => { p.followUp = true; }, hint: () => 'A gold mark shows who you hit last. Miss, and it resets.' },
+    { name: 'SNARE TRAP', desc: 'Lob a trap over the racks. The first three Chromatics to cross it are held, and take 35% more damage.',
+      apply: p => { p.snare = true; p.abilities.push('snare'); },
+      hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
+    { name: 'PUNCH-THROUGH', desc: 'Your rounds go straight through one rack or cable bundle.', apply: p => { p.punchThrough = (p.punchThrough || 0) + 1; } },
   ],
 };
 
@@ -341,6 +353,9 @@ LEVELS[5] = {
   endOnBoss: true,   // the level ends the moment the boss dies
   blurb: 'Break the hoard. Kill what feeds on him. Bring Raze home.',
   outcome: "Raze is out. The Basement is quiet, for now.",
+  // Once Raze is free (LevelRun.post): the hoard grows back on the empty core
+  blurbPost: 'The hoard is growing back on the empty core. Put it down again.',
+  outcomePost: 'The Signal Hoarder is down again. The Basement is quiet.',
   unlockTop: 'THE HOARD COLLAPSES. THE CHARGE STAYS IN YOUR EMITTER.',
   points: {
     core:    VAULT.core,
@@ -391,6 +406,9 @@ const SIG_POWERS = {
   juno: { id: 'spin_up', name: 'HALF-LIFE', desc: 'For 5 seconds your rounds are unstable: what they hit decays, bleeding colour and a little health.',
           has: p => p.signature === 'juno', apply: p => { p.signature = 'juno'; p.abilities.push('signature'); },
           hint: touch => (touch ? 'Tap its round button. Rounds fired while it runs fill the anchors.' : 'Press F. Rounds fired while it runs fill the anchors.') },
+  raze: { id: 'laser_round', name: 'LASER ROUND', desc: 'One thin laser round straight across the room. It goes through every Chromatic in its path.',
+          has: p => p.signature === 'raze', apply: p => { p.signature = 'raze'; p.abilities.push('signature'); },
+          hint: touch => (touch ? 'Tap its round button. Line anchors up: one laser fills a light on each.' : 'Press F. Line anchors up: one laser fills a light on each.') },
 };
 // The Signal Hoarder (Level 5's boss)
 const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3.2, blinkThird: 7,  // blinkThird: the wait once 2 turrets stand
@@ -418,6 +436,9 @@ const WIRE_POWERS = {
   juno: { id: 'ricochet', name: 'RICOCHET', desc: 'Rounds bounce once off racks and cables.',
           has: p => (p.rackBounce || 0) > 0, apply: p => { p.rackBounce = (p.rackBounce || 0) + 1; },
           hint: () => 'Bounce shots off the cables to reach what you can\'t hit straight on.' },
+  raze: { id: 'punch_through', name: 'PUNCH-THROUGH', desc: 'Your rounds go straight through one rack or cable bundle.',
+          has: p => (p.punchThrough || 0) > 0, apply: p => { p.punchThrough = (p.punchThrough || 0) + 1; },
+          hint: () => 'Shoot through a cable bundle to reach what\'s behind it.' },
 };
 const ESCAPE_ZAP = 10;   // damage from walking into a live wire (dashing through is safe)
 
@@ -429,6 +450,9 @@ const THROW_POWERS = {
          hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
   juno: { id: 'decoy_beacon', name: 'DECOY BEACON', desc: 'Throw it over the racks: nearby Chromatics chase its light for 3 seconds.',
           has: p => !!p.decoy, apply: p => { p.decoy = true; p.abilities.push('decoy'); },
+          hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
+  raze: { id: 'snare_trap', name: 'SNARE TRAP', desc: 'Lob a trap over the racks. The first three Chromatics to cross it are held, and take 35% more damage.',
+          has: p => !!p.snare, apply: p => { p.snare = true; p.abilities.push('snare'); },
           hint: touch => (touch ? 'Press its button and drag to where it should land.' : 'Press E to throw it at the cursor.') },
 };
 
@@ -447,6 +471,9 @@ const DASH_POWERS = {
   juno: { id: 'parting_charge', name: 'PARTING CHARGE', desc: 'Dashing leaves a light bomb where you started. It bursts a moment later.',
           has: p => !!p.dashBomb, apply: p => { p.dashBomb = true; },
           hint: touch => (touch ? 'Tap DASH to leave one behind.' : 'Space or click to dash and leave one behind.') },
+  raze: { id: 'net', name: 'NET', desc: 'Your dash throws you the way you\'re moving, clear over low racks, and fires a net back the other way. Your next shot sends a tracer into everything it caught.',
+          has: p => !!p.netDash, apply: p => { p.netDash = true; },
+          hint: touch => (touch ? 'Tap DASH while running from them: the net lands on whoever\'s chasing.' : 'Dash while running from them: the net lands on whoever\'s chasing. Standing still, it flies at your cursor.') },
 };
 
 const VALVE_OPEN = 8;     // seconds a valve stays open once you step off
@@ -454,7 +481,7 @@ const TANK_HITS  = 2;     // dash-ability hits to crack a frozen tank
 
 // What opening each level's door unlocks for keeps, per agent: the first
 // power-up, as a card in that character's Arcade upgrade offers
-export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0] }, 2: DASH_POWERS, 3: THROW_POWERS, 4: WIRE_POWERS, 5: SIG_POWERS };
+export const LEVEL_CARDS = { 1: { dex: POWERUPS.dex[0], juno: POWERUPS.juno[0], raze: POWERUPS.raze[0] }, 2: DASH_POWERS, 3: THROW_POWERS, 4: WIRE_POWERS, 5: SIG_POWERS };
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -514,10 +541,16 @@ export class LevelRun {
     this.def   = LEVELS[id];
     this.id    = id;
     this.agent = agent;
-    this.op    = agent === 'dex' ? 'juno' : 'dex';
+    this.op    = agent === 'raze' ? (RAZE_OPS[id] || 'dex') : agent === 'dex' ? 'juno' : 'dex';
     this.api   = api;
     this.color = AGENT_COLOR[agent] || '#FFFFFF';
+    // Level 5 once Raze is free: the cage is empty (for everyone), and the
+    // scene after it only plays for Raze's own run
+    this.post  = id === 5 && !!(api.razeFree && api.razeFree());
     this.beats = this.def.beats(this.op, agent);
+    if (agent === 'raze') applyLines(this.beats, RAZE_BEATS[id]);
+    else if (this.post) applyLines(this.beats, POST_RESCUE_L5(this.op, agent));
+    this.outroKey = this.def.outro && (!this.post || agent === 'raze') ? this.def.outro : null;
     this.radio = new Radio();
     this.chroma = { violet: 0, yellow: 0, green: 0 };
     this.t = 0;
@@ -805,7 +838,7 @@ export class LevelRun {
     if (t0 < EXTRACT_BEAM && this.extractT >= EXTRACT_BEAM) { pl.startBeamOut(); this.api.beamOut(); }
     if (this.awaitUnlock || !pl.beamedOut || this.extractT < EXTRACT_BEAM + 1.6) return;
     // A scene after the level (game.js plays it, then sets outroDone)
-    if (this.def.outro && !this.outroDone) { this.wantOutro = true; return; }
+    if (this.outroKey && !this.outroDone) { this.wantOutro = true; return; }
     if (this.api.needsUnlock()) this.awaitUnlock = true;
     else this.openDoor();
   }
@@ -919,7 +952,7 @@ export class LevelRun {
   // What the dash abilities can crack right now
   get dashTargets() {
     if (!this.tanks || !this.beat || this.beat.type !== 'freezers' || !this.ready) return null;
-    return this.tanks.filter(t => t.hp > 0).map(t => ({ x: t.x, y: t.y, r: 16, hit: () => {
+    return this.tanks.filter(t => t.hp > 0).map(t => ({ x: t.x, y: t.y, r: 16, key: t, alive: () => t.hp > 0, hit: () => {
       if (t.hitT > 0 || t.hp <= 0) return;   // one hit per dash or burst
       t.hp--; t.hitT = 0.3;
       sfxIceCrack(t.hp <= 0);
@@ -968,14 +1001,15 @@ export class LevelRun {
       this._hitTarget(best);
     }
   }
-  // Rounds that reach a target: a bounced one counts; anything else glances off
+  // Rounds that reach a target: a bounced one counts, or one that went through
+  // a rack first (Raze's Punch-Through); anything else glances off
   _shotsOnTargets(ts) {
     const shots = this.api.projectiles ? this.api.projectiles().playerProjectiles : [];
     for (const p of shots) {
       for (const t of ts) {
         if (Math.hypot(p.x - t.x, p.y - t.y) > t.r + 3) continue;
         p.active = false;
-        if (p.bounced) this._hitTarget(t);
+        if (p.bounced || p.punched) this._hitTarget(t);
         else { t.shieldT = 0.3; if (!this._shieldSfx || this.t - this._shieldSfx > 0.3) { this._shieldSfx = this.t; sfxNodeWrong(); } }
         break;
       }
@@ -1031,20 +1065,35 @@ export class LevelRun {
   // ── Level 5 ──
   // Anchors: plain rounds glance off; Arc Discharge rounds (4 each) and rounds
   // fired during Half-Life fill them. F recharges twice as fast here.
+  // Raze's Laser Round (game.js traces it) fills one light on every anchor
+  // its line passes through
+  onLaser(x1, y1, x2, y2, castId) {
+    const b = this.beat;
+    if (!b || b.type !== 'overload' || !this.ready || !this.anchors) return;
+    const dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy || 1;
+    for (const a of this.anchors) {
+      if (a.hp <= 0 || a.cast === castId) continue;
+      const ay = a.y - 12, k = Math.max(0, Math.min(1, ((a.x - x1) * dx + (ay - y1) * dy) / L2));
+      if (Math.hypot(x1 + dx * k - a.x, y1 + dy * k - ay) > a.r + 6) continue;
+      a.cast = castId; a.hitT = 0.25;
+      this._pip(a, b);
+    }
+  }
+  _pip(a, b) {
+    a.hp--; a.charge = 0; a.pipT = 0.6;
+    sfxNode(ANCHOR_PIPS - a.hp - 1);
+    if (a.hp <= 0) {
+      const n = this.anchors.filter(x => x.hp <= 0).length;
+      sfxRelayCharged();
+      if (n < this.anchors.length) { this.radio.clear(); this.radio.say(b.eachDone[n - 1] || []); }
+    }
+  }
   _updateOverload(dt, b, pl) {
     pl.signatureCooldown = Math.max(0, (pl.signatureCooldown || 0) - dt);
     for (const a of this.anchors) { a.shieldT = Math.max(0, a.shieldT - dt); a.hitT = Math.max(0, a.hitT - dt); a.pipT = Math.max(0, a.pipT - dt); }
     const live = this.anchors.filter(a => a.hp > 0);
     const shots = this.api.projectiles ? this.api.projectiles().playerProjectiles : [];
-    const pip = a => {
-      a.hp--; a.charge = 0; a.pipT = 0.6;
-      sfxNode(ANCHOR_PIPS - a.hp - 1);
-      if (a.hp <= 0) {
-        const n = this.anchors.filter(x => x.hp <= 0).length;
-        sfxRelayCharged();
-        if (n < this.anchors.length) { this.radio.clear(); this.radio.say(b.eachDone[n - 1] || []); }
-      }
-    };
+    const pip = a => this._pip(a, b);
     for (const p of shots) {
       for (const a of live) {
         if (a.hp <= 0 || Math.hypot(p.x - a.x, p.y - (a.y - 12)) > a.r + 4) continue;
@@ -1251,6 +1300,7 @@ export class LevelRun {
   _updateBeam(dt, b, pl) {
     pl.grenadeCooldown = Math.max(0, (pl.grenadeCooldown || 0) - dt);
     pl.decoyCooldown   = Math.max(0, (pl.decoyCooldown || 0) - dt);
+    pl.snareCooldown   = Math.max(0, (pl.snareCooldown || 0) - dt);
     for (const m of this.mirrors) m.turnT = Math.max(0, m.turnT - dt);
     if (this.mirrors.every(m => m.ok)) { sfxRelayCharged(); this._finishBeat(); }
   }
@@ -1652,7 +1702,10 @@ export class LevelRun {
   // from its turrets, the beams that fly back at it, and its stun
   _drawRazeRoom(ctx, t) {
     const c = this.corePos;
-    const caged = !(this.extractT != null || this.complete);
+    // Once Raze is free the core is empty: the hoard knotting itself back
+    // together where the cage was
+    const caged = !this.post && !(this.extractT != null || this.complete);
+    const knot = this.post && !(this.boss && !this.boss.isAlive) && !this.complete && this.extractT == null;
     const gold = '#FFD23F', hoard = '#B98CFF';
     const touch = this.api.touch();
     const live5 = this.beat && this.beat.type === 'overload' && this.ready;
@@ -1661,7 +1714,7 @@ export class LevelRun {
     ctx.save();
     for (const a of anchors) {
       const x = Math.round(a.x), y = Math.round(a.y), alive = a.hp > 0;
-      if (alive && caged) energyRibbon(ctx, x, y - 20, c.x, c.y - 34, hoard, t, 1);
+      if (alive && (caged || knot)) energyRibbon(ctx, x, y - 20, c.x, c.y - 34, hoard, t, 1);
       ctx.globalCompositeOperation = 'lighter';
       if (alive) drawGlow(ctx, hoard, x, y - 18, 22, 0.3 + 0.1 * Math.sin(t * 2 + x));
       // Being charged: the agent's colour floods it, sparks fly
@@ -1700,7 +1753,7 @@ export class LevelRun {
       }
       // What to use on it
       if (live5) {
-        const label = touch ? (dex ? 'ARC' : 'HALF-LIFE') : 'F';
+        const label = touch ? (dex ? 'ARC' : this.agent === 'raze' ? 'LASER' : 'HALF-LIFE') : 'F';
         ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
         const w = ctx.measureText(label).width + 10;
         ctx.globalAlpha = 0.75 + 0.25 * Math.sin(t * 4);
@@ -1710,10 +1763,22 @@ export class LevelRun {
         ctx.globalAlpha = 1; ctx.textAlign = 'left';
       }
     }
-    // Raze on the core
-    drawCharacterFrame(ctx, 'raze', 0, 1, c.x - 16, c.y - 52, 1);
+    // Raze on the core (until he's free); after, the knot of hoarded light
+    if (!this.post) drawCharacterFrame(ctx, 'raze', 0, 1, c.x - 16, c.y - 52, 1);
     ctx.globalCompositeOperation = 'lighter';
-    if (caged) {
+    if (this.post) {
+      if (knot) {
+        drawGlow(ctx, hoard, c.x, c.y - 30, 40, 0.3 + 0.1 * Math.sin(t * 2.2));
+        ctx.strokeStyle = '#D9C2FF'; ctx.lineWidth = 1.5;
+        for (let k = 0; k < 3; k++) {   // loops of light winding round each other
+          ctx.globalAlpha = 0.45;
+          ctx.beginPath();
+          ctx.ellipse(c.x, c.y - 30, 14 + k * 3, 6 + k * 2, t * (0.8 + k * 0.4) * (k % 2 ? -1 : 1), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else drawGlow(ctx, gold, c.x, c.y - 26, 30, 0.2);
+    } else if (caged) {
       drawGlow(ctx, hoard, c.x, c.y - 30, 46, 0.25 + 0.08 * Math.sin(t * 1.6));
       ctx.lineWidth = 2;
       for (let k = 0; k < 7; k++) {   // bars of light, each rippling

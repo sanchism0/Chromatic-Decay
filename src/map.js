@@ -19,8 +19,9 @@ export class Camera {
 const W = CONFIG.map_width;
 const H = CONFIG.map_height;
 
-// Obstacle spec: { x, y, w, h }
-// All coords in world pixels, origin top-left.
+// Obstacle spec: { x, y, w, h, tall? }
+// All coords in world pixels, origin top-left. tall: a wall Raze's Net hop
+// can't clear (it hops low racks): walls that seal a puzzle or a route.
 
 function makeRack(x, y, w, h) {
   return { x, y, w, h };
@@ -186,13 +187,15 @@ function buildStacks() {
     const cx = 0.5 + Math.cos(a) * STACKS.ringR, cy = 0.5 + Math.sin(a) * STACKS.ringR;
     p(cx - T / 2, cy - T / 2, T, T);
   }
-  // Sealed pockets
+  // Sealed pockets (tall: nobody gets in, not even with a hop)
   const I = STACKS.pocketIn, Wt = STACKS.pocketWall;
+  const n0 = obs.length;
   for (const [cx, cy] of STACKS.pockets) {
     const x0 = cx - I / 2 - Wt, y0 = cy - I / 2 - Wt, S = I + 2 * Wt;
     p(x0, y0, S, Wt); p(x0, y0 + S - Wt, S, Wt);           // top, bottom
     p(x0, y0 + Wt, Wt, I); p(x0 + S - Wt, y0 + Wt, Wt, I); // left, right
   }
+  for (let i = n0; i < obs.length; i++) obs[i].tall = true;
   // Low tape shelves in the outer ring
   p(0.20, 0.17, 0.10, 0.03); p(0.70, 0.30, 0.03, 0.08);
   p(0.24, 0.70, 0.03, 0.09); p(0.70, 0.76, 0.10, 0.03);
@@ -218,9 +221,11 @@ function buildWireRoom() {
     Math.round(fx * W), Math.round(fy * H), Math.round(fw * W), Math.round(fh * H)));
   const T = 0.03;
   // Corridor walls: down the right (open at the top, into the room), then
-  // along the bottom (open at the right, round the corner)
+  // along the bottom (open at the right, round the corner). Tall: the escape
+  // has to be run, not hopped
   p(WIRE.wallX, 0.30, T, WIRE.wallY - 0.30 + T);
   p(0.0, WIRE.wallY, WIRE.wallX, T);
+  obs[0].tall = obs[1].tall = true;
   // The maze of cable bundles
   p(0.08, 0.20, 0.22, T); p(0.40, 0.17, 0.28, T);
   p(0.32, 0.26, T, 0.17); p(0.14, 0.30, T, 0.12);

@@ -15,6 +15,7 @@ const BLANK = () => ({
   signatures: {},                   // { dex: true } — unlocked signature abilities
   cards: {},                        // { dex: ['heavy_bursts'] } — Story cards for Arcade
   characters: { dex: true, juno: true, raze: false },
+  seen: {},                         // { raze: true } once his NEW tag has been seen on the pick screen
   player: { id: null, name: '' },   // leaderboard identity, one per device
   lifetime: 0,                      // Chroma ever earned, as one value (CHROMA_VALUE)
   best: {},                         // { desktop: n, mobile: n } — best Arcade score
@@ -74,6 +75,8 @@ export function recordClear(levelId, who) {
   row[who] = (row[who] || 0) + 1;
   if (first) p.storyAt = Date.now();
   const unlocks = [];
+  // Clearing Level 5 (with anyone) brings Raze home: he joins as an agent
+  if (+levelId === 5 && !p.characters.raze) { p.characters.raze = true; unlocks.push({ kind: 'agent', who: 'raze' }); }
   save();
   return { first, unlocks };
 }
@@ -91,6 +94,19 @@ export function unlockCard(who, id) {
   const p = profile();
   const list = p.cards[who] || (p.cards[who] = []);
   if (!list.includes(id)) list.push(id);
+  save();
+}
+
+// Raze is playable once he's been rescued (Level 5 cleared by anyone)
+export function razeFree() {
+  const p = profile();
+  return !!p.characters.raze || Object.values(p.clears[5] || {}).some(n => n > 0);
+}
+export const seenNew = who => !!(profile().seen || {})[who];
+export function markSeen(who) {
+  const p = profile();
+  if ((p.seen || (p.seen = {}))[who]) return;
+  p.seen[who] = true;
   save();
 }
 

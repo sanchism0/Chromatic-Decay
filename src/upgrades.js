@@ -136,9 +136,9 @@ export const STORY_CARDS = [
   { id: 'parting_charge', who: 'juno', name: 'Parting Charge', desc: 'Dashing leaves a light bomb where you started; it bursts a moment later.', baseWeight: 5, cap: 1,
     apply: p => { p.dashBomb = true; } },
   // Level 5's F abilities
-  { id: 'arc_discharge', who: 'dex', active: true, name: 'Arc Discharge', desc: 'Activated: a shotgun blast of electric rounds that pierce and stun.', baseWeight: 5, cap: 1,
+  { id: 'arc_discharge', who: 'dex', active: true, sig: true, name: 'Arc Discharge', desc: 'Activated: a shotgun blast of electric rounds that pierce and stun.', baseWeight: 5, cap: 1,
     apply: p => { p.signature = 'dex'; p.abilities.push('signature'); } },
-  { id: 'spin_up', who: 'juno', active: true, name: 'Half-Life', desc: 'Activated: 5 seconds of rounds that make Chromatics decay.', baseWeight: 5, cap: 1,
+  { id: 'spin_up', who: 'juno', active: true, sig: true, name: 'Half-Life', desc: 'Activated: 5 seconds of rounds that make Chromatics decay.', baseWeight: 5, cap: 1,
     apply: p => { p.signature = 'juno'; p.abilities.push('signature'); } },
   // Level 4's trick shots
   { id: 'arc_round', who: 'dex', name: 'Arc Round', desc: 'The last round of every burst arcs on to another enemy close by, for 10% more damage.', baseWeight: 5, cap: 1,
@@ -150,6 +150,17 @@ export const STORY_CARDS = [
     apply: p => { p.decoy = true; p.abilities.push('decoy'); } },
   { id: 'stun_grenade', who: 'dex', active: true, name: 'Stun Grenade', desc: 'Activated: lob a grenade that stuns and jams enemies.', baseWeight: 5, cap: 1,
     apply: p => { p.grenade = true; p.abilities.push('grenade'); } },
+  // Raze's, earned one per level by replaying the Story as him
+  { id: 'follow_up', who: 'raze', name: 'Follow-Up', desc: 'Hit the same Chromatic again without missing and it hits harder (Raze: +80%, then double).', baseWeight: 5, cap: 1,
+    apply: p => { p.followUp = true; } },
+  { id: 'net', who: 'raze', name: 'Net', desc: 'Your dash throws you clear and fires a net back the other way; your next shot sends tracers into what it caught.', baseWeight: 5, cap: 1,
+    apply: p => { p.netDash = true; } },
+  { id: 'snare_trap', who: 'raze', active: true, name: 'Snare Trap', desc: 'Activated: lob a trap that holds the first three Chromatics to cross it.', baseWeight: 5, cap: 1,
+    apply: p => { p.snare = true; p.abilities.push('snare'); } },
+  { id: 'punch_through', who: 'raze', name: 'Punch-Through', desc: 'Rounds go straight through one rack.', baseWeight: 5, cap: 1,
+    apply: p => { p.punchThrough = (p.punchThrough || 0) + 1; } },
+  { id: 'laser_round', who: 'raze', active: true, sig: true, name: 'Laser Round', desc: 'Activated: one thin laser round across the room, through every Chromatic in its path.', baseWeight: 5, cap: 1,
+    apply: p => { p.signature = 'raze'; p.abilities.push('signature'); } },
 ];
 
 export const CLASS_TRAITS = {
@@ -514,6 +525,7 @@ export class UpgradeScreen {
     const classSkills  = this._buildClassPool(unlockedClasses);
     this._who       = player.character;
     this._abilities = (player.abilities || []).length;
+    this._hasSig    = !!player.signature;   // one F signature per run
     this.cards = this._generateOffer(classSkills, archiveState);
     // Resolve any dynamic descriptions now that we have the player
     for (const card of this.cards) {
@@ -557,7 +569,7 @@ export class UpgradeScreen {
     // Every Story card any character has earned, minus taken ones; activated
     // abilities stop appearing once both slots (E, F) are full
     const story = STORY_CARDS.filter(c => hasCard(c.who, c.id) && (this.takenCounts[c.id] || 0) < c.cap &&
-                                          !(c.active && this._abilities >= 2));
+                                          !(c.active && this._abilities >= 2) && !(c.sig && this._hasSig));
     const available = [...GENERIC_UPGRADES.filter(u => (this.takenCounts[u.id] || 0) < u.cap), ...story];
     const weighted  = available.map(u => ({
       ...u,

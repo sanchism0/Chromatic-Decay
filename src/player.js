@@ -63,22 +63,40 @@ export { WALK_CYCLE, CELL_W, CELL_H };
 // (~1.7× the old single shot) — the difference is how it's delivered.
 //   Juno — minigun: a stream of light, low-damage rounds with a little spray
 //   Dex  — burst: three quick rounds per pull
-//   Raze — heavy: slow, strong, gold rounds
+//   Raze — long rifle: one slow, heavy gold round that flies fast and far
+//          and goes through the first thing it hits. About three to bring
+//          down a yellow, two with Follow-Up
 // Extra projectiles (Multicast) never double up the stream: for Dex each adds
 // a round to the burst, for Juno each makes the minigun 25% faster. Raze's
 // heavy rounds still fan out.
+// speed / range multiply the base round's; pierce is extra enemies it goes through.
 export const WEAPONS = {
-  juno: { name: 'Minigun', rate: 5.0,  burst: 1, gap: 0,     dmg: 0.40, spread: 0.07 },
-  dex:  { name: 'Burst',   rate: 0.85, burst: 3, gap: 0.075, dmg: 0.60, spread: 0.025 },
-  raze: { name: 'Heavy',   rate: 0.55, burst: 1, gap: 0,     dmg: 3.2,  spread: 0 },
+  juno: { name: 'Minigun',    rate: 5.0,  burst: 1, gap: 0,     dmg: 0.40, spread: 0.07 },
+  dex:  { name: 'Burst',      rate: 0.85, burst: 3, gap: 0.075, dmg: 0.60, spread: 0.025 },
+  raze: { name: 'Long Rifle', rate: 0.9,  burst: 1, gap: 0,     dmg: 1.8,  spread: 0, speed: 2.4,  range: 1.3, pierce: 1 },
 };
+
+// Raze is slower on his feet (the rifle makes up for it), and his dash goes
+// further to make up for that
+const CHAR_SPEED = { raze: 0.85 };
+const CHAR_DASH  = { raze: 120 };
+
+// Follow-Up (Raze's Level 1 card): hitting the same Chromatic again without
+// missing in between hits harder: [second hit, third and after]. Rounds from
+// a burst or a minigun land far more often, so theirs is smaller.
+export const FOLLOW_UP = { raze: [0.8, 1.0], dex: [0.15, 0.3], juno: [0.1, 0.2] };
+
+// Net (Raze's Level 2 card): his dash throws him the way he's moving (standing
+// still: away from his aim) in a longer hop that clears low racks, and fires
+// a net the other way (nets.js). Tall walls (map.js) still stop him.
+export const NET_HOP = { dist: 150, time: 0.26, cd: 2.4, lift: 16 };
 
 // Signature abilities — earned by clearing Story Level 1 with that character.
 // Space / F, on a cooldown.
 export const SIGNATURES = {
   dex:  { name: 'ARC DISCHARGE', cd: 9,  desc: 'A shotgun blast of electric rounds that pierce and stun.' },
   juno: { name: 'HALF-LIFE',     cd: 11, desc: 'For 5 seconds your rounds make Chromatics decay.' },
-  raze: { name: 'GOLD STANDARD', cd: 10, desc: 'Your next 3 rounds pierce everything and hit twice as hard.' },
+  raze: { name: 'LASER ROUND',   cd: 8,  desc: 'One thin laser round straight across the room. It goes through every Chromatic in its path.' },
 };
 
 // ── Dash (Space, or the touch button) ─────────────────────────
@@ -93,7 +111,7 @@ export const DASH_DIST = 88, DASH_TIME = 0.16, DASH_CD = 1.6;
 // Smooth fades only, no flicker. Timed to sfxBeamIn() in audio.js.
 export const BEAM_DUR = 1.05;
 const BEAM_DROP = 0.30;                                   // streak reaches the floor
-const BEAM_COLOR = { dex: '#B6FF2E', juno: '#E58CFF' };
+const BEAM_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD23F' };
 const _silhouettes = {};
 function silhouette(who, color, row = 0, col = 1) {   // default: standing, facing down
   const key = who + color + row + col;
@@ -306,10 +324,26 @@ export class Player {
 
   get effectiveSpeed() {
     const slow = (this.firing && !this.fireSlowImmune) ? CONFIG.player_fire_slow_multiplier : 1.0;
-    let spd = this.moveSpeed * this.speedMultiplier * slow;
+    let spd = this.moveSpeed * this.speedMultiplier * slow * (CHAR_SPEED[this.character] || 1);
     if (this.evasionTimer > 0) spd *= 1.6;
     return spd;
   }
+
+  get dashDist() { return CHAR_DASH[this.character] || DASH_DIST; }
+
+  // Follow-Up: called with the first Chromatic a round (or laser) hits;
+  // returns the damage multiplier for that hit
+  followUpHit(e) {
+    if (!this.followUp) return 1;
+    const fu = this._fu || (this._fu = { e: null, n: 0 });
+    if (fu.e === e) fu.n++; else { fu.e = e; fu.n = 1; }
+    const [b2, b3] = FOLLOW_UP[this.character] || FOLLOW_UP.raze;
+    if (fu.n >= 2) this.justFollowUp = fu.n;   // audio and the mark
+    return fu.n >= 3 ? 1 + b3 : fu.n === 2 ? 1 + b2 : 1;
+  }
+  // A round that hit nothing: the streak is gone
+  followUpMiss() { if (this._fu) { this._fu.e = null; this._fu.n = 0; } }
+  get followTarget() { return this._fu && this._fu.e && this._fu.e.isAlive ? this._fu : null; }
 
   get effectiveFireRate() {
     let rate = this.fireRate * this.fireRateMultiplier;
@@ -398,6 +432,8 @@ export class Player {
 
     this.dashCooldown = Math.max(0, (this.dashCooldown || 0) - dt);
     this.dashT        = Math.max(0, (this.dashT || 0) - dt);
+    const hopping     = this.hopT > 0;
+    this.hopT         = Math.max(0, (this.hopT || 0) - dt);
     for (const a of (this._afterimages || [])) a.age += dt;
     if (this._afterimages) this._afterimages = this._afterimages.filter(a => a.age < 0.25);
 
@@ -422,18 +458,33 @@ export class Player {
     const wantDash = this.dashQueued, to = this.dashToward;
     this.dashQueued = false; this.dashToward = null;
     if (wantDash && this.dashCooldown <= 0 && this.dashT <= 0) {
-      this.dashDir = to && Math.hypot(to.x - this.x, to.y - this.y) > 4 ? normalize(to.x - this.x, to.y - this.y)
-                   : (dx || dy) ? dir : { x: Math.cos(this.facing), y: Math.sin(this.facing) };
       this.dashFrom = { x: this.x, y: this.y };   // where it started (Juno's Parting Charge)
-      this.dashT = DASH_TIME;
-      this.dashCooldown = this.dashCooldownMax = DASH_CD;
+      if (this.netDash) {
+        // Net: thrown the way you're moving (standing still: away from your
+        // aim), and the net flies back the other way (game.js → nets.js)
+        this.dashDir = (dx || dy) ? dir : { x: -Math.cos(this.facing), y: -Math.sin(this.facing) };
+        this.dashT = this.hopT = this._hopMax = NET_HOP.time;
+        this._hopExtra = 0;
+        this.dashCooldown = this.dashCooldownMax = NET_HOP.cd;
+        this.justNet = { x: this.x, y: this.y - 6, a: Math.atan2(-this.dashDir.y, -this.dashDir.x) };
+      } else {
+        this.dashDir = to && Math.hypot(to.x - this.x, to.y - this.y) > 4 ? normalize(to.x - this.x, to.y - this.y)
+                     : (dx || dy) ? dir : { x: Math.cos(this.facing), y: Math.sin(this.facing) };
+        this.dashT = DASH_TIME;
+        this.dashCooldown = this.dashCooldownMax = DASH_CD;
+      }
       this._dodged = false;
       this._afterimages = [];
       this.justDashed = true;
     }
+    // A hop ending over a low rack carries on a little until it's clear
+    if (hopping && this.hopT <= 0 && map.obstacles.some(o => !o.tall && circleVsRect(this.x, this.y, this.size / 2, o.x, o.y, o.w, o.h))
+        && (this._hopExtra || 0) < 0.3) {
+      this.hopT = this.dashT = 0.03; this._hopExtra = (this._hopExtra || 0) + 0.03;
+    }
     if (this.dashT > 0) {
       dir = this.dashDir;
-      spd = DASH_DIST / DASH_TIME;
+      spd = this.hopT > 0 ? NET_HOP.dist / NET_HOP.time : this.dashDist / DASH_TIME;
       this._afterimages.push({ x: this.x, y: this.y, age: 0, cell: this._cell || [0, 1] });
     }
 
@@ -457,6 +508,7 @@ export class Player {
       let nx = this.x + vx * dt / steps;
       let ny = this.y + vy * dt / steps;
       for (const obs of map.obstacles) {
+        if (this.hopT > 0 && !obs.tall) continue;   // the Net hop clears low racks
         const hit = circleVsRect(nx, ny, r + 1, obs.x, obs.y, obs.w, obs.h);
         if (hit) {
           nx += hit.nx * hit.depth; ny += hit.ny * hit.depth;
@@ -648,12 +700,33 @@ export class Player {
       // Half-Life: her rounds go unstable for a while; what they hit decays
       this.spinUpTimer = 5;
     } else if (this.signature === 'raze') {
-      this.goldRounds = 3;
+      // Laser Round: one thin laser straight along the aim. game.js traces it
+      // (it goes through every Chromatic in its path) and draws it
+      const from = this.emitterPos(), ap = this._aimPoint;
+      const aim = ap && Math.hypot(ap.x - from.x, ap.y - from.y) > 24 ? angle(from.x, from.y, ap.x, ap.y) : this.facing;
+      this.laserShot = { x: from.x, y: from.y, a: aim, damage: this.effectiveDamage * 3.5, castId: this._castId };
     }
+  }
+
+  // Net: the next pull of the trigger after a net catches something fires a
+  // tracer at each thing caught. Tracers fly fast, steer onto their target and
+  // pass over racks; against what's netted they hit 2.5x as hard (enemies.js)
+  _fireTracers(projectileSystem) {
+    const q = (this.tracerQueue || []).filter(t => (t.hit ? t.alive() : t.isAlive && t.netT > 0));
+    this.tracerQueue = null;
+    if (!q.length) return false;
+    const from = this.emitterPos();
+    const damage = this.effectiveDamage * this.weapon.dmg;
+    for (const tg of q) {
+      const s = projectileSystem.spawnPlayer(from.x, from.y, angle(from.x, from.y, tg.x, tg.y), damage, 1300, 900, 0, false, false);
+      if (s) { s.tracer = true; s.homeTo = tg; s.rifle = this.character === 'raze'; }
+    }
+    return true;
   }
 
   // finalRound: the last round of a burst (Arc Round makes it electric)
   _shoot(projectileSystem, finalRound = false) {
+    if (this.tracerQueue && this._fireTracers(projectileSystem)) return;
     // Flash Crash: every 10th shot deals 400% damage
     let flashMultiplier = 1;
     if (this.flashCrash) {
@@ -690,16 +763,18 @@ export class Player {
       const shot = projectileSystem.spawnPlayer(
         from.x, from.y, a,
         damage,
-        this.projSpeed,
-        this.projRange,
-        gold ? 99 : this.piercingShots + (halfLife ? 2 : 0),
+        this.projSpeed * (W.speed || 1),
+        this.projRange * (W.range || 1),
+        gold ? 99 : this.piercingShots + (W.pierce || 0) + (halfLife ? 2 : 0),
         this.projectileBounce,
         isOverload || gold,
       );
       if (shot) {
         shot.rackBounce = this.rackBounce || 0;
+        shot.wallPierce = this.punchThrough || 0;
         shot.arc = !!(finalRound && this.arcRound);
         shot.spun = halfLife;
+        shot.rifle = this.character === 'raze';
       }
     }
   }
@@ -1018,7 +1093,7 @@ export class Player {
       const gx  = t.a * this.x + t.e;                          // ground point on screen
       const gy  = t.d * (this.y + s * 0.6) + t.f;
       const sx  = Math.round(gx - (CELL_W / 2) * px);
-      const sy  = Math.round(gy - (CELL_H - 1) * px);
+      const sy  = Math.round(gy - (CELL_H - 1) * px - this.hopLift * t.d);
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = false;
@@ -1139,6 +1214,12 @@ export class Player {
       ctx.shadowBlur  = 0;
       ctx.globalAlpha = 1;
     }
+  }
+
+  // Mid Net hop: how high he is off the floor (world px; visual only)
+  get hopLift() {
+    if (!(this.hopT > 0) || !this._hopMax) return 0;
+    return Math.sin(Math.min(1, 1 - this.hopT / this._hopMax) * Math.PI) * NET_HOP.lift;
   }
 
   // How high the body hovers above its ground shadow (visual only)

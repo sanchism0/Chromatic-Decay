@@ -119,8 +119,47 @@ export function stopAmbient() {
 // goes "PEW" with an electric buzz; Juno's tuned antenna coil rings like glass.
 
 export function sfxShoot(overload = false, character = 'dex') {
-  if (character === 'juno') _shotGlass(overload);
-  else                      _shotPew(overload);
+  if (character === 'juno')      _shotGlass(overload);
+  else if (character === 'raze') _shotRifle();
+  else                           _shotPew(overload);
+}
+
+// Raze — "Rifle crack": a sharp crack of light (bright noise snapping shut),
+// a deep thump for the weight of it, and a thin glassy ring that hangs in the
+// air after, like the round splitting the air. One every second or so, so it
+// can afford to be the loudest of the three.
+function _shotRifle() {
+  const ctx = _ac();
+  const t   = ctx.currentTime + 0.002;
+  const out = ctx.createGain();
+  out.gain.value = 0.75;
+  out.connect(_sfxBus());
+  // Crack: 40 ms of noise through a high band that drops
+  const len = Math.ceil(ctx.sampleRate * 0.05);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp  = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(5200, t); bp.frequency.exponentialRampToValueAtTime(1400, t + 0.05);
+  const ng  = ctx.createGain(); ng.gain.value = 0.32;
+  src.connect(bp); bp.connect(ng); ng.connect(out);
+  src.start(t); src.stop(t + 0.06);
+  // Weight
+  _thump(ctx, out, t, 140, 48, 0.16, 0.16);
+  // The ring: two sines a sixth apart, sliding down a touch
+  for (const [f, pk, dur] of [[1760, 0.03, 0.35], [2930, 0.015, 0.25]]) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f, t + 0.01);
+    o.frequency.exponentialRampToValueAtTime(f * 0.92, t + dur);
+    g.gain.setValueAtTime(0.0001, t + 0.01);
+    g.gain.linearRampToValueAtTime(pk, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(out);
+    o.start(t + 0.01); o.stop(t + dur + 0.02);
+  }
+  setTimeout(() => out.disconnect(), 700);
 }
 
 // Dex — "Electric pew": two slightly detuned sawtooths swooping down fast,
@@ -395,6 +434,7 @@ const _BLIP = {
   dex:  { type: 'square', f: 940,  peak: 0.035 },
   juno: { type: 'square', f: 1050, peak: 0.033 },
   null: { type: 'sine',   f: 620,  peak: 0.06  },
+  raze: { type: 'square', f: 760,  peak: 0.032 },
   card: { type: 'triangle', f: 520, peak: 0.05 },
 };
 
@@ -491,8 +531,12 @@ export function sfxSignature(who) {
     _osc('sine', 90, t, 0.7, 0.07, 70);
     _osc('triangle', 660, t, 0.5, 0.025, 610);
     for (let i = 0; i < 10; i++) _noise(t + 0.03 + Math.random() * 0.55, 0.012, 0.06, 4500, 3);
-  } else {                      // Gold Standard: a heavy chime
-    [523.2, 784, 1046.5].forEach((f, i) => _osc('triangle', f, t + i * 0.05, 0.6, 0.08));
+  } else {                      // Laser Round: a quick rising charge, then a long glassy sizzle
+    _osc('sine', 440, t, 0.08, 0.05, 1760);
+    _noise(t + 0.06, 0.4, 0.09, 6000, 1.5);
+    _osc('sawtooth', 1980, t + 0.06, 0.45, 0.035, 1320);
+    _osc('sine', 3960, t + 0.06, 0.5, 0.02, 3520);
+    _osc('sine', 110, t + 0.06, 0.3, 0.14, 50);
   }
 }
 
@@ -675,4 +719,40 @@ export function sfxAlarm() {
   _osc('square', 660, t, 0.22, 0.035, 620);
   _osc('square', 495, t + 0.26, 0.22, 0.035, 470);
   _noise(t, 0.08, 0.02, 3000, 2);
+}
+
+// ── Raze ───────────────────────────────────────────────────────
+// Follow-Up landing: a short glassy tick, a step higher the longer the streak
+export function sfxFollowUp(n = 2) {
+  const t = _ac().currentTime;
+  const f = n >= 3 ? 2349 : 1976;
+  _osc('triangle', f, t, 0.09, 0.05);
+  _osc('sine', f * 1.5, t + 0.02, 0.12, 0.025);
+}
+// Net thrown: a whip of air and a crackle of light spreading out
+export function sfxNetFire() {
+  const t = _ac().currentTime;
+  _noise(t, 0.16, 0.08, 1800, 0.8);
+  _osc('sawtooth', 900, t, 0.14, 0.03, 2400);
+  for (let i = 0; i < 4; i++) _noise(t + 0.05 + i * 0.03, 0.02, 0.04, 5000, 3);
+}
+// Net catching: a tight glassy zap
+export function sfxNetCatch() {
+  const t = _ac().currentTime;
+  _osc('square', 1320, t, 0.08, 0.035, 660);
+  _osc('sine', 1980, t, 0.18, 0.03);
+  _noise(t, 0.06, 0.05, 4200, 2);
+}
+// Snare landing and arming: a low click and a hum winding up
+export function sfxSnareArm() {
+  const t = _ac().currentTime;
+  _osc('square', 300, t, 0.04, 0.04, 200);
+  _osc('triangle', 220, t + 0.04, 0.3, 0.04, 440);
+}
+// Snare snapping shut on something: a sharp bright snap and a short buzz
+export function sfxSnareSnap() {
+  const t = _ac().currentTime;
+  _noise(t, 0.04, 0.12, 3800, 2);
+  _osc('square', 880, t, 0.06, 0.04, 1320);
+  _osc('sawtooth', 120, t + 0.02, 0.25, 0.03, 90);
 }

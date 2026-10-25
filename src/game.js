@@ -3,12 +3,15 @@
 import { CONFIG }           from './config.js';
 import { Input }            from './input.js';
 import { Camera, GameMap }  from './map.js';
-import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD } from './player.js';
+import { Player, drawCharacterFrame, WALK_CYCLE, CELL_W, CELL_H, SIGNATURES, WEAPONS, DASH_CD, NET_HOP } from './player.js';
 import { LevelRun, LEVELS, AGENT_COLOR, LEVEL_CARDS } from './level.js';
 import { GrenadeSystem, GRENADE_CD, GRENADE_RANGE, GRENADE_RADIUS } from './grenade.js';
 import { DecoySystem, DECOY_CD, DECOY_RADIUS } from './decoy.js';
 import { DashPowers } from './dashpowers.js';
-import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE } from './profile.js';
+import { NetSystem } from './nets.js';
+import { SnareSystem, SNARE_CD, SNARE_RADIUS } from './snare.js';
+import { RAZE_SCENES, RAZE_SIDES, RAZE_OUTCOMES } from './razestory.js';
+import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE, razeFree, seenNew, markSeen } from './profile.js';
 import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
@@ -28,7 +31,7 @@ import { FRAGMENT_DATA, getRunFragment, placeFragment } from './fragments.js';
 import { WaveSystem, CHARGE_COLORS } from './waves.js';
 import { clamp, formatTime, dist } from './utils.js';
 import { AdminPanel } from './admin.js';
-import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxBeamOut, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge, sfxEnabled, setSfxEnabled } from './audio.js';
+import { startAmbient, stopAmbient, startTitleMusic, stopTitleMusic, sfxShoot, sfxEnemyKill, sfxPlayerHit, sfxWaveClear, sfxFragmentPickup, resumeAudio, sfxTimerWarning, sfxCountdownTick, sfxBeamIn, sfxBeamOut, sfxEchoPickup, sfxSignature, sfxDeath, sfxRelayCharged as sfxRelayChime, sfxUnlockTune, sfxDash, sfxPerfectDodge, sfxEnabled, setSfxEnabled, sfxFollowUp } from './audio.js';
 
 // ── Canvas ────────────────────────────────────────────────────
 
@@ -123,6 +126,8 @@ const input       = new Input(canvas);
 const grenades    = new GrenadeSystem();
 const decoys      = new DecoySystem();
 const dashPowers  = new DashPowers();
+const nets        = new NetSystem();     // Raze's Net
+const snares      = new SnareSystem();   // Raze's Snare Trap
 const camera      = new Camera();
 const particles   = new ParticleSystem();
 const drain       = new DrainSystem();
@@ -224,9 +229,12 @@ function startRun(opts = {}) {
   projectiles.reset();
   grenades.reset();
   decoys.reset();
+  snares.reset();
   // A thrown ability landing (Level 3's mirror switches react to it)
-  grenades.onLand = decoys.onLand = (x, y) => { if (level && level.onThrowLand) level.onThrowLand(x, y); };
+  grenades.onLand = decoys.onLand = snares.onLand = (x, y) => { if (level && level.onThrowLand) level.onThrowLand(x, y); };
   dashPowers.reset();
+  nets.reset();
+  _lasers.length = 0;
   lore.reset();
   lore.enabled = !tutorial && !levelId;   // the operator does the talking in Story
   upgradeUI.takenIds    = [];
@@ -592,6 +600,7 @@ function updatePlaying(dt) {
   // With none in that slot, the key does nothing. On touch, each has a button.
   player.grenadeCooldown = Math.max(0, (player.grenadeCooldown || 0) - dt);
   player.decoyCooldown   = Math.max(0, (player.decoyCooldown || 0) - dt);
+  player.snareCooldown   = Math.max(0, (player.snareCooldown || 0) - dt);
   if (input.justPressed.e) _useAbility(player.abilities[0]);
   if (input.justPressed.f) _useAbility(player.abilities[1]);
   if (input.mouseJustClicked && _hitBtn(_grenadeBtn.r)) _useAbility(_throwId());
@@ -621,6 +630,9 @@ function updatePlaying(dt) {
   if (player.justFired) sfxShoot(player.lastShotOverload, player.character);
   if (player.justHit)   { sfxPlayerHit(); player.justHit = false; waveSystem.noDamageTaken = false; story.onHit(); }
   if (player.justSignature) _signatureEffects(player.justSignature);
+  if (player.justNet) { nets.fire(player.justNet.x, player.justNet.y, player.justNet.a); player.justNet = null; }
+  for (const l of _lasers) l.t += dt;
+  while (_lasers.length && _lasers[0].t >= LASER_FADE) _lasers.shift();
   if (player.justDashed) {
     player.justDashed = false;
     sfxDash();
@@ -707,6 +719,8 @@ function updatePlaying(dt) {
   grenades.update(dt, enemies);
   decoys.update(dt, enemies);
   dashPowers.update(dt, player, enemies, level ? level.dashTargets : null);
+  nets.update(dt, player, enemies, map, level ? level.dashTargets : null);
+  snares.update(dt, enemies);
 
   // Projectiles
   projectiles.update(dt, map, player);
@@ -727,6 +741,9 @@ function updatePlaying(dt) {
   // Projectile → enemy hits
   enemies.arcTargets = level ? level.arcTargets : null;   // an Arc Round can jump to these too
   const projKilled = enemies.checkProjectileHits(projectiles, particles, player);
+  // Follow-Up: a round that hit nothing breaks the streak; a streak hit chimes
+  if (projectiles.missed) { player.followUpMiss(); projectiles.missed = 0; }
+  if (player.justFollowUp) { sfxFollowUp(player.justFollowUp); player.justFollowUp = 0; }
   for (const e of projKilled) {
     if (!e._storyCounted && story.inTutorial) { e._storyCounted = true; story.onKill(); }
     if (level && !e._levelCounted) { e._levelCounted = true; level.onKill(e); }
@@ -874,13 +891,13 @@ function updatePlaying(dt) {
     else if (level.failed) { _startDeath(); return; }
     else if (level.wantOutro && state === STATES.PLAYING) {
       // A scene after the level (Level 5: meeting Raze), then on to the card and results
-      const lv = level, key = lv.def.outro, who = lv.agent;
-      const lines = OUTROS[key] && OUTROS[key][who];
+      const lv = level, who = lv.agent;
+      const lines = _sceneFor('outro', lv.id, who, lv.outroKey);
       lv.wantOutro = false;
       if (!lines) { lv.outroDone = true; }
       else {
         _storyTime = 0;
-        const sides = who === 'dex' ? { juno: 'left', dex: 'right', raze: 'left', null: 'left' } : { dex: 'left', juno: 'right', raze: 'left', null: 'left' };
+        const sides = _sceneSides(who);
         story.playInterlude(lines, sides, () => { lv.outroDone = true; state = STATES.PLAYING; });
         state = STATES.STORY;
         return;
@@ -1439,6 +1456,7 @@ function drawGame(W, H) {
   projectiles.drawFizzles(ctx);
   enemies.draw(ctx);
   _drawHalfLife(ctx, false);
+  snares.draw(ctx);
   player.draw(ctx);
   _drawHalfLife(ctx, true);
   drain.draw(ctx, player);
@@ -1464,6 +1482,8 @@ function drawGame(W, H) {
   projectiles.drawHalos(ctx);
   enemies.drawHalos(ctx);
   player.drawHalo(ctx);
+  _drawFollowMark(ctx);
+  _drawLasers(ctx);
   ctx.restore();
 
   // Grenades fly over the racks, and their smoke has to read over the glow,
@@ -1472,6 +1492,7 @@ function drawGame(W, H) {
   decoys.draw(ctx);
   _drawGrenadeAim(ctx);
   dashPowers.draw(ctx);
+  nets.draw(ctx);
   if (level) level.drawOverRacks(ctx);
 
   // ── Charging zones (pre-spawn indicators) ────────────────
@@ -1868,6 +1889,7 @@ const levelApi = {
   touch:      () => 'ontouchstart' in window,
   beamOut: () => sfxBeamOut(),
   needsUnlock: () => { const c = _levelCard(); return !!c && !hasCard(selectedCharacter, c.id); },
+  razeFree:    () => razeFree(),
 };
 
 const STORY_LEVELS = [
@@ -1899,7 +1921,8 @@ function _finishLevel() {
   bankChroma(counts, 1);
   const rec = recordClear(level.id, level.agent);
   syncPlayer();
-  _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks, outcome: level.def.outcome };
+  const outcome = level.agent === 'raze' ? RAZE_OUTCOMES[level.id] : level.post ? level.def.outcomePost : level.def.outcome;
+  _levelResult = { id: level.id, name: level.def.name, agent: level.agent, chroma: counts, first: rec.first, unlocks: rec.unlocks, outcome };
   level = null;
   _levelEndDelay = 0.6;
   sfxWaveClear();
@@ -1920,11 +1943,15 @@ function drawLevelEnd(W, H) {
   if (!r) return;
   dimBackdrop(ctx, W, H, 0.78);
   const sig = r.unlocks.find(u => u.kind === 'signature');
+  const newAgent = r.unlocks.find(u => u.kind === 'agent');
   const pW = Math.min(460, W - 28);
   ctx.font = '13px monospace';
   const outL = r.outcome ? _wrapLines(r.outcome, pW - 30) : [];
   const dy = outL.length ? outL.length * 17 + 4 : 0;   // room for the mission outcome
-  const pH = (sig ? 330 : 236) + dy;
+  ctx.font = '12px monospace';
+  const agentL = newAgent ? _wrapLines("Long rifle, slow and heavy. Pick him for Arcade, or replay the Story as him: each level he clears gives one of his tricks back.", pW - 60) : [];
+  const agentH = newAgent ? 62 + agentL.length * 15 : 0;
+  const pH = (sig ? 330 : 236) + dy + (newAgent ? agentH + 16 : 0);
   const pX = (W - pW) / 2, pY = Math.max(16, (H - pH) / 2 - 8);
   const col = AGENT_COLOR[r.agent];
   const top = drawSlab(ctx, pX, pY, pW, pH, { accent: col, depth: 12, screen: 40, glow: 0.35 });
@@ -1971,6 +1998,18 @@ function drawLevelEnd(W, H) {
     ctx.fillStyle = '#7ADDD4'; ctx.font = '10px monospace';
     ctx.fillText(touch ? 'Tap its button. Works in Story and Arcade.' : 'Press E. Works in Story and Arcade.', W / 2, by + 78);
     by += 104;
+  }
+  // Level 5's first clear: Raze joins
+  if (newAgent) {
+    const gold = AGENT_COLOR.raze;
+    const at = drawSlab(ctx, pX + 18, by, pW - 36, agentH, { accent: gold, depth: 4, glow: 0.4 });
+    ctx.fillStyle = gold; ctx.font = 'bold 12px monospace';
+    ctx.fillText('NEW AGENT', W / 2, at + 16);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 17px monospace';
+    ctx.fillText('RAZE', W / 2, at + 37);
+    ctx.fillStyle = '#C4C8D4'; ctx.font = '12px monospace';
+    agentL.forEach((l, k) => ctx.fillText(l, W / 2, at + 55 + k * 15));
+    by += agentH + 16;
   }
   const bw = (pW - 60) / 2;
   _levelEndBtns.cont   = drawSlabButton(ctx, pX + 20, by, bw, 40, 'CONTINUE', { accent: '#00E5FF', fontSize: 13, lift: _hitBtn(_levelEndBtns.cont) ? 1 : 0 });
@@ -2055,11 +2094,11 @@ function drawStoryMap(W, H) {
       if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
       // A tick per character who has cleared it; signatures come from these
-      sub(LEVELS[row.id].blurb, '#8A8E99');
+      sub(row.id === 5 && razeFree() ? LEVELS[5].blurbPost : LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;
-      for (const who of ['juno', 'dex']) {
+      for (const who of razeFree() ? ['raze', 'juno', 'dex'] : ['juno', 'dex']) {
         const n = timesCleared(row.id, who);
         const label = `${who.toUpperCase()} ${n ? '✓' : '·'}`;
         ctx.fillStyle = n ? AGENT_COLOR[who] : '#4A5560';
@@ -2096,7 +2135,7 @@ function updateAbilityUnlock(dt) {
 function drawAbilityUnlock(W, H) {
   const card = _levelCard();
   if (!card) return;
-  const name = level.agent === 'dex' ? 'Dex' : 'Juno';
+  const name = level.agent[0].toUpperCase() + level.agent.slice(1);
   _drawReward(W, H, {
     color: AGENT_COLOR[level.agent], top: level.def.unlockTop || 'THE DOOR DRINKS THE CHARGE. SOME OF IT STAYS WITH YOU.',
     label: 'NEW CARD  ·  YOURS TO KEEP', name: card.name, desc: card.desc,
@@ -2302,8 +2341,92 @@ function _signatureEffects(who) {
   sfxSignature(who);
   const col = AGENT_COLOR[who];
   // Half-Life: a soft ring of her colour; Arc Discharge's blast is its rounds
-  if (who !== 'dex') particles.classEmergence(player.x, player.y, col);
+  if (who === 'juno') particles.classEmergence(player.x, player.y, col);
   // (Arc Discharge's stun rides on its rounds; Half-Life's decay on Juno's)
+  if (who === 'raze' && player.laserShot) { _fireLaser(player.laserShot); player.laserShot = null; }
+}
+
+// Raze's Laser Round: a thin laser straight along his aim, right across the
+// room. It stops at the first rack (Punch-Through lets it through one) and
+// hits every Chromatic on its line, nearest first (the first counts for
+// Follow-Up). Level 5's anchors take a light from it (level.onLaser).
+const _lasers = [];
+const LASER_FADE = 0.45;
+function _fireLaser(ls) {
+  const ux = Math.cos(ls.a), uy = Math.sin(ls.a);
+  let through = player.punchThrough || 0, inside = null, end = 1700;
+  for (let d = 0; d < 1700; d += 4) {
+    const x = ls.x + ux * d, y = ls.y + uy * d;
+    if (x < 0 || y < 0 || x > CONFIG.map_width || y > CONFIG.map_height) { end = d; break; }
+    const o = map.obstacles.find(r => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h);
+    if (o && o !== inside) {
+      if (through > 0) { through--; inside = o; projectiles.punches.push({ x, y, a: ls.a, t: 0 }); }
+      else { end = d; break; }
+    } else if (!o) inside = null;
+  }
+  const x2 = ls.x + ux * end, y2 = ls.y + uy * end;
+  const hits = [];
+  for (const e of enemies.enemies) {
+    if (!e.isAlive || e.phased) continue;
+    const k = (e.x - ls.x) * ux + (e.y - ls.y) * uy;
+    if (k < 0 || k > end) continue;
+    if (Math.abs((e.y - ls.y) * ux - (e.x - ls.x) * uy) <= e.hitSize + 4) hits.push({ e, k });
+  }
+  hits.sort((a, b) => a.k - b.k);
+  hits.forEach(({ e }, i) => e.takeDamage(ls.damage * (i === 0 && player.followUp ? player.followUpHit(e) : 1)));
+  if (!hits.length) player.followUpMiss();
+  if (player.justFollowUp) { sfxFollowUp(player.justFollowUp); player.justFollowUp = 0; }
+  if (level && level.onLaser) level.onLaser(ls.x, ls.y, x2, y2, ls.castId);
+  _lasers.push({ x1: ls.x, y1: ls.y, x2, y2, t: 0 });
+}
+
+// The laser: a thin bright core with two gold strands twisting tight round
+// it, fading out (never a plain line; no flash)
+function _drawLasers(ctx) {
+  for (const l of _lasers) {
+    const a = 1 - l.t / LASER_FADE;
+    const dx = l.x2 - l.x1, dy = l.y2 - l.y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#FFD23F';
+    ctx.globalAlpha = 0.16 * a; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+    const steps = Math.max(8, Math.round(L / 5));
+    ctx.lineWidth = 1;
+    for (const side of [1, -1]) {
+      ctx.globalAlpha = 0.8 * a;
+      ctx.beginPath();
+      for (let k = 0; k <= steps; k++) {
+        const f = k / steps, off = side * Math.sin(f * L / 7 - l.t * 30) * (1.5 + 2 * l.t / LASER_FADE);
+        const x = l.x1 + dx * f + nx * off, y = l.y1 + dy * f + ny * off;
+        k ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#FFF6C8'; ctx.globalAlpha = a; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+    drawGlow(ctx, '#FFD23F', l.x1, l.y1, 16, 0.5 * a);
+    drawGlow(ctx, '#FFD23F', l.x2, l.y2, 22, 0.5 * a);
+    ctx.restore();
+  }
+}
+
+// Follow-Up: three gold brackets round the last Chromatic hit, turning
+// slowly; one lights per hit in the streak (lit = the next hit is boosted)
+function _drawFollowMark(ctx) {
+  const fu = player && player.followUp && player.followTarget;
+  if (!fu) return;
+  const e = fu.e, t = _gameTime(), n = Math.min(3, fu.n);
+  const r = e.drawSize * 1.9, cy = e.y - e.lift;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = '#FFD23F'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 3; i++) {
+    const a0 = -Math.PI / 2 + i * Math.PI * 2 / 3 + t * 0.8;
+    ctx.globalAlpha = i < n ? 0.9 : 0.25;
+    ctx.beginPath(); ctx.arc(e.x, cy, r, a0 - 0.45, a0 + 0.45); ctx.stroke();
+  }
+  ctx.restore();
 }
 
 // Touch grenade aim: the drag from the button, as a landing point. A drag of
@@ -2320,6 +2443,7 @@ function _grenadeDragAim(d) {
 const THROWS = {
   grenade: { name: 'GRENADE', color: '#B6FF2E', cd: () => player.grenadeCooldown || 0, max: GRENADE_CD, radius: GRENADE_RADIUS },
   decoy:   { name: 'DECOY',   color: '#E58CFF', cd: () => player.decoyCooldown || 0,   max: DECOY_CD,   radius: DECOY_RADIUS * 0.5 },
+  snare:   { name: 'SNARE',   color: '#FFD23F', cd: () => player.snareCooldown || 0,   max: SNARE_CD,   radius: SNARE_RADIUS },
 };
 function _throwId() { return player ? player.abilities.find(id => THROWS[id]) || null : null; }
 input.dragHit = (x, y) => state === STATES.PLAYING && !!player && !!_throwId() && THROWS[_throwId()].cd() <= 0 &&
@@ -2364,6 +2488,14 @@ function _useAbility(id, at) {
     const ty = at ? at.y : ap ? ap.y : player.y + Math.sin(player.facing) * 190;
     decoys.throw(player.x, player.y - 8, tx, ty);
     player.decoyCooldown = DECOY_CD;
+  } else if (id === 'snare' && player.snare && player.snareCooldown <= 0) {
+    // Snare Trap: thrown the same way as the grenade
+    const ap = player._aimPoint;
+    if (!at && 'ontouchstart' in window) return;
+    const tx = at ? at.x : ap ? ap.x : player.x + Math.cos(player.facing) * 190;
+    const ty = at ? at.y : ap ? ap.y : player.y + Math.sin(player.facing) * 190;
+    snares.throw(player.x, player.y - 8, tx, ty);
+    player.snareCooldown = SNARE_CD;
   } else if (id === 'signature' && player.signature && player.signatureCooldown <= 0) {
     player._useSignature(projectiles);
   }
@@ -2419,7 +2551,7 @@ function _abilityInfo(id) {
 function _drawKeyBar(W, H) {
   if (!player || 'ontouchstart' in window) return;
   const slots = [
-    { key: 'SPACE', name: 'DASH', color: '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
+    { key: 'SPACE', name: player.netDash ? 'NET' : 'DASH', color: player.netDash ? '#FFD23F' : '#E8F0FF', cd: player.dashCooldown || 0, max: player.dashCooldownMax || DASH_CD },
     { key: 'E', ...(_abilityInfo(player.abilities[0]) || {}) },
     { key: 'F', ...(_abilityInfo(player.abilities[1]) || {}) },
   ];
@@ -2470,7 +2602,7 @@ function _drawDashBtn(W, H) {
   _dashBtn.r = null;
   if (!('ontouchstart' in window) || !player) return;
   const cd = player.dashCooldown || 0;
-  _dashBtn.r = _roundBtn(_btnSlotX(W, 0), _btnRowY(H), cd > 0 ? cd.toFixed(1) : 'DASH', '#E8F0FF',
+  _dashBtn.r = _roundBtn(_btnSlotX(W, 0), _btnRowY(H), cd > 0 ? cd.toFixed(1) : player.netDash ? 'NET' : 'DASH', player.netDash ? '#FFD23F' : '#E8F0FF',
     { cdFrac: cd / (player.dashCooldownMax || DASH_CD) });
 }
 
@@ -2504,34 +2636,64 @@ function _drawSignature(W, H) {
 const CHARACTERS = [
   { id: 'dex',  name: 'DEX',  color: '#B6FF2E', second: '#2DE2F0', line: 'Hits it until it works.',  emitter: 'Magnetron rig · burst' },
   { id: 'juno', name: 'JUNO', color: '#C79BFF', second: '#7A3DFF', line: 'Reads the signal first.',  emitter: 'Antenna coil · minigun' },
+  { id: 'raze', name: 'RAZE', color: '#FFD23F', second: '#FFF0A8', line: "Doesn't miss.",            emitter: 'Long rifle · heavy' },
 ];
+// Who's on the pick screen: the prologue is Dex and Juno's story; Raze shows
+// everywhere else, locked (a dim silhouette) until he's been rescued
+const _csChars = () => CHARACTERS.filter(c => c.id !== 'raze' || _csMode !== 'story');
+const _canPick = id => id !== 'raze' || razeFree();
 let selectedCharacter = (() => {
-  try { const c = localStorage.getItem('chromatic_decay_character'); return c === 'juno' ? 'juno' : 'dex'; }
+  try { const c = localStorage.getItem('chromatic_decay_character'); return c === 'juno' ? 'juno' : c === 'raze' && razeFree() ? 'raze' : 'dex'; }
   catch { return 'dex'; }
 })();
-const _charBtns = { dex: null, juno: null, back: null };
+const _charBtns = { dex: null, juno: null, raze: null, back: null };
 let _csDelay = 0, _csPrevA = false, _csPrevD = false, _csTime = 0;
+let _csLockedT = 0;                // a moment of "not yet" after tapping locked Raze
+const _csMouse = { x: -1, y: -1 };
 
 let _csMode = 'arcade';            // 'arcade' starts a run; 'story' hands the pick to the story
 function _openCharSelect(mode = 'arcade') {
   _csMode  = mode;
   _csDelay = 0.2;                  // ignore the click that opened this screen
   _csPrevA = input.keys.a; _csPrevD = input.keys.d;
+  _csLockedT = 0;
+  _csMouse.x = input.mouseX; _csMouse.y = input.mouseY;
+  if (!_csChars().some(c => c.id === selectedCharacter && _canPick(c.id))) selectedCharacter = 'dex';
   state = STATES.CHAR_SELECT;
 }
 
+// The scene before or after a level for this agent, or null. Raze has his
+// own (razestory.js); once he's free, Level 5's "what to expect from Raze"
+// scene is skipped for the others (outroKey already says whether Level 5's
+// meeting plays)
+function _sceneFor(kind, levelId, who, outroKey) {
+  const def = LEVELS[levelId];
+  if (!def) return null;
+  if (who === 'raze') return (kind === 'intro' ? RAZE_SCENES.intro : RAZE_SCENES.outro)[levelId] || null;
+  if (kind === 'intro') {
+    if (levelId === 5 && razeFree()) return null;
+    return def.intro && INTROS[def.intro] ? INTROS[def.intro][who] || null : null;
+  }
+  return outroKey && OUTROS[outroKey] ? OUTROS[outroKey][who] || null : null;
+}
+// Which side each portrait stands on in a scene, by agent
+function _sceneSides(who) {
+  if (who === 'raze') return RAZE_SIDES;
+  return who === 'dex' ? { juno: 'left', dex: 'right', null: 'left', raze: 'left' } : { dex: 'left', juno: 'right', null: 'left', raze: 'left' };
+}
+
 function _pickCharacter(id) {
+  if (!_canPick(id)) { _csLockedT = 2.2; return; }
   selectedCharacter = id;
+  if (id === 'raze') markSeen('raze');
   try { localStorage.setItem('chromatic_decay_character', id); } catch {}
   if (_csMode === 'story') { story.picked(id); state = STATES.STORY; return; }
   if (_csMode === 'level') {
     // Some levels open with a short scene first (skippable)
-    const key = LEVELS[_pendingLevel] && LEVELS[_pendingLevel].intro;
-    const intro = key && INTROS[key] ? INTROS[key][id] : null;
+    const intro = _sceneFor('intro', _pendingLevel, id);
     if (intro) {
-      const sides = id === 'dex' ? { juno: 'left', dex: 'right', null: 'left', raze: 'left' } : { dex: 'left', juno: 'right', null: 'left', raze: 'left' };
       _storyTime = 0;
-      story.playInterlude(intro, sides, () => startRun({ level: _pendingLevel }));
+      story.playInterlude(intro, _sceneSides(id), () => startRun({ level: _pendingLevel }));
       state = STATES.STORY;
       return;
     }
@@ -2543,21 +2705,27 @@ function _pickCharacter(id) {
 
 function updateCharSelect(dt) {
   _csTime += dt;
+  _csLockedT = Math.max(0, _csLockedT - dt);
   if (_csDelay > 0) { _csDelay -= dt; return; }
   if (input.justPressed.escape) { story.reset(); state = STATES.TITLE; return; }
 
-  // A/D or arrows switch, Space starts with the highlighted one
+  // A/D or arrows step through the ones you can pick, Space starts
   const a = input.keys.a, d = input.keys.d;
-  if (a && !_csPrevA) selectedCharacter = 'dex';
-  if (d && !_csPrevD) selectedCharacter = 'juno';
+  const list = _csChars().filter(c => _canPick(c.id)).map(c => c.id);
+  const at = Math.max(0, list.indexOf(selectedCharacter));
+  if (a && !_csPrevA) selectedCharacter = list[(at + list.length - 1) % list.length];
+  if (d && !_csPrevD) selectedCharacter = list[(at + 1) % list.length];
   _csPrevA = a; _csPrevD = d;
   if (input.justPressed.space) { _pickCharacter(selectedCharacter); return; }
 
-  // Mouse hover highlights; click or tap picks
-  for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id]) && !('ontouchstart' in window)) selectedCharacter = c.id;
+  // Mouse hover highlights (only when the mouse moves, so a resting cursor
+  // doesn't fight A/D); click or tap picks
+  const moved = input.mouseX !== _csMouse.x || input.mouseY !== _csMouse.y;
+  _csMouse.x = input.mouseX; _csMouse.y = input.mouseY;
+  if (moved) for (const c of _csChars()) if (_canPick(c.id) && _hitBtn(_charBtns[c.id]) && !('ontouchstart' in window)) selectedCharacter = c.id;
   if (!input.mouseJustClicked) return;
   if (_hitBtn(_charBtns.back)) { story.reset(); state = STATES.TITLE; return; }
-  for (const c of CHARACTERS) if (_hitBtn(_charBtns[c.id])) { _pickCharacter(c.id); return; }
+  for (const c of _csChars()) if (_hitBtn(_charBtns[c.id])) { _pickCharacter(c.id); return; }
 }
 
 function drawCharSelect(W, H) {
@@ -2576,7 +2744,7 @@ function drawCharSelect(W, H) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#7ADDD4'; ctx.font = `${short ? 11 : 13}px monospace`;
   // Arcade: what's in the shared deck. Story: the other one stays on comms.
-  let sub = 'The other one stays on the radio.';
+  let sub = 'Someone always stays on the radio.';
   if (_csMode === 'arcade') {
     // X of Y: cards collected out of those the Story levels can award
     const all = Object.values(LEVEL_CARDS).flatMap(row => Object.entries(row).map(([who, c]) => [who, c.id]));
@@ -2587,77 +2755,93 @@ function drawCharSelect(W, H) {
   _fitFont(sub, W - 32, short ? 11 : 13, '');
   ctx.fillText(sub, W / 2, headY + (short ? 18 : 26));
 
-  // Two cards side by side, sized to the screen
-  const gap   = W < 500 ? 12 : 28;
-  const cardW = Math.min(260, (W - 32 - gap) / 2);
+  // The cards side by side, sized to the screen (two in the prologue, three
+  // everywhere else)
+  const chars = _csChars(), n = chars.length;
+  const gap   = W < 500 ? 8 : n > 2 ? 20 : 28;
+  const cardW = Math.min(n > 2 ? 230 : 260, (W - 24 - gap * (n - 1)) / n);
   const top   = headY + (short ? 32 : 50);
   const foot  = short ? 30 : 56;
   const cardH = Math.min(short ? 260 : 340, H - top - foot - 16);
-  const x0    = W / 2 - cardW - gap / 2;
-  const px    = cardH >= 300 && cardW >= 200 ? 4 : cardH >= 200 ? 3 : 2;   // sprite pixel size
+  const x0    = W / 2 - (cardW * n + gap * (n - 1)) / 2;
+  const px    = cardH >= 300 && cardW >= 200 ? 4 : cardH >= 200 && cardW >= 120 ? 3 : 2;   // sprite pixel size
 
-  CHARACTERS.forEach((c, i) => {
+  chars.forEach((c, i) => {
     const x   = x0 + i * (cardW + gap);
     const sel = selectedCharacter === c.id;
-    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent: c.color, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : 0.1, screen: 6 });
+    const locked = !_canPick(c.id);
+    const accent = locked ? '#4A4636' : c.color;
+    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : 0.1, screen: 6 });
     _charBtns[c.id] = { x, y: top - 4, w: cardW, h: cardH + 16 };
 
-    // Walking toward the camera on a loop (selected walks, the other stands)
+    // Walking toward the camera on a loop (selected walks, the others stand)
     const col = sel ? WALK_CYCLE[Math.floor(_csTime * 6) % 4] : 1;
     const nameFs = cardW < 170 ? 18 : 24;
-    const levelMode = _csMode === 'level';
-    // Story level: the cards this character brings in, wrapped to the card
-    const earned = STORY_CARDS.filter(k => k.who === c.id && hasCard(k.who, k.id)).map(k => k.name.toUpperCase());
-    ctx.font = 'bold 12px monospace';
-    const haveL = levelMode ? _wrapLines(earned.length ? `CARDS: ${earned.join(', ')}` : 'CARDS: NONE YET', cardW - 20) : [];
-    const textH  = nameFs + 44 + (levelMode ? 40 + (haveL.length - 1) * 15 : 0);
+    const levelMode = _csMode === 'level' && !locked;
+    // The text under the sprite, every line wrapped to the card (phones fit
+    // three cards across, so nothing may run off the edge): one-liner, gun,
+    // and for a Story level the cards they bring and what the level gives
+    const tw = cardW - 14;
+    const block = (text, font, color, gap = 0) => { ctx.font = font; return { lines: _wrapLines(text, tw), font, color, gap }; };
+    const items = [];
+    if (locked) {
+      items.push(block('Free him in Story Level 5.', '12px monospace', _csLockedT > 0 ? c.color : '#8A8E99'));
+      items.push(block('LOCKED', 'bold 12px monospace', '#5A5646', 4));
+    } else {
+      items.push(block(c.line, '12px monospace', '#C4C8D4'));
+      items.push(block(c.emitter.toUpperCase(), '12px monospace', c.second, 2));
+    }
+    if (levelMode) {
+      const earned = STORY_CARDS.filter(k => k.who === c.id && hasCard(k.who, k.id)).map(k => k.name.toUpperCase());
+      items.push(block(earned.length ? `CARDS: ${earned.join(', ')}` : 'CARDS: NONE YET', 'bold 12px monospace', earned.length ? '#E8F0FF' : '#6E7A88', 10));
+      const reward = (LEVEL_CARDS[_pendingLevel] || {})[c.id];
+      if (reward) {
+        const got = hasCard(c.id, reward.id);
+        items.push(block(got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `CLEAR TO KEEP: ${reward.name}`, 'bold 12px monospace', got ? c.color : '#7ADDD4', 4));
+      }
+    }
+    const LH = 15;
+    const textH = nameFs + 10 + items.reduce((h, it) => h + it.gap + it.lines.length * LH, 0);
     // Shrink the sprite if the text needs the room (short screens)
     let spx = px;
     while (spx > 2 && CELL_H * spx + textH + 14 > cardH) spx--;
     const spriteH = CELL_H * spx;
     const sy = y + Math.max(10, (cardH - spriteH - textH) / 2);
     ctx.save();
-    ctx.globalAlpha = sel ? 1 : 0.55;
+    ctx.globalAlpha = locked ? 0.3 : sel ? 1 : 0.55;
     drawGroundShadow(ctx, x + cardW / 2, sy + spriteH - 2 * spx, 12 * spx, 3 * spx, 0.6);
+    // Locked: just his shape, dark against the card
+    if (locked) ctx.filter = 'brightness(0.15)';
     drawCharacterFrame(ctx, c.id, 0, col, x + cardW / 2 - (CELL_W / 2) * spx, sy, spx);
     ctx.restore();
+    // Newly free: a NEW tag until he's been picked once
+    if (!locked && c.id === 'raze' && !seenNew('raze')) {
+      ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+      const nw = ctx.measureText('NEW').width + 10;
+      ctx.fillStyle = c.color; ctx.fillRect(Math.round(x + cardW - nw - 8), y + 8, Math.round(nw), 16);
+      ctx.fillStyle = '#0D0E12'; ctx.fillText('NEW', Math.round(x + cardW - nw / 2 - 8), y + 20);
+    }
 
-    // Name, one-liner, emitter
-    const ty = sy + spriteH + nameFs + 4;
+    // Name, then the text blocks
+    let ty = sy + spriteH + nameFs + 4;
     ctx.textAlign = 'center';
-    ctx.fillStyle = c.color;
+    ctx.fillStyle = locked ? '#8A8466' : c.color;
     if (sel) { ctx.shadowBlur = 12; ctx.shadowColor = c.color; }
     ctx.font = `bold ${nameFs}px monospace`;
     ctx.fillText(c.name, x + cardW / 2, ty);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#C4C8D4';
-    _fitFont(c.line, cardW - 20, 12, '');
-    ctx.fillText(c.line, x + cardW / 2, ty + 20);
-    ctx.fillStyle = c.second;
-    _fitFont(c.emitter.toUpperCase(), cardW - 20, 10, '');
-    ctx.fillText(c.emitter.toUpperCase(), x + cardW / 2, ty + 36);
-
-    // Story level: what this character brings in, and what the level gives
-    if (levelMode) {
-      const reward = (LEVEL_CARDS[_pendingLevel] || {})[c.id];
-      ctx.fillStyle = earned.length ? '#E8F0FF' : '#6E7A88';
-      ctx.font = 'bold 12px monospace';
-      haveL.forEach((l, k) => ctx.fillText(l, x + cardW / 2, ty + 58 + k * 15));
-      const ry = ty + 74 + (haveL.length - 1) * 15;
-      if (reward) {
-        const got = hasCard(c.id, reward.id);
-        const line = got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `CLEAR TO KEEP: ${reward.name}`;
-        ctx.fillStyle = got ? c.color : '#7ADDD4';
-        _fitFont(line, cardW - 20, 12, '');
-        ctx.fillText(line, x + cardW / 2, ry);
-      }
+    ty += 6;
+    for (const it of items) {
+      ty += it.gap;
+      ctx.font = it.font; ctx.fillStyle = it.color;
+      for (const l of it.lines) { ty += LH; ctx.fillText(l, x + cardW / 2, ty); }
     }
   });
 
   // Footer: hint + back button
   const fy = top + cardH + 12 + (short ? 16 : 26);
   ctx.fillStyle = 'rgba(180,190,210,0.6)'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(touch ? 'tap a character to go in' : 'A / D to choose  ·  SPACE or click to go in  ·  ESC back', W / 2, fy);
+  ctx.fillText(touch ? 'tap a character to go in' : 'A / D to choose  ·  SPACE or click to go in  ·  ESC back', W / 2, fy, W - 24);
   const bw = 90, bh = 30;
   _charBtns.back = drawSlabButton(ctx, 16, H - bh - 18, bw, bh, '‹ BACK', {
     accent: '#8FA8B8', textColor: '#C4C8D4', fontSize: 12, lift: _hitBtn(_charBtns.back) && !touch ? 1 : 0,

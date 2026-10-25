@@ -40,6 +40,12 @@ class Projectile {
     this.discharge  = false;    // from Dex's Arc Discharge ring (Level 5's anchors need this)
     this.spun       = false;    // fired during Juno's Half-Life (makes enemies decay; fills Level 5's anchors)
     this.hitIds     = null;     // enemies this round has already hit
+    this.rifle      = false;    // one of Raze's rifle rounds (drawn gold and long)
+    this.tracer     = false;    // Net tracer: steers onto homeTo, passes over racks
+    this.homeTo     = null;     // { x, y } it steers onto (an enemy, or a target with hit())
+    this.wallPierce = 0;        // Punch-Through: racks it can still go through
+    this.punched    = false;    // has gone through a rack (Level 4's boxes need this or a bounce)
+    this._inRack    = null;     // the rack it's passing through right now
     this.homing   = homing;     // tracks toward player
     this.overload = overload;   // Breaker: golden 3× damage shot
     this.age      = 0;          // seconds since fired (muzzle ripple, wave phase)
@@ -54,6 +60,8 @@ export class ProjectileSystem {
     this._fizzles = [];   // where player shots ended: a brief scatter of light
     this.rackHits = [];   // racks player shots hit this frame (Story objectives read these)
     this.arcRackHits = [];   // where Arc Rounds hit a rack this frame (the arc can jump on from there)
+    this.missed = 0;         // player rounds that ended without hitting anything (Follow-Up)
+    this.punches = [];       // where rounds went through a rack (sparks)
   }
 
   get playerProjectiles() {
@@ -102,6 +110,19 @@ export class ProjectileSystem {
         p.vy = (p.vy / vlen) * p.speed;
       }
 
+      // Net tracer: turns hard onto its target; one that isn't an enemy
+      // (Level 2's frozen tanks) is hit when the tracer arrives
+      if (p.tracer && p.homeTo) {
+        const tg = p.homeTo, hx = tg.x - p.x, hy = tg.y - p.y, hd = Math.hypot(hx, hy) || 1;
+        if (tg.hit && hd < 14) { tg.hit(); this._endShot(p); continue; }
+        if (tg.isAlive === undefined || tg.isAlive) {
+          const k = Math.min(1, dt * 14);
+          p.vx += (hx / hd * p.speed - p.vx) * k; p.vy += (hy / hd * p.speed - p.vy) * k;
+          const vl = Math.hypot(p.vx, p.vy) || 1;
+          p.vx = p.vx / vl * p.speed; p.vy = p.vy / vl * p.speed;
+        }
+      }
+
       p.age += dt;
       const prevX = p.x, prevY = p.y;
       p.x += p.vx * dt;
@@ -129,12 +150,24 @@ export class ProjectileSystem {
         }
       }
 
-      // Obstacle collision — ricochet rounds bounce off the face they hit
+      // Obstacle collision — ricochet rounds bounce off the face they hit;
+      // Punch-Through rounds go through (one rack each); tracers fly over
+      if (p._inRack && !(p.x >= p._inRack.x && p.x <= p._inRack.x + p._inRack.w && p.y >= p._inRack.y && p.y <= p._inRack.y + p._inRack.h)) {
+        this.punches.push({ x: p.x, y: p.y, a: Math.atan2(p.vy, p.vx), t: 0 });
+        p._inRack = null;
+      }
+      if (p.tracer) continue;
       for (const obs of map.obstacles) {
         if (p.x >= obs.x && p.x <= obs.x + obs.w &&
             p.y >= obs.y && p.y <= obs.y + obs.h) {
+          if (obs === p._inRack) break;
           if (p.isPlayer) this.rackHits.push(obs);
-          if (p.isPlayer && p.rackBounce > 0) {
+          if (p.isPlayer && p.wallPierce > 0) {
+            p.wallPierce--;
+            p.punched = true;
+            p._inRack = obs;
+            this.punches.push({ x: prevX, y: prevY, a: Math.atan2(p.vy, p.vx), t: 0 });
+          } else if (p.isPlayer && p.rackBounce > 0) {
             p.rackBounce--;
             p.bounced = true;
             if (prevX < obs.x || prevX > obs.x + obs.w) p.vx = -p.vx; else p.vy = -p.vy;
@@ -149,10 +182,13 @@ export class ProjectileSystem {
     }
     for (const f of this._fizzles) f.t += dt;
     this._fizzles = this._fizzles.filter(f => f.t < 0.18);
+    for (const k of this.punches) k.t += dt;
+    this.punches = this.punches.filter(k => k.t < 0.3);
   }
 
   _endShot(p) {
     p.active = false;
+    if (p.isPlayer && !p.hitIds && !p.tracer) this.missed++;
     if (p.isPlayer && this._fizzles.length < 40) {
       this._fizzles.push({ x: p.x, y: p.y, a: Math.atan2(p.vy, p.vx), t: 0, gold: p.overload });
     }
@@ -197,6 +233,8 @@ export class ProjectileSystem {
     this._fizzles = [];
     this.rackHits = [];
     this.arcRackHits = [];
+    this.missed = 0;
+    this.punches = [];
   }
 
   draw(ctx) {
@@ -216,7 +254,7 @@ export class ProjectileSystem {
   drawHalos(ctx) {
     for (const p of this._pool) {
       if (!p.active) continue;
-      if (p.isPlayer) drawSprite(ctx, haloSprite(p.overload ? '#FFD36A' : '#E8F0FF', p.overload ? 12 : 9, 0.22), p.x, p.y);
+      if (p.isPlayer) drawSprite(ctx, haloSprite(p.rifle ? '#FFD23F' : p.overload ? '#FFD36A' : '#E8F0FF', p.overload || p.rifle ? 12 : 9, p.rifle ? 0.3 : 0.22), p.x, p.y);
       else            drawSprite(ctx, haloSprite(p.color, 12, 0.3), p.x, p.y);
     }
   }
@@ -230,13 +268,15 @@ export class ProjectileSystem {
     const sx = t.a * p.x + t.e, sy = t.d * p.y + t.f;
     const ux = p.vx / p.speed, uy = p.vy / p.speed;    // travel direction
     const px = -uy, py = ux;                             // across it
-    const gold = p.overload;
+    const gold = p.overload, rifle = p.rifle || p.tracer;
     const elec = p.arc || p.stunRound, rad = p.spun;
-    const core = gold ? '#FFE9A8' : elec ? '#F2FFD6' : rad ? '#F6DDFF' : '#FFFFFF';
-    const wave = gold ? '255,200,90' : elec ? '182,255,46' : rad ? '229,140,255' : '200,232,255';
-    const coreLen = gold ? 10 : rad ? 11 : 8, coreW = gold || rad ? 3 : 2;
-    const trail = Math.min(gold ? 34 : 28, p.traveled * t.a);   // grows out of the lens
-    const base = gold ? 4 : 3, amp = 1.5, lambda = 10;
+    // Raze's rounds: a long, thin gold streak with tight waves (a tracer even
+    // longer); never orange
+    const core = rifle ? '#FFF6C8' : gold ? '#FFE9A8' : elec ? '#F2FFD6' : rad ? '#F6DDFF' : '#FFFFFF';
+    const wave = rifle ? '255,214,70' : gold ? '255,200,90' : elec ? '182,255,46' : rad ? '229,140,255' : '200,232,255';
+    const coreLen = p.tracer ? 22 : rifle ? 16 : gold ? 10 : rad ? 11 : 8, coreW = gold || rad || rifle ? 3 : 2;
+    const trail = Math.min(p.tracer ? 70 : rifle ? 52 : gold ? 34 : 28, p.traveled * t.a);   // grows out of the lens
+    const base = rifle ? 2 : gold ? 4 : 3, amp = rifle ? 1 : 1.5, lambda = rifle ? 14 : 10;
     const phase = p.age * 30;
 
     ctx.save();
@@ -301,11 +341,25 @@ export class ProjectileSystem {
   // Where a shot ends (rack, edge or out of range) its light scatters: a few
   // pixels spraying back and fading in under a fifth of a second
   drawFizzles(ctx) {
-    if (!this._fizzles.length) return;
+    if (!this._fizzles.length && !this.punches.length) return;
     const t = ctx.getTransform();
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'lighter';
+    // Punch-Through: a gold ring of light where a round went into or out of
+    // a rack, and a few chips thrown forward
+    for (const k of this.punches) {
+      const f = k.t / 0.3, sx = t.a * k.x + t.e, sy = t.d * k.y + t.f;
+      ctx.fillStyle = `rgba(255,214,70,${(0.85 * (1 - f)).toFixed(3)})`;
+      for (let i = 0; i < 10; i++) {
+        const a = i / 10 * Math.PI * 2, r = 2 + f * 9;
+        ctx.fillRect(Math.round(sx + Math.cos(a) * r), Math.round(sy + Math.sin(a) * r * 0.7), 1, 1);
+      }
+      for (let i = 0; i < 4; i++) {
+        const a = k.a + (i - 1.5) * 0.35, r = 3 + f * (10 + i * 3);
+        ctx.fillRect(Math.round(sx + Math.cos(a) * r), Math.round(sy + Math.sin(a) * r), 2, 2);
+      }
+    }
     for (const f of this._fizzles) {
       const k = f.t / 0.18;
       const sx = t.a * f.x + t.e, sy = t.d * f.y + t.f;

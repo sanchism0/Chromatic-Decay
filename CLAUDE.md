@@ -26,8 +26,9 @@ Ten years after the Collapse, colour only exists where something still
 broadcasts; the Chromatics (ghosts of stolen light) took the rest. **Dex** (toxic
 lime) and **Juno** (lilac/pink) are civilian techs who fight them with
 hand-built Pulse Emitters that fire coherent light. **Null**, a faceless white
-light, sends them into the Basement to rescue **Raze**, an Echo that still knows
-who he is. In **Story Mode** one character goes in (the agent) and the other
+light, sends them into the Basement to rescue **Raze** (gold), Null's oldest
+partner, a marksman held there for years. Freed at Level 5, he becomes the
+third agent, with his own kit and his own lines for every level. In **Story Mode** one character goes in (the agent) and the other
 talks them through it on comms (the operator). Clearing levels banks **Chroma**
 and earns **Story cards**. **Arcade Mode** is a 15-wave survival run where
 those earned cards join the upgrade deck. Six online leaderboards track Arcade
