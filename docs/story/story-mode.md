@@ -26,7 +26,7 @@ relatively new. The Chromatics took him alive and have kept him in the
 Basement for years, draining his memories into the hoard; it's left him a bit
 crazy. He threatens people, especially early on, and Dex and Juno are a little
 afraid of him. The Basement arc (Levels 1–5) is the mission to rescue him; he
-becomes playable (gold, `#FFB52E`) after Level 5. **He's a person, not an Echo.** **Sable** (a server load balancer) is kept for a possible fourth
+becomes playable (gold, `#FFD23F`) after Level 5. **He's a person, not an Echo.** **Sable** (a server load balancer) is kept for a possible fourth
 character.
 
 ## Writing rules (from the owner's feedback)

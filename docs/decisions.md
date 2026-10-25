@@ -122,9 +122,20 @@ roughly even.
 - Default fire was slowed on request to 1.5 shots/s at 360 px/s for the base stats.
 
 ### Raze
-- The market-crash trading algorithm Echo from the lore, now a **playable gold
-  character**. The Basement arc (Levels 1–5) is the mission to **rescue him**;
-  clearing Level 5 unlocks him. Then he clears Level 1 for his own cards.
+- **A person, not an Echo** (the old "trading algorithm Echo" idea is gone): an
+  OG marksman, Null's oldest partner, held in the Basement for years. The
+  Basement arc (Levels 1–5) is the mission to **rescue him**; clearing Level 5
+  unlocks him. Full definition: `docs/design/levels-2-5.md`.
+- **Colour: gold/yellow `#FFD23F`, never orange** ("I prefer for his color to be
+  more gold or yellow than orange… dont make his stuff orange"). Changed from
+  `#FFB52E`. Keep it clear of the yellow Chromatics' `#e9ff6a` (greener).
+- **He earns an ability per level only by replaying Levels 1–5 as him.**
+- **His Story runs use the same levels, new dialogue only.** He has his own
+  reason to be there (retraining, and a mission of his own), since he can't
+  rescue himself or collect his own memories. Who's in his ear rotates: nobody
+  wants the job because they're afraid of him. Dex and Juno are obnoxious and
+  funny; Raze is baffled by the jokes, with comic PTSD, and slowly warms up.
+- **Once he's saved, Level 5 no longer shows him caged, for every character.**
 - **Sable** is kept for a possible character 4. Not the rescue target.
 
 ### Null

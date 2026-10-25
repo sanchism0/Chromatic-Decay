@@ -210,7 +210,7 @@ Then **RAZE UNLOCKED**.
   early on.
 - **Look:** a long gold-and-black coat, a mechanical left arm, dreadlocks with
   glowing gold tips, a headband and headset, a long rifle on his back. Colour
-  `#FFB52E`. Art: `assets/characters/raze/` (walk sheet, eight portraits:
+  `#FFD23F`. Art: `assets/characters/raze/` (walk sheet, eight portraits:
   neutral, stern, smirk, laughing, uneasy, shocked, angry, snarl; turnaround).
 - **Kit (proposal, think Caitlyn):**
   - **Gun: Long Rifle.** Slow rate of fire, heavy rounds that pierce, long range.

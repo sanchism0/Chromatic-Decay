@@ -40,7 +40,7 @@ import { drawCharacterFrame } from './player.js';
 
 const EXTRACT_BEAM = 0.7;   // seconds at the door before the beam-out starts
 
-export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFB52E' };
+export const AGENT_COLOR = { dex: '#B6FF2E', juno: '#E58CFF', raze: '#FFD23F' };
 const COLOR_NAME = { dex: 'green', juno: 'pink', raze: 'gold' };
 // Power-ups granted as each section is cleared (wave, relays, wave), per
 // agent. They last for the level and preview where each character is going.
@@ -1653,7 +1653,7 @@ export class LevelRun {
   _drawRazeRoom(ctx, t) {
     const c = this.corePos;
     const caged = !(this.extractT != null || this.complete);
-    const gold = '#FFB52E', hoard = '#B98CFF';
+    const gold = '#FFD23F', hoard = '#B98CFF';
     const touch = this.api.touch();
     const live5 = this.beat && this.beat.type === 'overload' && this.ready;
     const dex = this.agent === 'dex';
