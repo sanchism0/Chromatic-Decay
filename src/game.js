@@ -2925,31 +2925,28 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color, disabled = false
   ctx.fillStyle = disabled ? '#5A6470' : hovered ? '#FFFFFF' : (isPlay ? '#E0FFF8' : '#7ADDD4');
   ctx.font      = `bold ${fontSize}px monospace`;
   ctx.textAlign = 'center';
-  // A badge: plain coloured text on the right, centred on the button's
-  // height (two lines if it doesn't fit beside the label). If it still
-  // doesn't fit, the label moves left into the space that's left.
+  // A badge: one line of coloured text at the right, centred on the button's
+  // height; the label centres in the space left of it (and shrinks if it
+  // has to), so the two never crowd each other
   const ly = y + h / 2 + Math.ceil(fontSize * 0.36);
-  let lx = x + w / 2, lines = null, bw = 0;
+  let lx = x + w / 2;
   if (badge) {
-    const labelW = ctx.measureText(label).width;
     ctx.font = 'bold 12px monospace';
-    const words = badge.text.split(' ');
-    const half = Math.ceil(words.length / 2);
-    const two = words.length > 1 ? [words.slice(0, half).join(' '), words.slice(half).join(' ')] : null;
-    const room = (w - labelW) / 2 - 22;
-    lines = ctx.measureText(badge.text).width <= room || !two ? [badge.text] : two;
-    bw = Math.max(...lines.map(l => ctx.measureText(l).width));
-    if (bw > room) lx = x + (w - bw - 22) / 2;
-    ctx.font = `bold ${fontSize}px monospace`;
+    const bw = Math.max(badge.reserve || 0, ctx.measureText(badge.text).width);   // reserve: lines up a stack of buttons
+    const space = w - bw - 36;                       // 12 px padding each side, 12 px between
+    let fs = fontSize;
+    ctx.font = `bold ${fs}px monospace`;
+    while (fs > 12 && ctx.measureText(label).width > space) { fs--; ctx.font = `bold ${fs}px monospace`; }
+    lx = x + 12 + space / 2;
+    ctx.fillText(label, lx, y + h / 2 + Math.ceil(fs * 0.36));
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right'; ctx.fillStyle = badge.color || '#FFD23F';
+    ctx.fillText(badge.text, x + w - 12, y + h / 2 + 4);
+    ctx.textAlign = 'center';
+    return;
   }
   ctx.fillText(label, lx, ly);
   ctx.shadowBlur = 0;
-  if (badge) {
-    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right'; ctx.fillStyle = badge.color || '#FFD23F';
-    const top = y + h / 2 - lines.length * 7 + 11;
-    lines.forEach((l, i) => ctx.fillText(l, x + w - 12, top + i * 14));
-    ctx.textAlign = 'center';
-  }
 }
 
 // ── Title screen ──────────────────────────────────────────────
@@ -3060,7 +3057,7 @@ function drawTitle(W, H) {
     _titleBtns.archive = { x: bx,            y: smY, w: smW, h: smH };
     _titleBtns.admin   = { x: bx + smW + 12, y: smY, w: smW, h: smH };
   } else {
-    const playW  = Math.min(260, W * 0.24);
+    const playW  = Math.min(320, W * 0.28);   // room for a badge beside the label
     const playH  = 60;
     const sideW  = Math.min(170, W * 0.16);
     const sideH  = 48;
@@ -3080,9 +3077,14 @@ function drawTitle(W, H) {
   // Badges (coloured text on the right): cards to earn in Story, cards new to the Arcade deck
   const storyBadge = toEarn ? { text: `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN` } : null;
   const arcBadge = _newArcadeCards().length ? { text: 'NEW' } : null;
-  _drawSciFiBtn(B.story.x,   B.story.y,   B.story.w,   B.story.h,   'STORY MODE',  true,  pulse, teal, false, storyBadge);
-  _drawSciFiBtn(B.start.x,   B.start.y,   B.start.w,   B.start.h,   'ARCADE MODE', false, pulse, tealDim, false, arcBadge);
-  _drawSciFiBtn(B.multi.x,   B.multi.y,   B.multi.w,   B.multi.h,   'MULTIPLAYER', false, 0,     grey, true, { text: 'COMING SOON', color: '#FF5A66' });
+  // Same badge room in all three, so their labels line up
+  ctx.font = 'bold 12px monospace';
+  const reserve = Math.max(...[storyBadge, arcBadge, { text: 'COMING SOON' }].filter(Boolean).map(b => ctx.measureText(b.text).width));
+  const blank = { text: '', reserve };   // no badge: the label still lines up with the others
+  for (const b of [storyBadge, arcBadge]) if (b) b.reserve = reserve;
+  _drawSciFiBtn(B.story.x,   B.story.y,   B.story.w,   B.story.h,   'STORY MODE',  true,  pulse, teal, false, storyBadge || blank);
+  _drawSciFiBtn(B.start.x,   B.start.y,   B.start.w,   B.start.h,   'ARCADE MODE', false, pulse, tealDim, false, arcBadge || blank);
+  _drawSciFiBtn(B.multi.x,   B.multi.y,   B.multi.w,   B.multi.h,   'MULTIPLAYER', false, 0,     grey, true, { text: 'COMING SOON', color: '#FF5A66', reserve });
   _drawSciFiBtn(B.archive.x, B.archive.y, B.archive.w, B.archive.h, 'ARCHIVE',     false, pulse, tealDim);
   _drawSciFiBtn(B.admin.x,   B.admin.y,   B.admin.w,   B.admin.h,   'SETTINGS',    false, pulse, tealDim);
 
