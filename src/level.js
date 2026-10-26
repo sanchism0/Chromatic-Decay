@@ -475,7 +475,7 @@ const DASH_POWERS = {
   juno: { id: 'parting_charge', name: 'PARTING CHARGE', desc: 'Dashing leaves a light bomb where you started. It bursts a moment later.',
           has: p => !!p.dashBomb, apply: p => { p.dashBomb = true; },
           hint: touch => (touch ? 'Tap DASH to leave one behind.' : 'Space or click to dash and leave one behind.') },
-  raze: { id: 'net', name: 'NET', desc: 'Your dash throws you the way you\'re moving, clear over low racks, and fires a net back the other way. Your next shot sends a tracer into everything it caught.',
+  raze: { id: 'net', name: 'NET', desc: 'Your dash throws you the way you\'re moving, clear over low racks, and fires a net back the other way. It catches the first Chromatic it reaches, and your next shot sends a tracer into it.',
           has: p => !!p.netDash, apply: p => { p.netDash = true; },
           hint: touch => (touch ? 'Tap DASH while running from them: the net lands on whoever\'s chasing.' : 'Dash while running from them: the net lands on whoever\'s chasing. Standing still, it flies at your cursor.') },
 };
@@ -834,13 +834,14 @@ export class LevelRun {
     this._updateMotes(dt, pl);
   }
 
-  // Extraction: a moment at the door, then the beam-out; once it's done, the
-  // first clear shows the card unlock (game.js), then the results
+  // Extraction: a moment at the door, then the beam-out; once it's done and
+  // the comms have finished talking, the first clear shows the card unlock
+  // (game.js), then the results
   _updateExtract(dt, pl) {
     const t0 = this.extractT;
     this.extractT += dt;
     if (t0 < EXTRACT_BEAM && this.extractT >= EXTRACT_BEAM) { pl.startBeamOut(); this.api.beamOut(); }
-    if (this.awaitUnlock || !pl.beamedOut || this.extractT < EXTRACT_BEAM + 1.6) return;
+    if (this.awaitUnlock || !pl.beamedOut || this.extractT < EXTRACT_BEAM + 1.6 || this.radio.busy) return;
     // A scene after the level (game.js plays it, then sets outroDone)
     if (this.outroKey && !this.outroDone) { this.wantOutro = true; return; }
     if (this.api.needsUnlock()) this.awaitUnlock = true;

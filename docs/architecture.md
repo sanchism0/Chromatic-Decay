@@ -12,7 +12,7 @@ current state's draw). `dt` is capped at 0.05 s.
 
 | State | # | What it is |
 |---|---|---|
-| TITLE | 0 | Title screen: Arcade, Story, Archive, Settings, leaderboards, name, music toggle |
+| TITLE | 0 | Title screen: Story (top, Space), Arcade, Multiplayer (coming soon, inert), Archive, Settings, leaderboards, name, music toggle |
 | PLAYING | 1 | In a run (Arcade, tutorial or Story level) |
 | PAUSED | 2 | Esc menu |
 | UPGRADE | 3 | Arcade card pick between waves |

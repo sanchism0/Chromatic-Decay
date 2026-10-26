@@ -67,7 +67,7 @@ export const RAZE_BEATS = {
               R('stern', 'He talked for an hour straight.'),
               J('smirk', "That's him calm. The whole floor's iced over, so you'll slide. Clear the aisles.")],
       done: [J('alarmed', 'Clear. Hang on, your signal just spiked...')] },
-    { lines: [J('soft-smile', 'Your dash throws a net now. You go one way, the net flies back the other. Shoot anything it catches.'),
+    { lines: [J('soft-smile', 'Your dash throws a net now. You go one way, the net flies back the other. Shoot whatever it catches.'),
               J('focused', "Three drives are frozen into the floor. Recordings of you, hunting. They've been training on them."),
               R('smirk', "Then they've been studying the best. I'll take those back.")],
       eachDone: [[J('focused', 'One drive.')], [R('stern', 'Two. I used to be faster than this.')]],

@@ -1,7 +1,7 @@
 // CHROMATIC DECAY — Raze's Net (his Level 2 card)
 //
 // Like Caitlyn's net: his dash throws him one way and a net of gold light
-// flies the other. The first few Chromatics it reaches are caught: held in
+// flies the other. The first Chromatic it reaches is caught (NET.max): held in
 // place for a moment, wrapped in a mesh of light. His next pull of the
 // trigger then fires a tracer at each thing caught (player.js): fast rounds
 // that steer onto their target and hit it 2.5x as hard (enemies.js).
@@ -11,7 +11,8 @@
 import { drawGlow } from './sprites.js';
 import { sfxNetFire, sfxNetCatch } from './audio.js';
 
-const NET = { speed: 540, range: 210, r0: 10, r1: 34, max: 3, hold: 2.2, window: 3, fade: 0.35 };
+const NET = { speed: 540, range: 210, r0: 10, r1: 34, max: 1,   // max: one catch for now (cards may raise it)
+              hold: 2.2, window: 3, fade: 0.35 };
 const GOLD = '#FFD23F';
 
 export class NetSystem {

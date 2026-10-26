@@ -89,8 +89,7 @@ export const FOLLOW_UP = { raze: [0.8, 1.0], dex: [0.15, 0.3], juno: [0.1, 0.2] 
 // Net (Raze's Level 2 card): his dash throws him the way he's moving (standing
 // still: away from his aim) in a longer hop that clears low racks, and fires
 // a net the other way (nets.js). Tall walls (map.js) still stop him.
-// cd in Level 2 (built round it); cdLong everywhere else, Arcade included
-export const NET_HOP = { dist: 150, time: 0.26, cd: 2.4, cdLong: 4.5, lift: 16 };
+export const NET_HOP = { dist: 150, time: 0.26, cd: 3, lift: 16 };
 
 // Signature abilities — earned by clearing Story Level 1 with that character.
 // Space / F, on a cooldown.
@@ -466,7 +465,7 @@ export class Player {
         this.dashDir = (dx || dy) ? dir : { x: -Math.cos(this.facing), y: -Math.sin(this.facing) };
         this.dashT = this.hopT = this._hopMax = NET_HOP.time;
         this._hopExtra = 0;
-        this.dashCooldown = this.dashCooldownMax = this.netCd || NET_HOP.cd;
+        this.dashCooldown = this.dashCooldownMax = NET_HOP.cd;
         this.justNet = { x: this.x, y: this.y - 6, a: Math.atan2(-this.dashDir.y, -this.dashDir.x) };
       } else {
         this.dashDir = to && Math.hypot(to.x - this.x, to.y - this.y) > 4 ? normalize(to.x - this.x, to.y - this.y)

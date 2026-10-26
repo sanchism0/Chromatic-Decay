@@ -348,5 +348,13 @@ roughly even.
   (a gold edge on the whole row was tried: "hard to see what's going on"). ARCADE MODE wears "NEW" until each newly earned Story card has come up
   in an upgrade offer, where it carries a gold NEW tag once. Soft glows only,
   no blinking.
-- **Raze's Net cooldown is 4.5 s outside Level 2** (2.4 s in Level 2, which is
-  built round it): "busted and fun".
+- **Raze's Net cooldown is 3 s everywhere** (was 2.4 s; 4.5 s outside Level 2
+  was tried and reverted: "he is actually fun like he is already"; 3 s so he
+  can still handle the first boss).
+- **The comms always finish before any end-of-level menu.** The card unlock
+  and results wait until the last line has played (the boss-kill lines were
+  being covered by the card).
+- **Raze's Net catches one Chromatic** (was up to 3). Later cards may raise it.
+- **Main menu order:** STORY MODE on top and highlighted (Space opens it),
+  ARCADE MODE under it, then MULTIPLAYER greyed out with a red COMING SOON
+  badge (not clickable). Archive and Settings as before.

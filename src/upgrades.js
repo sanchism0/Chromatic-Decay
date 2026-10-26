@@ -153,7 +153,7 @@ export const STORY_CARDS = [
   // Raze's, earned one per level by replaying the Story as him
   { id: 'follow_up', who: 'raze', name: 'Follow-Up', desc: 'Hit the same Chromatic again without missing and it hits harder (Raze: +80%, then double).', baseWeight: 5, cap: 1,
     apply: p => { p.followUp = true; } },
-  { id: 'net', who: 'raze', name: 'Net', desc: 'Your dash throws you clear and fires a net back the other way; your next shot sends tracers into what it caught.', baseWeight: 5, cap: 1,
+  { id: 'net', who: 'raze', name: 'Net', desc: 'Your dash throws you clear and fires a net back the other way; it catches one Chromatic, and your next shot sends a tracer into it.', baseWeight: 5, cap: 1,
     apply: p => { p.netDash = true; } },
   { id: 'snare_trap', who: 'raze', active: true, name: 'Snare Trap', desc: 'Activated: lob a trap that holds the first three Chromatics to cross it.', baseWeight: 5, cap: 1,
     apply: p => { p.snare = true; p.abilities.push('snare'); } },
