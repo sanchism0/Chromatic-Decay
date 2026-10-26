@@ -341,9 +341,8 @@ roughly even.
   `docs/design/core-loop.md`, not built.
 - A 16-bit art direction was discussed and **not** taken; the current pixel art
   stays.
-- **Unlock hints are gold.** STORY MODE has "N CARDS TO EARN" hung just
-  under it (unlocked levels, free characters, cards not yet earned; the owner
-  wanted it below the label, not over it); the map marks each waiting card
+- **Unlock hints are gold.** STORY MODE has an "N CARDS TO EARN" badge
+  under its label (unlocked levels, free characters, cards not yet earned); the map marks each waiting card
   with a glowing ◆ in that character's colour, and the mission name glows gold
   (a gold edge on the whole row was tried: "hard to see what's going on"). ARCADE MODE wears "NEW" until each newly earned Story card has come up
   in an upgrade offer, where it carries a gold NEW tag once. Soft glows only,
@@ -357,4 +356,5 @@ roughly even.
 - **Raze's Net catches one Chromatic** (was up to 3). Later cards may raise it.
 - **Main menu order:** STORY MODE on top and highlighted (Space opens it),
   ARCADE MODE under it, then MULTIPLAYER greyed out with a red COMING SOON
-  badge (not clickable). Archive and Settings as before.
+  badge (not clickable). **Badges go inside the button, under its label**
+  ("badges UNDER THE TEXT"), never hanging off a corner. Archive and Settings as before.
