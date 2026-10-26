@@ -2928,10 +2928,12 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color, disabled = false
   // A badge: the label stays the big centred text (nudged up a little) and
   // the badge is a small line of coloured text near the bottom of the box
   if (badge && badge.text) {
-    ctx.fillText(label, x + w / 2, y + h * 0.42 + Math.ceil(fontSize * 0.36));
+    // Same gap on every button: the label sits 17 px above the badge line
+    const by = y + h - 7;
+    ctx.fillText(label, x + w / 2, by - 17);
     ctx.shadowBlur = 0;
-    ctx.font = 'bold 12px monospace'; ctx.fillStyle = badge.color || '#FFD23F';
-    ctx.fillText(badge.text, x + w / 2, y + h - 7);
+    ctx.font = `bold ${badge.size || 12}px monospace`; ctx.fillStyle = badge.color || '#FFD23F';
+    ctx.fillText(badge.text, x + w / 2, by);
     return;
   }
   ctx.fillText(label, x + w / 2, y + h / 2 + Math.ceil(fontSize * 0.36));
@@ -3028,7 +3030,7 @@ function drawTitle(W, H) {
   const grey = '#3A4450';
   if (land) {
     const bw = Math.min(W * 0.44, 320), bx = W * 0.27 - bw / 2;
-    const storyH = 58, modeH = 46, smH = 34, smW = (bw - 10) / 2;
+    const storyH = 56, modeH = 46, smH = 34, smW = (bw - 10) / 2;
     const storyY = subY + 16, arcY = storyY + storyH + 8, multiY = arcY + modeH + 8, smY = multiY + modeH + 8;
     _titleBtns.story   = { x: bx, y: storyY, w: bw, h: storyH };
     _titleBtns.start   = { x: bx, y: arcY,   w: bw, h: modeH };
@@ -3037,7 +3039,7 @@ function drawTitle(W, H) {
     _titleBtns.admin   = { x: bx + smW + 10, y: smY,   w: smW, h: smH };
   } else if (mobile) {
     const bw = Math.min(W * 0.88, 340), bx = W / 2 - bw / 2;
-    const storyH = 66, modeH = 54, smH = 40, smW = (bw - 12) / 2;
+    const storyH = 62, modeH = 54, smH = 40, smW = (bw - 12) / 2;
     const storyY = Math.min(subY + 24, H * 0.44);
     const arcY = storyY + storyH + 10, multiY = arcY + modeH + 10, smY = multiY + modeH + 10;
     _titleBtns.story   = { x: bx, y: storyY, w: bw, h: storyH };
@@ -3047,7 +3049,7 @@ function drawTitle(W, H) {
     _titleBtns.admin   = { x: bx + smW + 12, y: smY, w: smW, h: smH };
   } else {
     const playW  = Math.min(260, W * 0.24);
-    const playH  = 70;
+    const playH  = 62;
     const sideW  = Math.min(170, W * 0.16);
     const sideH  = 48;
     const gap    = 16;
@@ -3064,8 +3066,8 @@ function drawTitle(W, H) {
   }
   const B = _titleBtns;
   // Badges (coloured text under the label): cards to earn in Story, cards new to the Arcade deck
-  const storyBadge = toEarn ? { text: `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN` } : null;
-  const arcBadge = _newArcadeCards().length ? { text: 'NEW' } : null;
+  const storyBadge = toEarn ? { text: `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN`, size: 11 } : null;
+  const arcBadge = _newArcadeCards().length ? { text: 'NEW', size: 11 } : null;
   _drawSciFiBtn(B.story.x,   B.story.y,   B.story.w,   B.story.h,   'STORY MODE',  true,  pulse, teal, false, storyBadge);
   _drawSciFiBtn(B.start.x,   B.start.y,   B.start.w,   B.start.h,   'ARCADE MODE', false, pulse, tealDim, false, arcBadge);
   _drawSciFiBtn(B.multi.x,   B.multi.y,   B.multi.w,   B.multi.h,   'MULTIPLAYER', false, 0,     grey, true, { text: 'COMING SOON', color: '#FF5A66' });
