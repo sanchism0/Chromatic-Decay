@@ -157,7 +157,7 @@ LEVELS[2] = {
       { type: 'wave',
         lines: [L(f('neutral', 'focused'), "Cold Storage. Raze's trace led down here, where they froze the old data."),
                 L(f('worried', 'concerned'), "The whole floor's iced over, so you'll slide. And something's still moving in the aisles.")],
-        groups: [[['violet', 3]], [['violet', 2], ['yellow', 1]], [['yellow', 2], ['violet', 2]]],
+        groups: [[['violet', 3]], [['violet', 1], ['yellow', 2]], [['yellow', 2], ['violet', 2]]],   // a violet swapped for a yellow (same count)
         objective: s => `Clear the aisles (${s.left} left)`,
         grant: true,   // the level's dash ability, after this section
         done: [L(f('shocked', 'alarmed'), "Clear. Hang on, your signal just spiked...")] },
@@ -168,13 +168,13 @@ LEVELS[2] = {
                 L(f('determined', 'focused'), "Raze's trace is split across three archive drives, frozen into the floor. I've marked them.")],
         eachDone: [[L(f('determined', 'focused'), 'One drive.')], [L(f('cocky-grin', 'smirk'), 'Two. One more.')]],
         objective: s => `Grab the frozen drives (${s.drives}/3)`,
-        interrupt: { cap: 4, period: 4, yellow: 0.25 },
+        interrupt: { cap: 6, period: 3, yellow: 0.25 },   // was 4 every 4 s ("level 2 is pretty easy")
         done: [L(f('shocked', 'alarmed'), "That's all three, and there's his trail. Raze went down: The Stacks.")] },
 
       { type: 'wave',
         lines: [L(f('worried', 'concerned'), "They heard the ice crack. Here they come."),
                 L(f('cocky-grin', 'smirk'), "Tip: dash through a hit just as it lands. A perfect dash, and your dash comes straight back.")],
-        groups: [[['yellow', 2]], [['yellow', 2], ['violet', 2]], [['yellow', 3]]],
+        groups: [[['yellow', 2]], [['yellow', 3], ['violet', 1]], [['yellow', 3]]],   // a violet swapped for a yellow (same count)
         objective: s => `Hold them off (${s.left} left)`,
         done: [L(f('neutral', 'soft-smile'), "That's the last of them. Now the lift.")] },
 
@@ -183,7 +183,7 @@ LEVELS[2] = {
                 L(f('determined', 'neutral'), dex ? "Bullets won't touch that ice. Dash through a tank and your shock cracks it. Twice each."
                                                   : "Bullets won't touch that ice. Dash away from a tank and your charge cracks it. Twice each.")],
         objective: s => `Crack the frozen tanks (${s.tanks}/3)`,
-        interrupt: { cap: 3, period: 5, yellow: 0 },
+        interrupt: { cap: 5, period: 4, yellow: 0 },   // more violets (was 3 every 5 s)
         done: [L(f('shocked', 'alarmed'), "That's it, the lift's moving! Get on.")] },
 
       { type: 'exit',
@@ -420,7 +420,7 @@ const HOARDER = { hp: 1100, size: 34, contact: 16, blinkEvery: 4.2, blinkFast: 3
                   // one is down (no rebuilding while you work through them)
                   sets: [1, 3, 5],
                   setRing: [110, 200],         // the set spreads over this ring round the core
-                  escorts: [1, 2], escortGap: 5,   // greens alongside it at all times (outside its waves)
+                  escorts: [2, 3], escortGap: 5,   // greens alongside it at all times (outside its waves)
                   arena: [100, 200],           // it only jumps within this ring (px) round the core
                   // Bullet patterns from phase 2 on: a rotating spiral of slow
                   // rounds for spiralOn s, then quiet for spiralOff s
