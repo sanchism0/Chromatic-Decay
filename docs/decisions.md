@@ -115,7 +115,7 @@ roughly even.
 |---|---|---|---|
 | Juno | Minigun | lots of low-damage rounds, slight spray | 5 shots/s, damage ×0.40 (bumped from 0.34: she was "a little bit underpowered") |
 | Dex | Burst | three quick rounds per trigger pull | 0.85 bursts/s, 3 rounds, damage ×0.60 (was 0.66; "he clears really quickly") |
-| Raze | Long Rifle | one slow, heavy gold round that flies fast and far and goes through one Chromatic | 0.9 shots/s, one round a pull, like Dex's pulls (owner: "slow attack speed... we can test and iterate"; 0.75 was tried and cleared crowds half as fast), damage ×1.8, round speed ×2.4 (slower rounds missed walking targets a third of the time), range ×1.3, pierce 1, a slightly bigger hit area. 85% move speed, 120 px dash |
+| Raze | Long Rifle | one slow, heavy gold round that flies fast and far and goes through one Chromatic | 0.8 shots/s, one round a pull, like Dex's pulls (owner: "slow attack speed... we can test and iterate"; 0.75 was tried and cleared crowds half as fast; 0.9 with ×1.8 damage was "busted"), damage ×1.15 (violets take 3 hits, or 2 in a row with Follow-Up), round speed ×2.4 (slower rounds missed walking targets a third of the time), range ×1.3, pierce 1, a slightly bigger hit area. 85% move speed, 120 px dash |
 
 - **+1 projectile means more of your gun's thing:** Dex gets a 4-round burst (not
   doubled bullets); Juno fires 25% faster. Never just duplicate shots.
@@ -341,9 +341,12 @@ roughly even.
   `docs/design/core-loop.md`, not built.
 - A 16-bit art direction was discussed and **not** taken; the current pixel art
   stays.
-- **Unlock hints are gold.** STORY MODE wears "N CARDS TO EARN" (unlocked
-  levels, free characters, cards not yet earned); the map marks each waiting
-  card with a glowing ◆ in that character's colour and gives the row a gold
-  edge. ARCADE MODE wears "NEW" until each newly earned Story card has come up
+- **Unlock hints are gold.** STORY MODE has "N CARDS TO EARN" hung just
+  under it (unlocked levels, free characters, cards not yet earned; the owner
+  wanted it below the label, not over it); the map marks each waiting card
+  with a glowing ◆ in that character's colour, and the mission name glows gold
+  (a gold edge on the whole row was tried: "hard to see what's going on"). ARCADE MODE wears "NEW" until each newly earned Story card has come up
   in an upgrade offer, where it carries a gold NEW tag once. Soft glows only,
   no blinking.
+- **Raze's Net cooldown is 4.5 s outside Level 2** (2.4 s in Level 2, which is
+  built round it): "busted and fun".

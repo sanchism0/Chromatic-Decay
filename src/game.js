@@ -270,6 +270,7 @@ function startRun(opts = {}) {
 
   hud.minimal = tutorial || !!levelId;
   level = null;
+  player.netCd = levelId === 2 ? NET_HOP.cd : NET_HOP.cdLong;   // Raze's Net: quick only in Level 2
   if (levelId) {
     // Story level: the level runs the beats; going down restarts the beat
     waveSystem.active = false;
@@ -2040,13 +2041,13 @@ const _cardsWaiting = () => Object.keys(LEVEL_CARDS).flatMap(lv => ['dex', 'juno
 // Earned Story cards that haven't come up in an Arcade offer yet
 const _newArcadeCards = () => STORY_CARDS.filter(c => hasCard(c.who, c.id) && !cardSeen(c.who, c.id));
 
-// A small gold tag on a menu button's top-right corner
-function _btnTag(b, text) {
+// A small gold tag on a menu button's right-hand corner (straddling its top, or hung just under it)
+function _btnTag(b, text, below = false) {
   if (!b) return;
   ctx.save();
   ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
   const w = Math.round(ctx.measureText(text).width + 12), h = 18;
-  const x = Math.round(b.x + b.w - w - 6), y = Math.round(b.y - h / 2);
+  const x = Math.round(b.x + b.w - w - 6), y = Math.round(below ? b.y + b.h + 2 : b.y - h / 2);
   ctx.shadowBlur = 10; ctx.shadowColor = '#FFD23F';
   ctx.fillStyle = '#FFD23F'; ctx.fillRect(x, y, w, h);
   ctx.shadowBlur = 0;
@@ -2093,13 +2094,16 @@ function drawStoryMap(W, H) {
     const built = row.id === 0 || !!LEVELS[row.id];
     const hover = playable && _hitBtn(_mapBtns.rows.find(x => x.id === row.id)?.r);
     const waiting = playable && row.id > 0 && ['dex', 'juno', 'raze'].some(who => _canEarn(row.id, who));
-    const accent = playable ? (row.id === 0 ? '#8FA8B8' : waiting ? '#FFD23F' : '#00E5CC') : '#3A4450';
+    const accent = playable ? (row.id === 0 ? '#8FA8B8' : '#00E5CC') : '#3A4450';
     const top = drawSlab(ctx, rowX, y, rowW, rowH, { accent, depth: 5, lift: hover ? 1 : 0, glow: playable ? 0.2 : 0 });
     _mapBtns.rows.push({ id: row.id, r: { x: rowX, y: y - 4, w: rowW, h: rowH + 8 } });
     ctx.textAlign = 'left';
     ctx.fillStyle = playable ? '#FFFFFF' : '#5A6470';
     ctx.font = `bold ${narrow || tiny ? 13 : 15}px monospace`;
+    // A card still waiting here: the mission name glows gold
+    if (waiting) { ctx.save(); ctx.shadowColor = '#FFD23F'; ctx.shadowBlur = 8 + 6 * Math.sin(Date.now() * 0.003); ctx.fillStyle = '#FFE680'; }
     ctx.fillText(row.id === 0 ? row.name : `${row.id} · ${row.name}`, rowX + 14, top + (tiny ? 21 : short ? 20 : 24));
+    if (waiting) ctx.restore();
     ctx.font = `${narrow ? 10 : 11}px monospace`;
     // Second line of text; on landscape phones (tiny) rows are one line, and
     // only the right-hand status shows
@@ -3022,10 +3026,12 @@ function drawTitle(W, H) {
   }
 
   // ── Buttons ───────────────────────────────────────────────
+  // Story cards waiting: a tag hangs under STORY MODE, so leave it room
+  const toEarn = _cardsWaiting().length, tagRoom = toEarn ? 20 : 0;
   if (land) {
     const bw = Math.min(W * 0.44, 320), bx = W * 0.27 - bw / 2;
     const playH = 44, storyH = 36, smH = 34, smW = (bw - 10) / 2;
-    const playY = subY + 16, storyY = playY + playH + 8, smY = storyY + storyH + 8;
+    const playY = subY + 16, storyY = playY + playH + 8, smY = storyY + storyH + 8 + tagRoom;
     _titleBtns.start   = { x: bx,           y: playY,  w: bw,  h: playH };
     _titleBtns.story   = { x: bx,           y: storyY, w: bw,  h: storyH };
     _titleBtns.archive = { x: bx,           y: smY,    w: smW, h: smH };
@@ -3043,7 +3049,7 @@ function drawTitle(W, H) {
     const storyY = playY + playH + 10;
     const smW   = (playW - 12) / 2;
     const smH   = 40;
-    const smY   = storyY + storyH + 10;
+    const smY   = storyY + storyH + 10 + tagRoom;
 
     _titleBtns.start   = { x: playX,             y: playY, w: playW, h: playH };
     _titleBtns.story   = { x: playX,             y: storyY, w: playW, h: storyH };
@@ -3077,12 +3083,11 @@ function drawTitle(W, H) {
   }
 
   // Something new waiting: cards to earn in Story, cards new to the Arcade deck
-  const toEarn = _cardsWaiting().length;
-  if (toEarn) _btnTag(_titleBtns.story, `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN`);
+  if (toEarn) _btnTag(_titleBtns.story, `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN`, true);
   if (_newArcadeCards().length) _btnTag(_titleBtns.start, 'NEW');
 
   // ── Leaderboards: one at a time, ‹ › or swipe to cycle ──
-  const panelY = land ? 48 : (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 14;
+  const panelY = land ? 48 : (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h + tagRoom) + 14;
   const panelW = land ? W * 0.44 : mobile ? W * 0.92 : Math.min(600, W * 0.62);
   const panelX = land ? W * 0.53 : W / 2 - panelW / 2;
   // Your name (tap to change), then the board in the space left
