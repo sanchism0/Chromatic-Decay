@@ -11,7 +11,7 @@ import { DashPowers } from './dashpowers.js';
 import { NetSystem } from './nets.js';
 import { SnareSystem, SNARE_CD, SNARE_RADIUS } from './snare.js';
 import { RAZE_SCENES, RAZE_SIDES, RAZE_OUTCOMES } from './razestory.js';
-import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE, razeFree, seenNew, markSeen } from './profile.js';
+import { profile, bankChroma, recordClear, hasSignature, hasCard, unlockCard, levelUnlocked, timesCleared, playerName, setPlayerName, recordArcadeScore, CHROMA_VALUE, razeFree, seenNew, markSeen, cardSeen } from './profile.js';
 import { PLATFORM, refreshBoard, cycleBoard, resetBoard, drawBoard, submitArcade, syncPlayer } from './leaderboard.js';
 import { EnemySystem }      from './enemies.js';
 import { ProjectileSystem } from './projectiles.js';
@@ -388,7 +388,7 @@ function update(dt) {
 
 // Shared button rects computed by drawTitle each frame so update can read them
 // story is drawn disabled (coming soon) and never handled in updateTitle
-const _titleBtns = { start: null, story: null, archive: null, admin: null, name: null };
+const _titleBtns = { start: null, story: null, multi: null, archive: null, admin: null, name: null };   // multi: drawn only (coming soon)
 
 function _hitBtn(btn) {
   if (!btn) return false;
@@ -475,7 +475,8 @@ function updateTitle() {
   resumeAudio();
   if (_menuMuted) stopTitleMusic(); else startTitleMusic();
   if (input.swipe) { cycleBoard(input.swipe < 0 ? 1 : -1); return; }
-  if (input.justPressed.space) { _withName(() => _openCharSelect()); return; }
+  // Space: the highlighted top button, Story Mode
+  if (input.justPressed.space) { _withName(() => (_prologueDone() ? _openStoryMap() : _startStory())); return; }
   if (!input.mouseJustClicked)  return;
 
   if (_hitBtn(_muteBtn.r)) {
@@ -2031,6 +2032,15 @@ function updateStoryMap(dt) {
   }
 }
 
+// Story cards still to earn: levels open to play, characters free to play them
+const _canEarn = (lv, who) => {
+  const c = (LEVEL_CARDS[lv] || {})[who];
+  return !!c && !!LEVELS[lv] && levelUnlocked(lv) && (who !== 'raze' || razeFree()) && !hasCard(who, c.id);
+};
+const _cardsWaiting = () => Object.keys(LEVEL_CARDS).flatMap(lv => ['dex', 'juno', 'raze'].filter(who => _canEarn(+lv, who)));
+// Earned Story cards that haven't come up in an Arcade offer yet
+const _newArcadeCards = () => STORY_CARDS.filter(c => hasCard(c.who, c.id) && !cardSeen(c.who, c.id));
+
 function drawStoryMap(W, H) {
   ctx.fillStyle = '#0D0E12'; ctx.fillRect(0, 0, W, H);
   dimBackdrop(ctx, W, H, 0);
@@ -2069,13 +2079,17 @@ function drawStoryMap(W, H) {
     const playable = row.id === 0 || (LEVELS[row.id] && levelUnlocked(row.id));
     const built = row.id === 0 || !!LEVELS[row.id];
     const hover = playable && _hitBtn(_mapBtns.rows.find(x => x.id === row.id)?.r);
+    const waiting = playable && row.id > 0 && ['dex', 'juno', 'raze'].some(who => _canEarn(row.id, who));
     const accent = playable ? (row.id === 0 ? '#8FA8B8' : '#00E5CC') : '#3A4450';
     const top = drawSlab(ctx, rowX, y, rowW, rowH, { accent, depth: 5, lift: hover ? 1 : 0, glow: playable ? 0.2 : 0 });
     _mapBtns.rows.push({ id: row.id, r: { x: rowX, y: y - 4, w: rowW, h: rowH + 8 } });
     ctx.textAlign = 'left';
     ctx.fillStyle = playable ? '#FFFFFF' : '#5A6470';
     ctx.font = `bold ${narrow || tiny ? 13 : 15}px monospace`;
+    // A card still waiting here: the mission name glows gold
+    if (waiting) { ctx.save(); ctx.shadowColor = '#FFD23F'; ctx.shadowBlur = 8 + 6 * Math.sin(Date.now() * 0.003); ctx.fillStyle = '#FFE680'; }
     ctx.fillText(row.id === 0 ? row.name : `${row.id} · ${row.name}`, rowX + 14, top + (tiny ? 21 : short ? 20 : 24));
+    if (waiting) ctx.restore();
     ctx.font = `${narrow ? 10 : 11}px monospace`;
     // Second line of text; on landscape phones (tiny) rows are one line, and
     // only the right-hand status shows
@@ -2093,16 +2107,23 @@ function drawStoryMap(W, H) {
       sub('Coming soon', '#5A6470');
       if (tiny) { ctx.textAlign = 'right'; ctx.fillStyle = '#5A6470'; ctx.fillText('Coming soon', rowX + rowW - 14, top + 21); }
     } else {
-      // A tick per character who has cleared it; signatures come from these
+      // A tick per character who has cleared it; a glowing ◆ for anyone whose
+      // card here is still waiting
       sub(row.id === 5 && razeFree() ? LEVELS[5].blurbPost : LEVELS[row.id].blurb, '#8A8E99');
       ctx.textAlign = 'right';
       ctx.font = `bold ${narrow ? 11 : 12}px monospace`;
       let rx = rowX + rowW - 14;
       for (const who of razeFree() ? ['raze', 'juno', 'dex'] : ['juno', 'dex']) {
-        const n = timesCleared(row.id, who);
-        const label = `${who.toUpperCase()} ${n ? '✓' : '·'}`;
-        ctx.fillStyle = n ? AGENT_COLOR[who] : '#4A5560';
-        ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
+        const n = timesCleared(row.id, who), card = _canEarn(row.id, who);
+        const label = card ? `◆ ${who.toUpperCase()}` : `${who.toUpperCase()} ${n ? '✓' : '·'}`;
+        ctx.fillStyle = n || card ? AGENT_COLOR[who] : '#4A5560';
+        if (card) {
+          ctx.save();
+          ctx.globalAlpha = 0.7 + 0.3 * Math.sin(Date.now() * 0.003 + rx * 0.05);
+          ctx.shadowBlur = 10; ctx.shadowColor = AGENT_COLOR[who];
+          ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
+          ctx.restore();
+        } else ctx.fillText(label, rx, top + (tiny ? 21 : short ? 20 : 24));
         rx -= ctx.measureText(label).width + 14;
       }
     }
@@ -2751,6 +2772,8 @@ function drawCharSelect(W, H) {
     const got = all.filter(([who, id]) => hasCard(who, id)).length;
     sub = got >= all.length ? `STORY CARDS ${got}/${all.length}  ·  Every custom ability is in your deck`
                             : `STORY CARDS ${got}/${all.length}  ·  Play Story Mode to add custom abilities`;
+    const fresh = _newArcadeCards().length;
+    if (fresh) { sub = `${fresh} NEW CARD${fresh > 1 ? 'S' : ''} IN YOUR DECK` + (W < 600 ? '' : `  ·  STORY CARDS ${got}/${all.length}`); ctx.fillStyle = '#FFD23F'; }
   }
   _fitFont(sub, W - 32, short ? 11 : 13, '');
   ctx.fillText(sub, W / 2, headY + (short ? 18 : 26));
@@ -2771,7 +2794,9 @@ function drawCharSelect(W, H) {
     const sel = selectedCharacter === c.id;
     const locked = !_canPick(c.id);
     const accent = locked ? '#4A4636' : c.color;
-    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : 0.1, screen: 6 });
+    // Story level: a soft glow on anyone who can still earn its card
+    const earnable = _csMode === 'level' && !locked && _canEarn(_pendingLevel, c.id);
+    const y   = drawSlab(ctx, x, top, cardW, cardH, { accent, depth: 12, lift: sel ? 1 : 0, glow: sel ? 0.7 : earnable ? 0.35 + 0.15 * Math.sin(Date.now() * 0.003) : 0.1, screen: 6 });
     _charBtns[c.id] = { x, y: top - 4, w: cardW, h: cardH + 16 };
 
     // Walking toward the camera on a loop (selected walks, the others stand)
@@ -2797,7 +2822,7 @@ function drawCharSelect(W, H) {
       const reward = (LEVEL_CARDS[_pendingLevel] || {})[c.id];
       if (reward) {
         const got = hasCard(c.id, reward.id);
-        items.push(block(got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `CLEAR TO KEEP: ${reward.name}`, 'bold 12px monospace', got ? c.color : '#7ADDD4', 4));
+        items.push(block(got ? `LEVEL ${_pendingLevel} CARD ✓ ${reward.name}` : `◆ CLEAR TO KEEP: ${reward.name}`, 'bold 12px monospace', got ? c.color : '#FFD23F', 4));
       }
     }
     const LH = 15;
@@ -2863,8 +2888,8 @@ function _drawSciFiCorners(x, y, w, h, size, color) {
   ctx.stroke();
 }
 
-function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
-  const hovered   = input.mouseX >= x && input.mouseX <= x+w &&
+function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color, disabled = false, badge = null) {
+  const hovered   = !disabled && input.mouseX >= x && input.mouseX <= x+w &&
                     input.mouseY >= y && input.mouseY <= y+h;
   const glowAlpha = (isPlay ? 0.50 : 0.28) + pulse * (isPlay ? 0.35 : 0.18);
   const alphaHex  = Math.round(glowAlpha * 255).toString(16).padStart(2, '0');
@@ -2897,9 +2922,19 @@ function _drawSciFiBtn(x, y, w, h, label, isPlay, pulse, color) {
     ? Math.max(18, Math.min(26, Math.floor(w * 0.13)))
     : Math.max(13, Math.min(18, Math.floor(w * 0.11)));
   if (hovered || isPlay) { ctx.shadowBlur = 8; ctx.shadowColor = color; }
-  ctx.fillStyle = hovered ? '#FFFFFF' : (isPlay ? '#E0FFF8' : '#7ADDD4');
+  ctx.fillStyle = disabled ? '#5A6470' : hovered ? '#FFFFFF' : (isPlay ? '#E0FFF8' : '#7ADDD4');
   ctx.font      = `bold ${fontSize}px monospace`;
   ctx.textAlign = 'center';
+  // A badge: a line of plain coloured text centred under the label (the
+  // label moves up to make room)
+  if (badge && badge.text) {
+    const ly = y + h / 2 - (isPlay ? 4 : 2);
+    ctx.fillText(label, x + w / 2, ly);
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 12px monospace'; ctx.fillStyle = badge.color || '#FFD23F';
+    ctx.fillText(badge.text, x + w / 2, ly + 15);
+    return;
+  }
   ctx.fillText(label, x + w / 2, y + h / 2 + Math.ceil(fontSize * 0.36));
   ctx.shadowBlur = 0;
 }
@@ -2987,62 +3022,59 @@ function drawTitle(W, H) {
   }
 
   // ── Buttons ───────────────────────────────────────────────
+  // Story Mode on top (highlighted), Arcade under it, then Multiplayer (not
+  // built yet: greyed out, COMING SOON). Story cards waiting: a tag hangs
+  // inside STORY MODE, under its label (the owner: badges under the text).
+  const toEarn = _cardsWaiting().length;
+  const grey = '#3A4450';
   if (land) {
     const bw = Math.min(W * 0.44, 320), bx = W * 0.27 - bw / 2;
-    const playH = 44, storyH = 36, smH = 34, smW = (bw - 10) / 2;
-    const playY = subY + 16, storyY = playY + playH + 8, smY = storyY + storyH + 8;
-    _titleBtns.start   = { x: bx,           y: playY,  w: bw,  h: playH };
-    _titleBtns.story   = { x: bx,           y: storyY, w: bw,  h: storyH };
+    const storyH = 50, modeH = 42, smH = 34, smW = (bw - 10) / 2;
+    const storyY = subY + 16, arcY = storyY + storyH + 8, multiY = arcY + modeH + 8, smY = multiY + modeH + 8;
+    _titleBtns.story   = { x: bx, y: storyY, w: bw, h: storyH };
+    _titleBtns.start   = { x: bx, y: arcY,   w: bw, h: modeH };
+    _titleBtns.multi   = { x: bx, y: multiY, w: bw, h: modeH };
     _titleBtns.archive = { x: bx,           y: smY,    w: smW, h: smH };
     _titleBtns.admin   = { x: bx + smW + 10, y: smY,   w: smW, h: smH };
-    _drawSciFiBtn(bx,            playY,  bw,  playH,  'ARCADE MODE', true, pulse, teal);
-    _drawSciFiBtn(bx,            storyY, bw,  storyH, 'STORY MODE', false, pulse, tealDim);
-    _drawSciFiBtn(bx,            smY,    smW, smH,    'ARCHIVE',  false, pulse, tealDim);
-    _drawSciFiBtn(bx + smW + 10, smY,    smW, smH,    'SETTINGS', false, pulse, tealDim);
   } else if (mobile) {
-    const playW = Math.min(W * 0.88, 340);
-    const playH = 52;
-    const playX = W / 2 - playW / 2;
-    const playY = Math.min(subY + 24, H * 0.44);
-    const storyH = 44;
-    const storyY = playY + playH + 10;
-    const smW   = (playW - 12) / 2;
-    const smH   = 40;
-    const smY   = storyY + storyH + 10;
-
-    _titleBtns.start   = { x: playX,             y: playY, w: playW, h: playH };
-    _titleBtns.story   = { x: playX,             y: storyY, w: playW, h: storyH };
-    _titleBtns.archive = { x: playX,             y: smY,   w: smW,   h: smH   };
-    _titleBtns.admin   = { x: playX + smW + 12,  y: smY,   w: smW,   h: smH   };
-
-    _drawSciFiBtn(playX,            playY, playW, playH, 'ARCADE MODE', true, pulse, teal);
-    _drawSciFiBtn(playX,            storyY, playW, storyH, 'STORY MODE', false, pulse, tealDim);
-    _drawSciFiBtn(playX,            smY,   smW,   smH,   'ARCHIVE',  false, pulse, tealDim);
-    _drawSciFiBtn(playX + smW + 12, smY,   smW,   smH,   'SETTINGS', false, pulse, tealDim);
+    const bw = Math.min(W * 0.88, 340), bx = W / 2 - bw / 2;
+    const storyH = 60, modeH = 50, smH = 40, smW = (bw - 12) / 2;
+    const storyY = Math.min(subY + 24, H * 0.44);
+    const arcY = storyY + storyH + 10, multiY = arcY + modeH + 10, smY = multiY + modeH + 10;
+    _titleBtns.story   = { x: bx, y: storyY, w: bw, h: storyH };
+    _titleBtns.start   = { x: bx, y: arcY,   w: bw, h: modeH };
+    _titleBtns.multi   = { x: bx, y: multiY, w: bw, h: modeH };
+    _titleBtns.archive = { x: bx,            y: smY, w: smW, h: smH };
+    _titleBtns.admin   = { x: bx + smW + 12, y: smY, w: smW, h: smH };
   } else {
     const playW  = Math.min(260, W * 0.24);
-    const playH  = 60;
+    const playH  = 66;
     const sideW  = Math.min(170, W * 0.16);
     const sideH  = 48;
     const gap    = 16;
     const totalW = sideW + gap + playW + gap + sideW;
     const rowX   = W / 2 - totalW / 2;
-    const rowY   = H * (H < 450 ? 0.36 : 0.42);
+    const rowY   = H * (H < 450 ? 0.32 : 0.38);
     const sideY  = rowY + (playH - sideH) / 2;
-
-    _titleBtns.archive = { x: rowX,                             y: sideY, w: sideW, h: sideH };
-    _titleBtns.start   = { x: rowX + sideW + gap,               y: rowY,  w: playW, h: playH };
-    _titleBtns.admin   = { x: rowX + sideW + gap + playW + gap, y: sideY, w: sideW, h: sideH };
-    _titleBtns.story   = { x: rowX + sideW + gap,               y: rowY + playH + 12, w: playW, h: 44 };
-
-    _drawSciFiBtn(_titleBtns.archive.x, _titleBtns.archive.y, sideW, sideH, 'ARCHIVE',  false, pulse, tealDim);
-    _drawSciFiBtn(_titleBtns.start.x,   _titleBtns.start.y,   playW, playH, 'ARCADE MODE', true, pulse, teal);
-    _drawSciFiBtn(_titleBtns.story.x, _titleBtns.story.y, playW, 44, 'STORY MODE', false, pulse, tealDim);
-    _drawSciFiBtn(_titleBtns.admin.x,   _titleBtns.admin.y,   sideW, sideH, 'SETTINGS', false, pulse, tealDim);
+    const midX   = rowX + sideW + gap;
+    _titleBtns.archive = { x: rowX,                     y: sideY, w: sideW, h: sideH };
+    _titleBtns.story   = { x: midX,                     y: rowY,  w: playW, h: playH };
+    _titleBtns.admin   = { x: midX + playW + gap,       y: sideY, w: sideW, h: sideH };
+    _titleBtns.start   = { x: midX, y: rowY + playH + 12, w: playW, h: 50 };
+    _titleBtns.multi   = { x: midX, y: _titleBtns.start.y + 50 + 10, w: playW, h: 48 };
   }
+  const B = _titleBtns;
+  // Badges (coloured text under the label): cards to earn in Story, cards new to the Arcade deck
+  const storyBadge = toEarn ? { text: `${toEarn} CARD${toEarn > 1 ? 'S' : ''} TO EARN` } : null;
+  const arcBadge = _newArcadeCards().length ? { text: 'NEW' } : null;
+  _drawSciFiBtn(B.story.x,   B.story.y,   B.story.w,   B.story.h,   'STORY MODE',  true,  pulse, teal, false, storyBadge);
+  _drawSciFiBtn(B.start.x,   B.start.y,   B.start.w,   B.start.h,   'ARCADE MODE', false, pulse, tealDim, false, arcBadge);
+  _drawSciFiBtn(B.multi.x,   B.multi.y,   B.multi.w,   B.multi.h,   'MULTIPLAYER', false, 0,     grey, true, { text: 'COMING SOON', color: '#FF5A66' });
+  _drawSciFiBtn(B.archive.x, B.archive.y, B.archive.w, B.archive.h, 'ARCHIVE',     false, pulse, tealDim);
+  _drawSciFiBtn(B.admin.x,   B.admin.y,   B.admin.w,   B.admin.h,   'SETTINGS',    false, pulse, tealDim);
 
   // ── Leaderboards: one at a time, ‹ › or swipe to cycle ──
-  const panelY = land ? 48 : (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.story.y + _titleBtns.story.h) + 14;
+  const panelY = land ? 48 : (mobile ? _titleBtns.admin.y + _titleBtns.admin.h : _titleBtns.multi.y + _titleBtns.multi.h) + 14;
   const panelW = land ? W * 0.44 : mobile ? W * 0.92 : Math.min(600, W * 0.62);
   const panelX = land ? W * 0.53 : W / 2 - panelW / 2;
   // Your name (tap to change), then the board in the space left

@@ -115,7 +115,7 @@ roughly even.
 |---|---|---|---|
 | Juno | Minigun | lots of low-damage rounds, slight spray | 5 shots/s, damage ×0.40 (bumped from 0.34: she was "a little bit underpowered") |
 | Dex | Burst | three quick rounds per trigger pull | 0.85 bursts/s, 3 rounds, damage ×0.60 (was 0.66; "he clears really quickly") |
-| Raze | Long Rifle | one slow, heavy gold round that flies fast and far and goes through one Chromatic | 0.9 shots/s, one round a pull, like Dex's pulls (owner: "slow attack speed... we can test and iterate"; 0.75 was tried and cleared crowds half as fast), damage ×1.8, round speed ×2.4 (slower rounds missed walking targets a third of the time), range ×1.3, pierce 1, a slightly bigger hit area. 85% move speed, 120 px dash |
+| Raze | Long Rifle | one slow, heavy gold round that flies fast and far and goes through one Chromatic | 0.8 shots/s, one round a pull, like Dex's pulls (owner: "slow attack speed... we can test and iterate"; 0.75 was tried and cleared crowds half as fast; 0.9 with ×1.8 damage was "busted"), damage ×1.15 (violets take 3 hits, or 2 in a row with Follow-Up), round speed ×2.4 (slower rounds missed walking targets a third of the time), range ×1.3, pierce 1, a slightly bigger hit area. 85% move speed, 120 px dash |
 
 - **+1 projectile means more of your gun's thing:** Dex gets a 4-round burst (not
   doubled bullets); Juno fires 25% faster. Never just duplicate shots.
@@ -251,7 +251,7 @@ roughly even.
 - **Raze is a person, never "in pieces".** What Levels 3 and 4 recover are his **memories**: the Chromatics have been taking them for years to feed the hoard. Null explains this before Level 4.
 - **Saves must be consistent while testing** (Oct 25, 2026: progress and even the name kept changing on the test build). Browser storage inside claude.ai artifacts isn't reliable, so `boot.js` keeps the save in each artifact's database too. Each place still has its own save: the live site, the main preview and the test build don't share one.
 - **Progress you can see** (Oct 25, 2026): an object that takes more than one hit shows it: Level 5's anchors have two charge lights, a ring that fills (Juno), sparks while charging, a grey ring when plain fire glances off, and the key to use over each one ("F" on desktop, the ability's name on phones).
-- **Turrets are machines, not ghosts:** the Signal Hoarder's turrets are pixel-art pylons with a tracking lens, so they can't be confused with green Chromatics. Destroy them all and their light flies back into it: stunned 2 s (tried 1.5 s; back to 2 at the owner's call). **At most 2 turrets at once in phase 1, 3 after**, one per jump; the boss only jumps within a ring 100–200 px round the core, and near the turrets already up, so a full set is a short run apart ("spawning way too far apart", "we aren't fast enough to cover the ground"). Once 2 turrets stand, the jump that adds a third waits 7 s instead of 3–4 s: the top of its difficulty is harder to reach rather than removed (owner's idea). Level 5 has one fewer enemy in every group and on the floor at once (later phases piling on more was "out of control").
+- **Turrets are machines, not ghosts:** the Signal Hoarder's turrets are pixel-art pylons with a tracking lens, so they can't be confused with green Chromatics. Destroy them all and their light flies back into it: stunned 2 s (tried 1.5 s; back to 2 at the owner's call). **Turrets come in sets: 1 in phase 1, 3 in phase 2, 5 in phase 3** (owner's call: "it's actually a bit too easy"). The whole set drops on one jump, spread evenly round a ring 110–200 px from the core, and no more come until every one is down, so players are never stuck in a loop of turrets rebuilt before they can kill the ones up. (Before: one per jump up to 2–3 standing, which made phase 1 a single turret and a quick stun.) **1–2 greens fight alongside the boss at all times** outside its waves: one right away, a second 5 s later. Level 5 has one fewer enemy in every group and on the floor at once (later phases piling on more was "out of control").
 - **Boss difficulty comes from bullet patterns, not extra enemies** (owner's preference for this level): phase 2 adds a rotating 3-arm spiral, phase 3 a 4-arm spiral that reverses direction and rings with a gap to slip through. Slow rounds; a dash goes through.
 - **No plain lines for energy:** beams twist (two strands, a glow, flowing motes); `energyRibbon` in level.js.
 - **F abilities (owner's redesign):** Dex's **Arc Discharge** is a shotgun blast of 11 electric rounds in a wide arc that pierce and stun/jam. Juno's is **Half-Life**: for 5 s her rounds hit **twice as hard, pierce two targets**, and make what they hit *decay* (its stolen colour flaking off, 6 health a second for 3 s, refreshed not stacked). Buffed after the first playtest (she couldn't win Level 5). While it's on it's unmistakable: a lilac radiation field under her (two counter-turning rings), motes rising off her, a lilac screen edge, bigger lilac rounds shedding motes, and the F slot reads ON with the seconds left. Player rounds still cancel enemy rounds (owner: leave that). Radioactive decay rather than fire or acid, to fit the story.
@@ -341,3 +341,22 @@ roughly even.
   `docs/design/core-loop.md`, not built.
 - A 16-bit art direction was discussed and **not** taken; the current pixel art
   stays.
+- **Unlock hints are gold.** STORY MODE has "N CARDS TO EARN" in gold
+  under its label (unlocked levels, free characters, cards not yet earned); the map marks each waiting card
+  with a glowing ◆ in that character's colour, and the mission name glows gold
+  (a gold edge on the whole row was tried: "hard to see what's going on"). ARCADE MODE wears "NEW" until each newly earned Story card has come up
+  in an upgrade offer, where it carries a gold NEW tag once. Soft glows only,
+  no blinking.
+- **Raze's Net cooldown is 3 s everywhere** (was 2.4 s; 4.5 s outside Level 2
+  was tried and reverted: "he is actually fun like he is already"; 3 s so he
+  can still handle the first boss).
+- **The comms always finish before any end-of-level menu.** The card unlock
+  and results wait until the last line has played (the boss-kill lines were
+  being covered by the card).
+- **Raze's Net catches one Chromatic** (was up to 3). Later cards may raise it.
+- **Main menu order:** STORY MODE on top and highlighted (Space opens it),
+  ARCADE MODE under it, then MULTIPLAYER greyed out with a red COMING SOON
+  badge (not clickable). **Badges are plain coloured text centred under
+  the label, inside the button** (gold for cards, red for COMING SOON).
+  Tried and dropped: pills hanging off a corner, pills under the label, text
+  at the right ("the menu is f***ed... below the menu text"). Archive and Settings as before.

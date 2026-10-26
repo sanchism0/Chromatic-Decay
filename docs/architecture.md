@@ -12,7 +12,7 @@ current state's draw). `dt` is capped at 0.05 s.
 
 | State | # | What it is |
 |---|---|---|
-| TITLE | 0 | Title screen: Arcade, Story, Archive, Settings, leaderboards, name, music toggle |
+| TITLE | 0 | Title screen: Story (top, Space), Arcade, Multiplayer (coming soon, inert), Archive, Settings, leaderboards, name, music toggle |
 | PLAYING | 1 | In a run (Arcade, tutorial or Story level) |
 | PAUSED | 2 | Esc menu |
 | UPGRADE | 3 | Arcade card pick between waves |
@@ -88,7 +88,7 @@ Angles are normalised to −π..π; mixing ranges once caused black slivers.
 | `story.js` | Scenes before levels (`playInterlude`; `INTROS` by `intro:` in `LEVELS`: `stacks` before Level 3, `wire` before Level 4, `raze` before Level 5; `OUTROS` by `outro:` play after a level, before the card), each keyed by agent. Prologue: intro script, the pick, the after-pick lines, tutorial steps (each waits for a condition and for comms to finish). |
 | `dialogue.js` | `Dialogue` (full scenes: portrait + box, typed text, one press per line) and `Radio` (in-game comms box + objective; auto-advances; Space, Enter, a click or a tap moves on; just below mid-screen on desktop, at the top on touch). Text blips. Speaker colours and expression lists. |
 | `level.js` | Story level runner. `LEVELS[id].beats(operator, agent)` returns the level's beats; `Level` plays them. Also `POWERUPS`, `LEVEL_CARDS`, `AGENT_COLOR`. |
-| `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. `razeFree()`: Raze is playable once Level 5 is cleared by anyone (`recordClear(5)` also sets `characters.raze` and returns an `{ kind: 'agent' }` unlock for the results); `seen.raze` hides his NEW tag. |
+| `profile.js` | Saved progress in localStorage (`chromatic_decay_profile`): Chroma wallet, clears, Story cards, player id + name, lifetime Chroma, personal bests. `CHROMA_VALUE`, `storyStats()`. `razeFree()`: Raze is playable once Level 5 is cleared by anyone (`recordClear(5)` also sets `characters.raze` and returns an `{ kind: 'agent' }` unlock for the results); `seen.raze` hides his NEW tag. `seenCards` (`'who:id'`) lists Story cards already offered in Arcade (`cardSeen`, `markCardsSeen`); old saves count every earned card as seen. Menu hints (`_canEarn`, `_cardsWaiting`, `_newArcadeCards` in game.js) read these. |
 | `razestory.js` | Raze's Story: who's on the line for him per level (`RAZE_OPS`), his lines per beat (`RAZE_BEATS`, merged over the level's own by `applyLines`), Level 5's lines for Dex and Juno once he's free (`POST_RESCUE_L5`), his scenes before/after levels by level id (`RAZE_SCENES`, `RAZE_SIDES`) and his results lines (`RAZE_OUTCOMES`). |
 | `leaderboard.js` | Supabase calls, the six boards, posting runs, rank, player sync, offline fallback, board drawing. |
 | `lore.js` | Arcade's lore feed: one-line blurbs on first sightings and milestones. |
@@ -115,7 +115,7 @@ level for now). Beat types:
 | `tuning` | Dials (`points.dials`) turned the same way, cycling 0→1→2, to match `pattern` on the display |
 | `escape` | A timer (`time`) to reach `exitPos`; `wires` across the corridor zap and push back unless `player.dashT > 0`; alarm, red edge in `drawHud`; timing out sets `failReason` (DOOR SEALED) |
 | `overload` | Anchors (`points.anchors`, `ANCHOR_HP`) that only take damage from rounds flagged `discharge` (Arc Discharge, 4 each) or `spun` (fired during Spin Up); F recharges twice as fast |
-| `hoarder` | The Signal Hoarder (`HOARDER`): a green `Enemy` with `boss: 'hoarder'` (its AI lives in `_updateHoarder`), `shielded` while turret nodes (`node: true` greens) stand, rings of rounds after each blink, waves at `phases`. With `endOnBoss` its death ends the level |
+| `hoarder` | The Signal Hoarder (`HOARDER`): a green `Enemy` with `boss: 'hoarder'` (its AI lives in `_updateHoarder`), `shielded` while turret nodes (`node: true` greens) stand (dropped in sets, `HOARDER.sets`, only when none are up), 1–2 green escorts (`HOARDER.escorts`), rings of rounds after each blink, waves at `phases`. With `endOnBoss` its death ends the level |
 | `valves` | Plates that open while you stand on them and close `VALVE_OPEN` s after you leave; all open at once finishes it (built, not used now) |
 | `exit` | Walk to the door (or the lift: `exit: 'lift'`) → beam-out → card unlock (first time) → results |
 
@@ -148,7 +148,7 @@ After each `wave`/`relays` beat the agent gets the next `POWERUPS` entry
 
 | Key | Contents |
 |---|---|
-| `chromatic_decay_profile` | `{ chroma, clears, cards, player {id, name}, lifetime, best, storyAt, characters {raze}, seen {raze}, signatures (legacy) }` |
+| `chromatic_decay_profile` | `{ chroma, clears, cards, player {id, name}, lifetime, best, storyAt, characters {raze}, seen {raze}, seenCards ['who:id'], signatures (legacy) }` |
 | `chromatic_decay_scores` | This device's last 50 Arcade runs (offline fallback board) |
 | `chromatic_decay_prologue_done` | `'1'` after the prologue |
 | `chromatic_decay_character` | Last picked character |

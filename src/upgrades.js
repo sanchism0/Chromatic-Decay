@@ -2,7 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { drawSlab, dimBackdrop } from './ui3d.js';
-import { hasCard } from './profile.js';
+import { hasCard, cardSeen, markCardsSeen } from './profile.js';
 
 function _wrap(ctx, text, maxW) {
   const lines = [];
@@ -153,7 +153,7 @@ export const STORY_CARDS = [
   // Raze's, earned one per level by replaying the Story as him
   { id: 'follow_up', who: 'raze', name: 'Follow-Up', desc: 'Hit the same Chromatic again without missing and it hits harder (Raze: +80%, then double).', baseWeight: 5, cap: 1,
     apply: p => { p.followUp = true; } },
-  { id: 'net', who: 'raze', name: 'Net', desc: 'Your dash throws you clear and fires a net back the other way; your next shot sends tracers into what it caught.', baseWeight: 5, cap: 1,
+  { id: 'net', who: 'raze', name: 'Net', desc: 'Your dash throws you clear and fires a net back the other way; it catches one Chromatic, and your next shot sends a tracer into it.', baseWeight: 5, cap: 1,
     apply: p => { p.netDash = true; } },
   { id: 'snare_trap', who: 'raze', active: true, name: 'Snare Trap', desc: 'Activated: lob a trap that holds the first three Chromatics to cross it.', baseWeight: 5, cap: 1,
     apply: p => { p.snare = true; p.abilities.push('snare'); } },
@@ -527,6 +527,9 @@ export class UpgradeScreen {
     this._abilities = (player.abilities || []).length;
     this._hasSig    = !!player.signature;   // one F signature per run
     this.cards = this._generateOffer(classSkills, archiveState);
+    // Story cards offered for the first time wear a NEW tag (this offer only)
+    this._newIds = new Set(this.cards.filter(c => c.who && !cardSeen(c.who, c.id)).map(c => c.id));
+    markCardsSeen(this.cards.filter(c => c.who));
     // Resolve any dynamic descriptions now that we have the player
     for (const card of this.cards) {
       if (typeof card.desc === 'function') card.desc = card.desc(player);
@@ -778,6 +781,16 @@ export class UpgradeScreen {
         ctx.shadowColor = classColor;
         ctx.fillText(tag, x + w - 12, y + (compact ? 14 : 16));
         ctx.shadowBlur  = 0;
+      }
+
+      // First time this Story card has been offered: a gold NEW tag
+      if (card.who && this._newIds && this._newIds.has(card.id)) {
+        ctx.font = `bold ${tagFontSize}px monospace`;
+        const nw = ctx.measureText('NEW').width + 10, nh = tagFontSize + 6;
+        const ny = Math.round(y - nh / 2);   // straddles the top edge, clear of the [n] hint
+        ctx.fillStyle = '#FFD23F'; ctx.fillRect(x + 12, ny, nw, nh);
+        ctx.fillStyle = '#0D0E12'; ctx.textAlign = 'left';
+        ctx.fillText('NEW', x + 17, ny + nh - 4);
       }
 
       // Number key hint

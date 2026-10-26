@@ -16,6 +16,7 @@ const BLANK = () => ({
   cards: {},                        // { dex: ['heavy_bursts'] } — Story cards for Arcade
   characters: { dex: true, juno: true, raze: false },
   seen: {},                         // { raze: true } once his NEW tag has been seen on the pick screen
+  seenCards: [],                    // ['dex:shock_dash'] Story cards already offered in Arcade (NEW tags)
   player: { id: null, name: '' },   // leaderboard identity, one per device
   lifetime: 0,                      // Chroma ever earned, as one value (CHROMA_VALUE)
   best: {},                         // { desktop: n, mobile: n } — best Arcade score
@@ -38,6 +39,8 @@ export function profile() {
       _profile.chroma     = { ...BLANK().chroma, ...(raw.chroma || {}) };
       _profile.characters = { ...BLANK().characters, ...(raw.characters || {}) };
       _profile.player     = { ...BLANK().player, ...(raw.player || {}) };
+      // Saves from before NEW tags: everything already earned counts as seen
+      if (!raw.seenCards) _profile.seenCards = Object.entries(raw.cards || {}).flatMap(([who, ids]) => ids.map(id => `${who}:${id}`));
     }
   } catch (e) {}
   if (!_profile.player.id) {
@@ -108,6 +111,16 @@ export function markSeen(who) {
   if ((p.seen || (p.seen = {}))[who]) return;
   p.seen[who] = true;
   save();
+}
+
+// Story cards not yet offered in Arcade (they wear a NEW tag until they are)
+export const cardSeen = (who, id) => (profile().seenCards || []).includes(`${who}:${id}`);
+export function markCardsSeen(cards) {
+  const p = profile();
+  const list = p.seenCards || (p.seenCards = []);
+  let changed = false;
+  for (const c of cards) { const k = `${c.who}:${c.id}`; if (!list.includes(k)) { list.push(k); changed = true; } }
+  if (changed) save();
 }
 
 export function levelUnlocked(levelId) {

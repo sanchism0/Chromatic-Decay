@@ -73,7 +73,7 @@ export { WALK_CYCLE, CELL_W, CELL_H };
 export const WEAPONS = {
   juno: { name: 'Minigun',    rate: 5.0,  burst: 1, gap: 0,     dmg: 0.40, spread: 0.07 },
   dex:  { name: 'Burst',      rate: 0.85, burst: 3, gap: 0.075, dmg: 0.60, spread: 0.025 },
-  raze: { name: 'Long Rifle', rate: 0.9,  burst: 1, gap: 0,     dmg: 1.8,  spread: 0, speed: 2.4,  range: 1.3, pierce: 1 },
+  raze: { name: 'Long Rifle', rate: 0.8,  burst: 1, gap: 0,     dmg: 1.15,  spread: 0, speed: 2.4,  range: 1.3, pierce: 1 },
 };
 
 // Raze is slower on his feet (the rifle makes up for it), and his dash goes
@@ -89,7 +89,7 @@ export const FOLLOW_UP = { raze: [0.8, 1.0], dex: [0.15, 0.3], juno: [0.1, 0.2] 
 // Net (Raze's Level 2 card): his dash throws him the way he's moving (standing
 // still: away from his aim) in a longer hop that clears low racks, and fires
 // a net the other way (nets.js). Tall walls (map.js) still stop him.
-export const NET_HOP = { dist: 150, time: 0.26, cd: 2.4, lift: 16 };
+export const NET_HOP = { dist: 150, time: 0.26, cd: 3, lift: 16 };
 
 // Signature abilities — earned by clearing Story Level 1 with that character.
 // Space / F, on a cooldown.
