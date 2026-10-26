@@ -91,7 +91,6 @@ export class Input {
 
     this.canvas.addEventListener('mousedown', e => {
       if (e.button === 0) this.mouseDown = true;
-      if (e.button === 2) this._rightPending = true;   // right-click: always a dash
     });
 
     this.canvas.addEventListener('mouseup', e => {
@@ -241,8 +240,6 @@ export class Input {
     this.justPressed.q            = this.keys.q      && !this._prevQ;
     this.justPressed.enter        = this.keys.enter  && !this._prevEnter;
     this.justPressed.e            = this.keys.e && !this._prevE;
-    this.justPressed.rightClick   = !!this._rightPending;   // one frame
-    this._rightPending            = false;
     this._prevE      = this.keys.e;
     this.justPressed.touchAbility = this._abilityTouchDown && !this._prevAbilityTouch;
     this.mouseJustClicked         = (this.mouseDown && !this._prevMouseDown) || !!this._tapJustEnded;

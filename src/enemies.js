@@ -222,6 +222,9 @@ class Enemy {
   get fadeK() { return this.blink === 'fade' ? Math.max(0, this.blinkT / BLINK.fade) : 1; }
 
   get size() { return this.cfg.size; }
+  // What bumps into racks: Level 3's boss is drawn huge but moves on a normal
+  // Chromatic's body, so it fits through every gap a Chromatic can
+  get bodyR() { return this.boss === 'queue' ? 12 : this.cfg.size; }
 
   // On mobile, hitbox scales up to match the larger visual size
   get hitSize() {
@@ -390,12 +393,12 @@ class Enemy {
     if (this._flowing) { this._steerAngle = 0; this._stuckTimer = 0; }
 
     const baseAngle = Math.atan2(n.y, n.x);
-    const probeDist = Math.max(30, this.size * 2.5);
+    const probeDist = Math.max(30, this.bodyR * 2.5);
     const probeX    = this.x + Math.cos(baseAngle + this._steerAngle) * probeDist;
     const probeY    = this.y + Math.sin(baseAngle + this._steerAngle) * probeDist;
     let probeHit    = false;
     if (!this._flowing) for (const obs of map.obstacles) {
-      if (circleVsRect(probeX, probeY, this.size + 2, obs.x, obs.y, obs.w, obs.h)) {
+      if (circleVsRect(probeX, probeY, this.bodyR + 2, obs.x, obs.y, obs.w, obs.h)) {
         probeHit = true; break;
       }
     }
@@ -423,12 +426,12 @@ class Enemy {
     let nx = this.x + fnx * step;
     let ny = this.y;
     for (const obs of map.obstacles) {
-      const hit = circleVsRect(nx, ny, this.size + 1, obs.x, obs.y, obs.w, obs.h);
+      const hit = circleVsRect(nx, ny, this.bodyR + 1, obs.x, obs.y, obs.w, obs.h);
       if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
     }
     ny += fny * step;
     for (const obs of map.obstacles) {
-      const hit = circleVsRect(nx, ny, this.size + 1, obs.x, obs.y, obs.w, obs.h);
+      const hit = circleVsRect(nx, ny, this.bodyR + 1, obs.x, obs.y, obs.w, obs.h);
       if (hit) { nx += hit.nx * hit.depth; ny += hit.ny * hit.depth; }
     }
 

@@ -463,7 +463,8 @@ const THROW_POWERS = {
 // The Queue (Level 3's boss)
 const QUEUE = { hp: 900, size: 38, speed: 34, contact: 14,
                 ringEvery: 3.2, ringEveryLow: 2.4, windup: 0.6, ringSpeed: 120, ringMax: 560, ringDamage: 12,
-                splits: [0.75, 0.5, 0.25], splitCount: 5 };
+                splits: [0.75, 0.5, 0.25], splitCount: 5,
+                splitAround: 3 };   // and this many more each split, one from each of different sides of the map
 const HOLD = { r: 72, fill: 22 };   // ring radius, seconds to fill (it never drains)
 
 // Level 2's dash abilities: granted after its first section, kept as a card
@@ -471,10 +472,10 @@ const HOLD = { r: 72, fill: 22 };   // ring radius, seconds to fill (it never dr
 const DASH_POWERS = {
   dex: { id: 'shock_dash', name: 'SHOCK DASH', desc: 'Chromatics you dash through take a hit, freeze for almost 2 seconds, and take 50% more damage.',
          has: p => !!p.shockDash, apply: p => { p.shockDash = true; },
-         hint: touch => (touch ? 'Tap DASH and go straight through them.' : 'Space or click to dash straight through them.') },
+         hint: touch => (touch ? 'Tap DASH and go straight through them.' : 'Press Space to dash straight through them.') },
   juno: { id: 'parting_charge', name: 'PARTING CHARGE', desc: 'Dashing leaves a light bomb where you started. It bursts a moment later.',
           has: p => !!p.dashBomb, apply: p => { p.dashBomb = true; },
-          hint: touch => (touch ? 'Tap DASH to leave one behind.' : 'Space or click to dash and leave one behind.') },
+          hint: touch => (touch ? 'Tap DASH to leave one behind.' : 'Press Space to dash and leave one behind.') },
   raze: { id: 'net', name: 'NET', desc: 'Your dash throws you the way you\'re moving, clear over low racks, and fires a net back the other way. It catches the first Chromatic it reaches, and your next shot sends a tracer into it.',
           has: p => !!p.netDash, apply: p => { p.netDash = true; },
           hint: touch => (touch ? 'Tap DASH while running from them: the net lands on whoever\'s chasing.' : 'Dash while running from them: the net lands on whoever\'s chasing. Standing still, it flies at your cursor.') },
@@ -1380,6 +1381,9 @@ export class LevelRun {
         const p = freeSpot(map, q.x + Math.cos(a) * 70, q.y + Math.sin(a) * 70, 20);
         es.spawnEnemyAt('violet', p.x, p.y);
       }
+      // More come in from around the map, each from a different side, so
+      // they can't all be funnelled at one spot
+      for (let i = 0; i < QUEUE.splitAround; i++) this._spawnGroup([['violet', 1]]);
       if (this.splitIdx === 1) this.radio.say(b.split || []);
       this._dropEchoes(1);   // a little health each time it splits
     }

@@ -219,8 +219,8 @@ function tutorialSteps(agent, touch, api) {
     { lines: [L(f('neutral', 'focused'), touch ? "Comms are up. Drag your left thumb to walk." : 'Comms are up. Walk around with W, A, S, D.')],
       objective: 'Walk around', until: (s, b) => s.moved - b.moved > 200 },
     { lines: [L(f('determined', 'focused'), touch ? 'Tap DASH to burst out of trouble. Nothing can touch you mid-dash.'
-                                                  : 'Press Space or click to dash toward your cursor. Nothing can touch you mid-dash.')],
-      objective: touch ? 'Dash (DASH button)' : 'Dash (Space or click)', until: (s, b) => s.dashes > b.dashes },
+                                                  : 'Press Space to dash toward your cursor. Nothing can touch you mid-dash.')],
+      objective: touch ? 'Dash (DASH button)' : 'Dash (Space)', until: (s, b) => s.dashes > b.dashes },
     { lines: [L(f('neutral', 'focused'), touch ? 'Your emitter fires on its own. Drag your right thumb to aim.' : 'Your emitter fires on its own. Aim with the mouse.')],
       objective: 'Fire your emitter', until: (s, b) => s.shots - b.shots >= 6 },
     { highlight: 'autofire',

@@ -587,13 +587,11 @@ function updatePlaying(dt) {
     return;
   }
 
-  // Dash. Desktop: Space or a click dashes toward the cursor (right-click
-  // always works; with auto-fire off, the left button is the trigger).
+  // Dash. Desktop: Space only, toward the cursor (clicking is for shooting).
   // Touch: the DASH button.
   const touchUI = 'ontouchstart' in window;
   if (input.mouseJustClicked && _hitBtn(_dashBtn.r)) player.dashQueued = true;
-  else if (!touchUI && !lineUp && (input.justPressed.space || input.justPressed.rightClick ||
-           (input.mouseJustClicked && input.autoFire && !onBox && !_hitBtn(_autoBtn.r)))) {
+  else if (!touchUI && !lineUp && input.justPressed.space) {
     player.dashQueued = true;
     player.dashToward = input.worldMouse(camera.x, camera.y, ZOOM);
   }
@@ -2566,7 +2564,7 @@ function _abilityInfo(id) {
   return null;
 }
 
-// Desktop: a key bar at the bottom centre — SPACE (or click) dash, then the E and F
+// Desktop: a key bar at the bottom centre — SPACE dash, then the E and F
 // ability slots. Each shows its key, a fill that rises as it recharges, and
 // the seconds left; ready slots light up in their colour.
 function _drawKeyBar(W, H) {

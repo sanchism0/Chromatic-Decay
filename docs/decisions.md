@@ -174,7 +174,7 @@ roughly even.
 | Move | WASD / arrows | left stick |
 | Aim | mouse | right stick |
 | Fire | auto-fire on by default; Q toggles; manual = hold mouse | AUTO button; manual = hold the aim stick |
-| Dash | **Space or click: dashes toward the cursor** (right-click always; left-click when auto-fire is on, since with it off the left button fires) | DASH button (the way you're moving) |
+| Dash | **Space only: dashes toward the cursor** (clicking is for shooting; click-to-dash was removed Oct 26, 2026) | DASH button (the way you're moving) |
 | Abilities | E = first activated ability, F = second (the grenade lands at the cursor) | round buttons next to DASH; **the grenade: press its button and drag to where it should land**, a ring shows the spot, let go to throw (a tap alone throws nothing) |
 | Comms | **Space**, Enter, or click the box (Space only moves comms on while a line is up, so it never dashes by accident) | tap the box |
 | Pause / skip scene | Esc | SKIP button |
@@ -183,7 +183,7 @@ roughly even.
   there's no ability, then there's no function for E." Every ability gets a key.
   (An earlier fallback that threw a grenade with no ability was rejected
   outright.)
-- **Dash:** any character; on desktop Space or a click dashes toward the cursor. While a comms line is up the game is stopped, so Space moves the line on instead; the two never collide (Oct 24, 2026). 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
+- **Dash:** any character; on desktop Space dashes toward the cursor (clicks never dash). While a comms line is up the game is stopped, so Space moves the line on instead; the two never collide (Oct 24, 2026). 88 px in 0.16 s, 1.6 s cooldown (shortened 20%
   and cooldown raised on request). Untouchable mid-dash; a perfect dodge refunds
   the cooldown once. Cooldowns must be clearly visible (key bar on desktop,
   rings on touch buttons).
@@ -370,3 +370,9 @@ roughly even.
   was 3 every 5 s). Its clear-the-room waves keep the same count ("I don't
   really want to add to that count"), with one violet in each swapped for a
   yellow. Level 5's boss always has one more green with it.
+- **The Queue (Level 3's boss) fits through every gap:** it's drawn big but
+  moves on a normal Chromatic's body (12 px), so it can't get stuck between
+  racks ("he can get stuck places right now").
+  Each time it splits, 3 more violets also arrive from different sides of
+  the map, besides the 5 that come off it (owner: they "can be funneled too
+  easily when they come from the same spot").

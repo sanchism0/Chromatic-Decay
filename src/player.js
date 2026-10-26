@@ -453,7 +453,7 @@ export class Player {
     let spd = this.effectiveSpeed;
 
     // Dash: start one, then it overrides movement for DASH_TIME
-    // (desktop: a click dashes toward the cursor, dashToward; touch: the DASH
+    // (desktop: Space dashes toward the cursor, dashToward; touch: the DASH
     // button dashes the way you're moving, or the way you face)
     const wantDash = this.dashQueued, to = this.dashToward;
     this.dashQueued = false; this.dashToward = null;
