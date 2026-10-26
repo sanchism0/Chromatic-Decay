@@ -357,6 +357,7 @@ roughly even.
 - **Main menu order:** STORY MODE on top and highlighted (Space opens it),
   ARCADE MODE under it, then MULTIPLAYER greyed out with a red COMING SOON
   badge (not clickable). **Badges are plain coloured text centred under
-  the label, inside the button** (gold for cards, red for COMING SOON).
+  the label, inside the button: the label stays big and centred, the badge
+  small and near the bottom of the box** (gold for cards, red for COMING SOON).
   Tried and dropped: pills hanging off a corner, pills under the label, text
   at the right ("the menu is f***ed... below the menu text"). Archive and Settings as before.
